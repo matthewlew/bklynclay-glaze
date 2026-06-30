@@ -762,6 +762,78 @@ function recordPair(keyA,keyB,winner,candidates){
   renderComparePair(candidates);
 }
 
+function fitWeights(){
+  const pairs=compPairs.filter(p=>p.winner!=='skip');
+  if(pairs.length<5){showToast('Need at least 5 comparisons to fit weights.');return;}
+  const X=[],y=[];
+  for(const pair of pairs){
+    const mA=likedMeta.find(m=>m.key===pair.a);
+    const mB=likedMeta.find(m=>m.key===pair.b);
+    if(!mA||!mB)continue;
+    const glazesA=(mA.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+    const glazesB=(mB.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+    if(glazesA.length<2||glazesB.length<2)continue;
+    const fvA=featureVector(glazesA);
+    const fvB=featureVector(glazesB);
+    const diff=fvA.map((v,i)=>v-fvB[i]);
+    X.push(diff);
+    y.push(pair.winner==='a'?1:0);
+  }
+  if(X.length<5){showToast('Not enough valid pairs after filtering.');return;}
+  const D=7;
+  let w=new Array(D).fill(1/D);
+  const sigmoid=z=>1/(1+Math.exp(-z));
+  const lr=0.05;
+  const epochs=200;
+  for(let e=0;e<epochs;e++){
+    const grad=new Array(D).fill(0);
+    for(let i=0;i<X.length;i++){
+      const z=X[i].reduce((s,v,j)=>s+v*w[j],0);
+      const pred=sigmoid(z);
+      const err=pred-y[i];
+      for(let j=0;j<D;j++)grad[j]+=err*X[i][j];
+    }
+    for(let j=0;j<D;j++)w[j]-=lr*grad[j]/X.length;
+  }
+  const minW=Math.min(...w);
+  if(minW<0)w=w.map(v=>v-minW+0.02);
+  const sumW=w.reduce((a,b)=>a+b,0);
+  w=w.map(v=>v/sumW);
+  learnedWeights=w;
+  saveAll();
+}
+
+function spearmanRho(){
+  if(!learnedWeights)return 0;
+  if(!rankSorted||rankSorted.length<4)return 0;
+  const ranked=rankSorted.filter(m=>{
+    const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+    return glazes.length>=2;
+  });
+  if(ranked.length<4)return 0;
+  const n=ranked.length;
+  const scores=ranked.map(m=>{
+    const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+    return scoreAesthetic(glazes);
+  });
+  const scoreRanks=scores.map((_,i)=>i).sort((a,b)=>scores[b]-scores[a]);
+  const scoreRankOf=new Array(n);
+  scoreRanks.forEach((idx,rank)=>{scoreRankOf[idx]=rank;});
+  let d2=0;
+  for(let i=0;i<n;i++)d2+=(i-scoreRankOf[i])**2;
+  return 1-(6*d2)/(n*(n*n-1));
+}
+
+function resetLearnedWeights(){
+  learnedWeights=null;
+  compPairs=[];
+  saveAll();
+  updateCalibrateBtn();
+  renderGallery();
+  closeCalibrate();
+  showToast('Scores reset to default weights.');
+}
+
 // projects: [{id, name, leverState}]
 let projects     = [];
 let labelStore   = {};
