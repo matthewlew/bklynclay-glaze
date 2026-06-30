@@ -1466,7 +1466,7 @@ function buildCard(p,isLiked,compact){
     const sc=scoreAesthetic(p.glazes);
     const badge=document.createElement('span');
     badge.className='score-badge'+(sc>=70?' score-hi':sc>=45?' score-mid':' score-lo');
-    badge.title='Aesthetic score: contrast, harmony, distinctness, material variety';
+    badge.title=learnedWeights?'Personalized score (calibrated to your preferences)':'Aesthetic score: contrast, harmony, distinctness, material variety';
     badge.textContent='★ '+sc;
     tagRow.appendChild(tag);tagRow.appendChild(badge);footer.appendChild(tagRow);
     // Draggable glaze chips for reordering
