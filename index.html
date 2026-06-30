@@ -2880,36 +2880,47 @@ function openSheet(name) {
 
   if (name === 'controls') {
     const body = document.getElementById('sheetControlsBody');
-    if (body) {
-      const sidebar = document.getElementById('rightSidebar');
-      if (sidebar) body.innerHTML = sidebar.innerHTML;
+    const sidebar = document.getElementById('rightSidebar');
+    if (body && sidebar) {
+      // Move actual DOM nodes (preserves event listeners on levers, buttons, etc.)
+      while (sidebar.firstChild) body.appendChild(sidebar.firstChild);
+      sheet._contentSource = sidebar;
+      sheet._contentBody = body;
     }
   }
   if (name === 'boards') {
     const body = document.getElementById('sheetBoardsBody');
-    if (body) {
-      const sbScroll = document.getElementById('sbScroll');
-      if (sbScroll) body.innerHTML = sbScroll.innerHTML;
+    const sbScroll = document.getElementById('sbScroll');
+    if (body && sbScroll) {
+      while (sbScroll.firstChild) body.appendChild(sbScroll.firstChild);
+      sheet._contentSource = sbScroll;
+      sheet._contentBody = body;
     }
   }
 
   backdrop?.classList.add('open');
   sheet.classList.add('open');
 
+  // Swipe down to close
   let startY = 0;
   const onTouchStart = e => { startY = e.touches[0].clientY; };
-  const onTouchEnd = e => {
-    const dy = e.changedTouches[0].clientY - startY;
-    if (dy > 80) closeSheet();
-  };
-  sheet.addEventListener('touchstart', onTouchStart, { passive: true });
+  const onTouchEnd = e => { if (e.changedTouches[0].clientY - startY > 80) closeSheet(); };
+  sheet.addEventListener('touchstart', onTouchStart, {passive:true});
+  sheet.addEventListener('touchend', onTouchEnd, {passive:true});
   sheet._onTouchStart = onTouchStart;
-  sheet.addEventListener('touchend', onTouchEnd, { passive: true });
   sheet._onTouchEnd = onTouchEnd;
 }
 
 function closeSheet() {
   if (_activeSheet) {
+    // Move content back to its original container
+    if (_activeSheet._contentSource && _activeSheet._contentBody) {
+      const body = _activeSheet._contentBody;
+      const source = _activeSheet._contentSource;
+      while (body.firstChild) source.appendChild(body.firstChild);
+      _activeSheet._contentSource = null;
+      _activeSheet._contentBody = null;
+    }
     if (_activeSheet._onTouchStart) _activeSheet.removeEventListener('touchstart', _activeSheet._onTouchStart);
     if (_activeSheet._onTouchEnd) _activeSheet.removeEventListener('touchend', _activeSheet._onTouchEnd);
     _activeSheet.classList.remove('open');
