@@ -600,8 +600,9 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     </div>
 
     <div class="ps">
-      <div class="plabel">Glaze Reference</div>
-      <div class="rs-glaze-grid" id="rsGlazeGrid"></div>
+      <div class="plabel">Aesthetic Score Weighting</div>
+      <select id="scoreWeightSelect" style="width:100%;font-size:11px;font-family:var(--font);border:1.5px solid var(--border);border-radius:var(--r);padding:5px 7px;background:var(--surf);color:var(--ink);outline:none;cursor:pointer;"></select>
+      <div id="scoreWeightHint" style="font-size:10px;color:var(--ink3);margin-top:6px;line-height:1.4;"></div>
     </div>
 
     <div class="ps">
@@ -741,7 +742,7 @@ import {
   createNewProject, startQuickRate, startRank, rankChoose, rankSkip,
   openVesselModal, setGlazeFilter, clearGlazeSelection, closeCtxMenu,
   switchContext, switchToProjectTab, buildLeversUI, renderTopbarTabs,
-  renderLeftPanelPairings, renderRightGlazeRef, wireImageDrop, initSectionObserver,
+  renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, initSectionObserver,
   moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection,
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer
 } from './render.js';
@@ -869,7 +870,7 @@ loadAll().then(() => {
   applyPreset('turrell');
   renderTopbarTabs();
   renderLeftPanelPairings();
-  renderRightGlazeRef();
+  renderScoreWeighting();
   wireImageDrop();
   initSectionObserver();
 });

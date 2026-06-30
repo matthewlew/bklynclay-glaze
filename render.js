@@ -1,5 +1,5 @@
 import { CLAY, GLAZES, NL, LEVERS, PRESETS } from './glazes-data.js';
-import { hd, circularSpan, cardTemperature, cardDepth, harmonyScore, scoreAesthetic, scoreGlaze, pairingScore } from './scoring.js';
+import { hd, circularSpan, cardTemperature, cardDepth, harmonyScore, scoreAesthetic, scoreGlaze, pairingScore, SCORE_PRESETS, DEFAULT_SCORE_WEIGHTS } from './scoring.js';
 import { state } from './state.js';
 import { saveAll, exportSession } from './persistence.js';
 
@@ -100,7 +100,14 @@ export function swatchSVG(g,ck,h){
 }
 
 export function buildStack(glazes,ck,tH){
-  tH=tH||TH;const col=document.createElement('div');col.className='tile-col';
+  tH=tH||TH;
+  if(bandView){
+    const wrap=document.createElement('div');wrap.className='tile-band-wrap';
+    const band=document.createElement('div');band.className='tile-band tile-col';
+    band.style.background=glazeCSS(glazes,ck||clayKey);
+    wrap.appendChild(band);return wrap;
+  }
+  const col=document.createElement('div');col.className='tile-col';
   for(let ti=0;ti<NT;ti++){const w=document.createElement('div');w.className='tile-wrap';w.innerHTML=tileSVG(ti,glazes,ck||clayKey,tH);col.appendChild(w);}
   return col;
 }
@@ -206,6 +213,15 @@ export function toggleScoreSort(){
   renderGallery();
 }
 
+export function toggleBandView(){
+  bandView=!bandView;
+  const btn=document.getElementById('bandViewBtn');
+  if(btn)btn.className='btn xs'+(bandView?' filter-on':'');
+  document.querySelector('.main-content')?.classList.toggle('band-view',bandView);
+  renderGallery();
+  renderSavedSection();
+}
+
 export function weightedPick(pool,scores,n){
   const out=[],used=new Set();let att=0;
   while(out.length<n&&att<400){att++;const tot=scores.reduce((a,b)=>a+b,0);let r=Math.random()*tot;for(let i=0;i<pool.length;i++){r-=scores[i];if(r<=0&&!used.has(i)){used.add(i);out.push(pool[i]);break;}}}
@@ -270,7 +286,6 @@ export function setClay(k){
   });
   renderSidebar();
   renderLeftPanelPairings();
-  renderRightGlazeRef();
 }
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
@@ -288,6 +303,12 @@ export function setTab(tab){
 }
 
 // ── PROJECT CONTEXT ───────────────────────────────────────────────────────────
+export function activeScoreWeights(){
+  if(activeContext==='global')return DEFAULT_SCORE_WEIGHTS;
+  const proj=projects.find(p=>p.id===activeContext);
+  return SCORE_PRESETS[proj?.scorePreset]?.weights || DEFAULT_SCORE_WEIGHTS;
+}
+
 export function switchContext(ctx){
   activeContext=ctx;
   if(ctx!=='global'){
@@ -298,24 +319,64 @@ export function switchContext(ctx){
   renderSidebar();
   renderTopbarTabs();
   renderLeftPanelPairings();
+  renderScoreWeighting();
   if(currentTab==='explore'){palettes=genBatch();renderGallery();renderSavedSection();}
 }
 
 export function updateProjectBanner(){
   const ctx=document.getElementById('discoverContext');
-  if(ctx){
-    const proj=projects.find(p=>p.id===activeContext);
-    ctx.textContent=proj?`in ${proj.name}`:'';
-  }
+  if(ctx){const proj=projects.find(p=>p.id===activeContext);ctx.textContent=proj?`in ${proj.name}`:'';  }
   const banner=document.getElementById('projectBanner');
-  if(!banner)return;
-  if(activeContext==='global'){banner.classList.remove('visible');return;}
-  const proj=projects.find(p=>p.id===activeContext);
-  if(!proj){banner.classList.remove('visible');return;}
-  banner.classList.add('visible');
-  document.getElementById('bannerName').textContent=proj.name;
-  const count=likedMeta.filter(m=>m.projectId===activeContext).length;
-  document.getElementById('bannerInfo').textContent=`${count} palette${count!==1?'s':''}`;
+  if(banner){
+    if(activeContext==='global'){banner.classList.remove('visible');}
+    else{
+      const proj=projects.find(p=>p.id===activeContext);
+      if(proj){
+        banner.classList.add('visible');
+        document.getElementById('bannerName').textContent=proj.name;
+        const count=likedMeta.filter(m=>m.projectId===activeContext).length;
+        document.getElementById('bannerInfo').textContent=`${count} palette${count!==1?'s':''}`;
+      }else{banner.classList.remove('visible');}
+    }
+  }
+  const nameEl=document.getElementById('mcbProjectName');
+  const countEl=document.getElementById('mcbCount');
+  if(!nameEl)return;
+  if(activeContext==='global'){
+    nameEl.textContent='All Projects';
+    nameEl.className='mcb-project mcb-project-global';
+    if(countEl)countEl.style.display='none';
+  }else{
+    const proj=projects.find(p=>p.id===activeContext);
+    if(proj){
+      nameEl.textContent=proj.name;
+      nameEl.className='mcb-project';
+      if(countEl){const count=likedMeta.filter(m=>m.projectId===activeContext).length;countEl.textContent=`${count}`;countEl.style.display='';}
+    }
+  }
+}
+
+export function setMobileTab(tab){
+  const savedBtn=document.getElementById('mbbSaved');
+  const discBtn=document.getElementById('mbbDiscover');
+  if(savedBtn)savedBtn.classList.toggle('mbb-active',tab==='saved');
+  if(discBtn)discBtn.classList.toggle('mbb-active',tab==='discover');
+  if(currentTab!=='explore')setTab('explore');
+  
+  const isMobile = window.innerWidth <= 700;
+  if (isMobile) {
+    const savedSec = document.getElementById('savedSection');
+    if (savedSec) {
+      if (tab === 'saved') {
+        savedSec.classList.add('open');
+      } else {
+        savedSec.classList.remove('open');
+      }
+    }
+  } else {
+    if(tab==='saved'){document.getElementById('savedSection')?.scrollIntoView({behavior:'smooth',block:'start'});}
+    else{document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth',block:'start'});}
+  }
 }
 
 export function updateProjectPicker(){
@@ -328,7 +389,7 @@ export function updateProjectPicker(){
 // ── PROJECT MANAGEMENT ────────────────────────────────────────────────────────
 export function createNewProject(){
   const newId=mkid();
-  const proj={id:newId,name:'New Board',leverState:{...levers}};
+  const proj={id:newId,name:'New Board',leverState:{...levers},scorePreset:'Balanced'};
   projects.push(proj);
   saveAll();
   renderTopbarTabs();
@@ -628,7 +689,7 @@ export function buildCard(p,isLiked,compact){
   const card=document.createElement('article');
   card.className='card'+(isLiked&&!compact?' liked':'')+(compact?' compact':'');
   card.dataset.pid=p.id;card.dataset.key=p.key||'';
-  card.addEventListener('click',e=>{if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);}else{_focusedCardKey=p.key;}});
+  card.addEventListener('click',e=>{if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);}else if(bandView&&!e.target.closest('button,a,input,[contenteditable]')){card.classList.toggle('card-open');}else{_focusedCardKey=p.key;}});
   card.addEventListener('contextmenu', e => { if(!compact) openCtxMenu(e, p); });
 
   if (!compact) {
@@ -700,7 +761,7 @@ export function buildCard(p,isLiked,compact){
     const tagRow=document.createElement('div');tagRow.className='card-tag-row';
     const isBanding=new Set(p.glazes.map(g=>g.name)).size<p.glazes.length;
     const tag=document.createElement('div');tag.className='card-tag';tag.textContent=(isBanding?'≋ ':'')+p.tag;
-    const sc=scoreAesthetic(p.glazes);
+    const sc=scoreAesthetic(p.glazes,activeScoreWeights());
     const badge=document.createElement('span');
     badge.className='score-badge'+(sc>=70?' score-hi':sc>=45?' score-mid':' score-lo');
     badge.title='Aesthetic score: contrast, harmony, distinctness, material variety';
@@ -713,7 +774,7 @@ export function buildCard(p,isLiked,compact){
     footer.appendChild(sciRow);
     const peekScore = document.createElement('div');
     peekScore.className = 'card-score-peek';
-    const sc2 = scoreAesthetic(p.glazes);
+    const sc2 = scoreAesthetic(p.glazes,activeScoreWeights());
     peekScore.textContent = '★ ' + sc2;
     card.appendChild(peekScore);
     footer.appendChild(buildGlazeChips(p, stack, card));
@@ -758,7 +819,8 @@ export function buildCard(p,isLiked,compact){
 
 export function renderGallery(){
   const gal=document.getElementById('gallery');if(!gal)return;gal.innerHTML='';
-  const toRender=sortByScore?[...palettes].sort((a,b)=>scoreAesthetic(b.glazes)-scoreAesthetic(a.glazes)):palettes;
+  const w=activeScoreWeights();
+  const toRender=sortByScore?[...palettes].sort((a,b)=>scoreAesthetic(b.glazes,w)-scoreAesthetic(a.glazes,w)):palettes;
   toRender.forEach(p=>gal.appendChild(buildCard(p,likedKeys.has(p.key),false)));
   renderSavedSection();
 }
@@ -811,16 +873,31 @@ export function renderSavedSection(){
   if(!filtered.length){section.style.display='none';renderProjectAnalyticsBand();updateJumpNav(0);return;}
   section.style.display='';
   const proj=projects.find(p=>p.id===activeContext);
-  if(lbl)lbl.textContent=proj?`${proj.name} — Saved`:'All Saved';
-  if(cnt)cnt.textContent=`(${filtered.length})`;
+  
+  const isMobile = window.innerWidth <= 700;
+  if (isMobile) {
+    if(lbl) lbl.textContent = 'PINNED';
+    if(cnt) cnt.textContent = ` · ${filtered.length}`;
+  } else {
+    if(lbl) lbl.textContent = proj ? `${proj.name} — Saved` : 'All Saved';
+    if(cnt) cnt.textContent = `(${filtered.length})`;
+  }
   updateJumpNav(filtered.length);
   renderProjectAnalyticsBand();
   sg.innerHTML='';
-  filtered.forEach(m=>{
+  const w=activeScoreWeights();
+  const toShow=sortByScore
+    ?[...filtered].sort((a,b)=>{
+        const ga=(a.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+        const gb=(b.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+        return scoreAesthetic(gb,w)-scoreAesthetic(ga,w);
+      })
+    :filtered;
+  toShow.forEach(m=>{
     const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
     if(!glazes.length)return;
     const p=withKey({id:mkid(),label:labelStore[m.key]||m.label,feeling:'',tag:m.tag||'Pinned',glazes});
-    sg.appendChild(buildCard(p,true,true));
+    sg.appendChild(buildCard(p,true,false));
   });
 }
 
@@ -845,7 +922,7 @@ export function renderProjectAnalyticsBand(){
   let warm=0,cool=0;
   meta.forEach(m=>{const cg=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(g=>g&&g.sat>.18);if(cg.length){const avg=cg.reduce((s,g)=>s+g.hue,0)/cg.length;if(avg<70||avg>250)warm++;else cool++;}});
   const tempStat=document.createElement('div');tempStat.className='proj-analytics-stat';
-  const dominant=warm>=cool?`<strong style="color:#c87030">${warm} warm</strong>`:`<strong style="color:#4870a0">${cool} cool</strong>`;
+  const dominant=warm>=cool?`<strong style="color:var(--warm)">${warm} warm</strong>`:`<strong style="color:var(--cool)">${cool} cool</strong>`;
   tempStat.innerHTML=`${meta.length} palettes · ${dominant}`;
   row.appendChild(tempStat);
   div.appendChild(row);band.appendChild(div);
@@ -960,7 +1037,7 @@ export function renderGlazeTiles(){
 }
 
 // ── PAIRINGS ──────────────────────────────────────────────────────────────────
-export function renderPairingsTab(){renderAnchorGrid();if(anchorGlaze)renderPairingResults();else{const pc=document.getElementById('pairingsContent');if(pc)pc.innerHTML='<div style="padding:20px 12px;font-size:12px;color:var(--ink3);">Select a glaze above to see all combinations.</div>';}}
+export function renderPairingsTab(){renderAnchorGrid();if(anchorGlaze)renderPairingResults();else{const pc=document.getElementById('pairingsContent');if(pc)pc.innerHTML='<div style="padding:12px 14px;font-size:12px;color:var(--ink3);">Select a glaze above to see all combinations.</div>';}}
 
 export function renderAnchorGrid(){
   const grid=document.getElementById('anchorGrid');if(!grid)return;grid.innerHTML='';
@@ -975,7 +1052,7 @@ export function renderAnchorGrid(){
 
 export function renderPairingResults(){
   const content=document.getElementById('pairingsContent');if(!content)return;content.innerHTML='';
-  if(!anchorGlaze){content.innerHTML='<div style="padding:20px 12px;font-size:12px;color:var(--ink3);">Select a glaze above to see all combinations.</div>';return;}
+  if(!anchorGlaze){content.innerHTML='<div style="padding:12px 14px;font-size:12px;color:var(--ink3);">Select a glaze above to see all combinations.</div>';return;}
   const others=GLAZES.filter(g=>g.name!==anchorGlaze.name);
   const scored=others.map(g=>({g,score:pairingScore(anchorGlaze,g)})).sort((a,b)=>b.score-a.score);
   const renderPairSection=(label,list)=>{
@@ -1070,26 +1147,31 @@ export function renderLeftPanelPairings(){
   });
 }
 
-// ── RIGHT PANEL GLAZE REFERENCE ───────────────────────────────────────────────
-export function renderRightGlazeRef(){
-  const grid=document.getElementById('rsGlazeGrid');if(!grid)return;
-  grid.innerHTML='';
-  GLAZES.forEach(g=>{
-    const c=applyGlaze(g,clayKey);
-    const col=`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})`;
-    const sw=document.createElement('div');
-    sw.className='rs-glaze-swatch'+(leftAnchorGlaze&&leftAnchorGlaze.name===g.name?' selected':'');
-    sw.style.background=col;
-    sw.title=g.name+' ('+g.fin+') — drag onto a palette to add';
-    sw.draggable=true;
-    sw.addEventListener('dragstart',e=>{e.dataTransfer.setData('glaze',g.name);e.dataTransfer.effectAllowed='copy';});
-    sw.addEventListener('click',()=>{
-      leftAnchorGlaze=(leftAnchorGlaze===g?null:g);
-      renderRightGlazeRef();
-      renderLeftPanelPairings();
-    });
-    grid.appendChild(sw);
+// ── SCORE WEIGHTING (right panel) ─────────────────────────────────────────────
+export function renderScoreWeighting(){
+  const sel=document.getElementById('scoreWeightSelect');if(!sel)return;
+  const hint=document.getElementById('scoreWeightHint');
+  const proj=activeContext!=='global'?projects.find(p=>p.id===activeContext):null;
+  sel.innerHTML='';
+  Object.keys(SCORE_PRESETS).forEach(key=>{
+    const opt=document.createElement('option');opt.value=key;opt.textContent=SCORE_PRESETS[key].label;
+    sel.appendChild(opt);
   });
+  const activeKey=proj?(proj.scorePreset||'Balanced'):'Balanced';
+  sel.value=activeKey;
+  sel.disabled=!proj;
+  const updateHint=key=>{
+    if(!hint)return;
+    hint.textContent=proj?SCORE_PRESETS[key]?.desc||'':`Open a board to set its score weighting.`;
+  };
+  updateHint(activeKey);
+  sel.onchange=()=>{
+    if(!proj)return;
+    proj.scorePreset=sel.value;saveAll();
+    updateHint(sel.value);
+    if(!sortByScore){sortByScore=true;const btn=document.getElementById('scoreSortBtn');if(btn)btn.className='btn xs filter-on';}
+    if(currentTab==='explore')renderGallery();
+  };
 }
 
 // ── PIN TOGGLE ────────────────────────────────────────────────────────────────
@@ -1160,6 +1242,7 @@ export function renderTopbarTabs(){
   const nav=document.getElementById('topbarTabs');if(!nav)return;
   nav.querySelectorAll('.ttab[data-proj-id]').forEach(el=>el.remove());
   const exploreTab=document.getElementById('tab_explore');
+  if(exploreTab)exploreTab.classList.toggle('on',activeContext==='global');
   projects.forEach(proj=>{
     const btn=document.createElement('button');
     btn.className='ttab'+(activeContext===proj.id?' on':'');
@@ -1257,16 +1340,16 @@ export function renderAnalyticsView(){
   grid.appendChild(pairCard);
 
   const tempCard=document.createElement('div');tempCard.className='analytics-card';
-  tempCard.innerHTML=`<div class="analytics-card-title">Temperature</div><div class="analytics-mood-grid"><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:#c87030">${warmCount}</div><div class="analytics-mood-label">Warm</div></div><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:#4870a0">${coolCount}</div><div class="analytics-mood-label">Cool</div></div></div><div class="analytics-mood-bar" style="margin-top:10px;"><div class="analytics-mood-bar-warm analytics-mood-bar-fill" style="flex:${warmCount};"></div><div class="analytics-mood-bar-cool analytics-mood-bar-fill" style="flex:${coolCount};"></div></div>`;
+  tempCard.innerHTML=`<div class="analytics-card-title">Temperature</div><div class="analytics-mood-grid"><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:var(--warm)">${warmCount}</div><div class="analytics-mood-label">Warm</div></div><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:var(--cool)">${coolCount}</div><div class="analytics-mood-label">Cool</div></div></div><div class="analytics-mood-bar" style="margin-top:10px;"><div class="analytics-mood-bar-warm analytics-mood-bar-fill" style="flex:${warmCount};"></div><div class="analytics-mood-bar-cool analytics-mood-bar-fill" style="flex:${coolCount};"></div></div>`;
   const bar=tempCard.querySelector('.analytics-mood-bar');
   if(bar){bar.style.cssText='margin-top:10px;height:10px;border-radius:5px;overflow:hidden;display:flex;';}
   grid.appendChild(tempCard);
 
   const valueCard=document.createElement('div');valueCard.className='analytics-card';
-  valueCard.innerHTML=`<div class="analytics-card-title">Luminosity</div><div class="analytics-mood-grid"><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:#181818">${darkCount}</div><div class="analytics-mood-label">Dark</div></div><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:#a0998e">${lightCount}</div><div class="analytics-mood-label">Light</div></div></div>`;
+  valueCard.innerHTML=`<div class="analytics-card-title">Luminosity</div><div class="analytics-mood-grid"><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:var(--tone-dark)">${darkCount}</div><div class="analytics-mood-label">Dark</div></div><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:var(--tone-light)">${lightCount}</div><div class="analytics-mood-label">Light</div></div></div>`;
   const lbar=document.createElement('div');lbar.style.cssText='margin-top:10px;height:10px;border-radius:5px;overflow:hidden;display:flex;';
-  const dk=document.createElement('div');dk.style.cssText=`flex:${darkCount};background:#181818;`;
-  const lt=document.createElement('div');lt.style.cssText=`flex:${lightCount};background:#d8d4cc;`;
+  const dk=document.createElement('div');dk.style.cssText=`flex:${darkCount};background:var(--tone-dark);`;
+  const lt=document.createElement('div');lt.style.cssText=`flex:${lightCount};background:var(--tone-light);`;
   lbar.appendChild(dk);lbar.appendChild(lt);valueCard.appendChild(lbar);
   grid.appendChild(valueCard);
 
@@ -1283,7 +1366,7 @@ export function renderAnalyticsView(){
 
 export function renderRankInContainer(container){
   container.innerHTML='';
-  if(!likedMeta.length){container.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:8px 0;">Pin some palettes to start ranking.</div>';return;}
+  if(!likedMeta.length){container.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:8px 14px;">Pin some palettes to start ranking.</div>';return;}
   if(rankMode==='idle'){
     const modeBtns=document.createElement('div');modeBtns.className='rate-rank-mode-btns';
     const fullBtn=document.createElement('button');fullBtn.className='rate-rank-mode-btn';
@@ -1851,4 +1934,73 @@ export function openCtxMenu(e, p) {
     menu.style.left = x + 'px';
     menu.style.top = y + 'px';
   });
+}
+
+let _mobileMoreMenuOpen = null;
+export function showMobileMoreMenu(anchor) {
+  if (_mobileMoreMenuOpen) { _mobileMoreMenuOpen.remove(); _mobileMoreMenuOpen = null; return; }
+  const popup = document.createElement('div');
+  popup.className = 'proj-menu-popup';
+  _mobileMoreMenuOpen = popup;
+
+  const toggleViewItem = document.createElement('button');
+  toggleViewItem.className = 'proj-menu-item';
+  if (currentTab === 'explore') {
+    toggleViewItem.textContent = 'View Analytics';
+    toggleViewItem.addEventListener('click', () => {
+      popup.remove(); _mobileMoreMenuOpen = null;
+      setTab('analytics');
+    });
+  } else {
+    toggleViewItem.textContent = 'View Explore';
+    toggleViewItem.addEventListener('click', () => {
+      popup.remove(); _mobileMoreMenuOpen = null;
+      setTab('explore');
+    });
+  }
+  popup.appendChild(toggleViewItem);
+
+  const importItem = document.createElement('button');
+  importItem.className = 'proj-menu-item';
+  importItem.textContent = 'Import Palettes…';
+  importItem.addEventListener('click', () => {
+    popup.remove(); _mobileMoreMenuOpen = null;
+    window.openImport();
+  });
+  popup.appendChild(importItem);
+
+  const exportItem = document.createElement('button');
+  exportItem.className = 'proj-menu-item';
+  exportItem.textContent = 'Copy Session JSON';
+  exportItem.addEventListener('click', () => {
+    popup.remove(); _mobileMoreMenuOpen = null;
+    window.exportSession();
+  });
+  popup.appendChild(exportItem);
+
+  const shortcutItem = document.createElement('button');
+  shortcutItem.className = 'proj-menu-item';
+  shortcutItem.textContent = 'Keyboard Shortcuts';
+  shortcutItem.addEventListener('click', () => {
+    popup.remove(); _mobileMoreMenuOpen = null;
+    openShortcutOverlay();
+  });
+  popup.appendChild(shortcutItem);
+
+  const r = anchor.getBoundingClientRect();
+  popup.style.top = (r.bottom + 4) + 'px';
+  popup.style.right = '16px';
+  document.body.appendChild(popup);
+
+  const close = e => {
+    if (!popup.contains(e.target) && e.target !== anchor) {
+      popup.remove(); _mobileMoreMenuOpen = null;
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('touchstart', close);
+    }
+  };
+  setTimeout(() => {
+    document.addEventListener('mousedown', close);
+    document.addEventListener('touchstart', close, {passive:true});
+  }, 0);
 }
