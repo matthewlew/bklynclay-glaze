@@ -588,6 +588,10 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 </div>
 <div class="toast" id="toast"></div>
 
+<div id="compareOverlay" style="display:none" role="dialog" aria-modal="true" aria-label="Palette preference comparison">
+  <div class="compare-box" id="compareBox"></div>
+</div>
+
 <script>
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const CLAY = { white:'#E2DDD6', red:'#7A3828' };
@@ -670,6 +674,94 @@ function updateCalibrateBtn(){
     if(existing)existing.remove();
   }
 }
+
+function openCalibrate(){
+  const candidates=likedMeta.filter(m=>(m.names||[]).length>=2);
+  if(candidates.length<2){showToast('Pin at least 2 palettes to calibrate.');return;}
+  document.getElementById('compareOverlay').style.display='flex';
+  renderComparePair(candidates);
+}
+
+function closeCalibrate(){
+  document.getElementById('compareOverlay').style.display='none';
+}
+
+function renderComparePair(candidates){
+  const box=document.getElementById('compareBox');
+  const total=Math.min(30,candidates.length*(candidates.length-1)/2);
+  const done=compPairs.length;
+
+  if(done>=25){
+    fitWeights();
+    const rho=spearmanRho();
+    box.innerHTML=`<div class="compare-done-msg">
+      <h3>Calibration complete</h3>
+      <p>Based on ${done} comparisons.<br>Rank agreement (ρ): <strong>${rho.toFixed(2)}</strong>${rho>=0.65?' 🎉':''}</p>
+      <button class="btn" onclick="closeCalibrate();renderGallery();">Apply personalized scores</button>
+      <button class="btn" style="margin-left:8px" onclick="resetLearnedWeights()">Reset to default</button>
+    </div>`;
+    updateCalibrateBtn();
+    return;
+  }
+
+  const alreadyPaired=new Set(compPairs.map(p=>p.a+'|'+p.b).concat(compPairs.map(p=>p.b+'|'+p.a)));
+  const scored=candidates.map(m=>{
+    const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+    return{m,score:scoreAesthetic(glazes),glazes};
+  }).filter(x=>x.glazes.length>=2);
+  scored.sort((a,b)=>a.score-b.score);
+
+  let pA=null,pB=null;
+  outer: for(let i=0;i<scored.length-1;i++){
+    for(let j=i+1;j<scored.length;j++){
+      const key=scored[i].m.key+'|'+scored[j].m.key;
+      if(!alreadyPaired.has(key)){pA=scored[i];pB=scored[j];break outer;}
+    }
+  }
+  if(!pA){showToast('All pairs compared!');fitWeights();closeCalibrate();renderGallery();return;}
+
+  const makeCard=(side)=>{
+    const glazes=side.glazes;
+    const swatch=document.createElement('div');swatch.className='compare-swatch';swatch.style.background=glazeCSS(glazes);
+    const label=document.createElement('div');label.className='compare-label';
+    label.textContent=labelStore[side.m.key]||side.m.label||'Palette';
+    const glazeNames=document.createElement('div');glazeNames.className='compare-glazes';
+    glazeNames.textContent=(side.m.names||[]).join(' · ');
+    const card=document.createElement('div');card.className='compare-card';
+    card.appendChild(swatch);card.appendChild(label);card.appendChild(glazeNames);
+    return card;
+  };
+
+  box.innerHTML='';
+  const header=document.createElement('div');header.className='compare-header';
+  header.textContent='Which palette do you prefer for your pottery?';
+  const progress=document.createElement('div');progress.className='compare-progress';
+  progress.textContent=`Comparison ${done+1} of ~${Math.min(30,total)}`;
+
+  const pair=document.createElement('div');pair.className='compare-pair';
+  const cardA=makeCard(pA);const cardB=makeCard(pB);
+
+  cardA.addEventListener('click',()=>recordPair(pA.m.key,pB.m.key,'a',candidates));
+  cardB.addEventListener('click',()=>recordPair(pA.m.key,pB.m.key,'b',candidates));
+
+  pair.appendChild(cardA);pair.appendChild(cardB);
+
+  const skip=document.createElement('button');skip.className='compare-skip';
+  skip.textContent='Skip this pair';
+  skip.addEventListener('click',()=>{
+    compPairs.push({a:pA.m.key,b:pB.m.key,winner:'skip',ts:Date.now()});
+    saveAll();renderComparePair(candidates);
+  });
+
+  box.appendChild(header);box.appendChild(progress);box.appendChild(pair);box.appendChild(skip);
+}
+
+function recordPair(keyA,keyB,winner,candidates){
+  compPairs.push({a:keyA,b:keyB,winner,ts:Date.now()});
+  saveAll();
+  renderComparePair(candidates);
+}
+
 // projects: [{id, name, leverState}]
 let projects     = [];
 let labelStore   = {};
@@ -2226,6 +2318,9 @@ renderTopbarTabs();
 renderLeftPanelPairings();
 renderRightGlazeRef();
 wireImageDrop();
+document.getElementById('compareOverlay').addEventListener('click',e=>{
+  if(e.target.id==='compareOverlay')closeCalibrate();
+});
 </script>
 </body>
 </html>
