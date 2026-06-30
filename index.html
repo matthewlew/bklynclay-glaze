@@ -120,6 +120,10 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .score-badge.score-hi{background:#2a7a40;}
 .score-badge.score-mid{background:#8a6020;}
 .score-badge.score-lo{background:#888;}
+.card-science-row{display:flex;align-items:center;gap:5px;margin-bottom:5px;}
+.card-sci-badge{display:inline-flex;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--ink3);background:var(--surf);border:1px solid var(--border);padding:2px 5px;border-radius:10px;white-space:nowrap;letter-spacing:.02em;}
+.card-sci-badge.warm{color:#c87030;}
+.card-sci-badge.cool{color:#4870a0;}
 .inline-names{width:100%;font-size:11px;font-family:var(--font);border:1.5px solid var(--border);border-radius:var(--r);padding:5px 7px;background:var(--surf);color:var(--ink);line-height:1.7;overflow:hidden;resize:none;outline:none;display:block;}
 .inline-names:focus{border-color:var(--acc);background:#fff;}
 .err-badge{font-size:10px;color:#b00;margin-top:2px;min-height:11px;}
@@ -905,6 +909,19 @@ function circularSpan(hues){
   }
   return 360-maxGap;
 }
+function cardTemperature(glazes){
+  const colorGlazes=glazes.filter(g=>g.sat>0.18);
+  if(!colorGlazes.length)return null;
+  const avgHue=colorGlazes.reduce((s,g)=>s+g.hue,0)/colorGlazes.length;
+  return(avgHue<70||avgHue>310)?'warm':(avgHue>150&&avgHue<260)?'cool':'neutral';
+}
+function cardDepth(glazes){
+  const lums=glazes.map(g=>g.lum);
+  const range=Math.max(...lums)-Math.min(...lums);
+  if(range>=0.45)return 3;
+  if(range>=0.22)return 2;
+  return 1;
+}
 function harmonyScore(hues){
   if(hues.length<2)return 0;
   let best=0;
@@ -1324,6 +1341,12 @@ function buildCard(p,isLiked,compact){
     badge.title='Aesthetic score: contrast, harmony, distinctness, material variety';
     badge.textContent='★ '+sc;
     tagRow.appendChild(tag);tagRow.appendChild(badge);footer.appendChild(tagRow);
+    // Science row: temperature + depth
+    const sciRow=document.createElement('div');sciRow.className='card-science-row';
+    const temp=cardTemperature(p.glazes);
+    if(temp){const tempBadge=document.createElement('span');tempBadge.className='card-sci-badge'+(temp==='warm'?' warm':temp==='cool'?' cool':'');tempBadge.title='Temperature: average hue of chromatic glazes';tempBadge.textContent=temp==='warm'?'⬤ Warm':temp==='cool'?'⬤ Cool':'⬤ Neutral';sciRow.appendChild(tempBadge);}
+    const depth=cardDepth(p.glazes);const depthBadge=document.createElement('span');depthBadge.className='card-sci-badge';depthBadge.title='Depth: luminosity range across glazes';depthBadge.textContent='◆'.repeat(depth)+'◇'.repeat(3-depth)+' Depth';sciRow.appendChild(depthBadge);
+    footer.appendChild(sciRow);
     // Draggable glaze chips for reordering
     const chipsWrap=document.createElement('div');chipsWrap.className='glaze-chips';
     let dragSrcIdx=null;
