@@ -406,6 +406,13 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .board-dropdown-btn:hover{border-color:var(--acc);}
 .board-dropdown-btn .bd-strip{width:24px;height:14px;border-radius:3px;flex-shrink:0;background:var(--surf);}
 .board-dropdown-panel{position:fixed;background:#fff;border:1.5px solid var(--border);border-radius:var(--r);box-shadow:0 4px 20px rgba(0,0,0,.13);z-index:400;min-width:180px;overflow:hidden;}
+/* ── CONTEXT MENU ── */
+.ctx-menu{position:fixed;background:#fff;border:1.5px solid var(--border);border-radius:var(--r);box-shadow:0 4px 20px rgba(0,0,0,.13);z-index:500;min-width:190px;overflow:hidden;padding:4px 0;}
+.ctx-item{display:flex;align-items:center;gap:8px;padding:7px 13px;font-size:12px;font-weight:500;color:var(--ink2);cursor:pointer;font-family:var(--font);transition:background .08s,color .08s;white-space:nowrap;}
+.ctx-item:hover{background:var(--surf);color:var(--ink);}
+.ctx-item.danger:hover{background:var(--danger-bg);color:var(--danger);}
+.ctx-divider{height:1px;background:var(--border);margin:3px 0;}
+.ctx-submenu{position:fixed;background:#fff;border:1.5px solid var(--border);border-radius:var(--r);box-shadow:0 4px 20px rgba(0,0,0,.13);z-index:501;min-width:160px;overflow:hidden;padding:4px 0;}
 .board-dropdown-item{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;font-size:12px;font-family:var(--font);border:none;background:none;width:100%;}
 .board-dropdown-item:hover{background:var(--surf);}
 .board-dropdown-item .bd-item-strip{width:32px;height:18px;border-radius:3px;flex-shrink:0;}
@@ -1325,6 +1332,7 @@ function buildCard(p,isLiked,compact){
   card.className='card'+(isLiked&&!compact?' liked':'')+(compact?' compact':'');
   card.dataset.pid=p.id;card.dataset.key=p.key||'';
   card.addEventListener('click',e=>{if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);}});
+  card.addEventListener('contextmenu', e => { if(!compact) openCtxMenu(e, p); });
 
   const stack=buildStack(p.glazes,clayKey,tileH);card.appendChild(stack);
   // Drag handle (compact cards only — for moving between projects)
@@ -2651,6 +2659,118 @@ function moveFocusToCard(dir) {
   nextCard.classList.add('card-kb-focus');
   nextCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+
+// ── CONTEXT MENU ─────────────────────────────────────────────────────────────
+let _ctxMenu = null;
+
+function closeCtxMenu() {
+  if (_ctxMenu) { _ctxMenu.remove(); _ctxMenu = null; }
+  document.querySelectorAll('.ctx-submenu').forEach(s => s.remove());
+}
+
+function openCtxMenu(e, p) {
+  e.preventDefault();
+  closeCtxMenu();
+
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu';
+  _ctxMenu = menu;
+
+  const addItem = (label, action, isDanger) => {
+    const item = document.createElement('div');
+    item.className = 'ctx-item' + (isDanger ? ' danger' : '');
+    item.textContent = label;
+    item.addEventListener('click', () => { closeCtxMenu(); action(); });
+    menu.appendChild(item);
+    return item;
+  };
+
+  const addDivider = () => {
+    const d = document.createElement('div');
+    d.className = 'ctx-divider';
+    menu.appendChild(d);
+  };
+
+  // Save to board (with submenu if projects exist)
+  if (projects.length) {
+    const saveItem = document.createElement('div');
+    saveItem.className = 'ctx-item';
+    saveItem.textContent = 'Save to board ▶';
+    saveItem.addEventListener('mouseenter', () => {
+      document.querySelectorAll('.ctx-submenu').forEach(s => s.remove());
+      const sub = document.createElement('div');
+      sub.className = 'ctx-submenu';
+      projects.forEach(proj => {
+        const pi = document.createElement('div');
+        pi.className = 'ctx-item';
+        pi.textContent = proj.name;
+        pi.addEventListener('click', () => {
+          closeCtxMenu();
+          if (!likedKeys.has(p.key)) {
+            likedKeys.add(p.key);
+            if (!likedMeta.find(m => m.key === p.key))
+              likedMeta.push({ key: p.key, label: p.label, feeling: '', tag: p.tag, names: p.glazes.map(g => g.name), hexes: p.glazes.map(g => g.hex), projectId: proj.id });
+            else likedMeta.find(m => m.key === p.key).projectId = proj.id;
+          } else {
+            const meta = likedMeta.find(m => m.key === p.key);
+            if (meta) meta.projectId = proj.id;
+          }
+          saveAll(); renderSidebar(); renderTopbarTabs(); updateCount();
+          showToast(`Saved to "${proj.name}"`);
+        });
+        sub.appendChild(pi);
+      });
+      const r = saveItem.getBoundingClientRect();
+      sub.style.top = r.top + 'px';
+      sub.style.left = (r.right + 2) + 'px';
+      document.body.appendChild(sub);
+      requestAnimationFrame(() => {
+        if (sub.getBoundingClientRect().right > window.innerWidth - 8) {
+          sub.style.left = (r.left - sub.offsetWidth - 2) + 'px';
+        }
+      });
+    });
+    menu.appendChild(saveItem);
+    addDivider();
+  }
+
+  addItem('Riff on this', () => {
+    palettes = doRiff(p);
+    if (currentTab !== 'explore') setTab('explore');
+    renderGallery();
+    document.getElementById('discoverHead')?.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  addItem('Copy glaze names', () => {
+    const text = p.glazes.map(g => g.name).join(', ');
+    navigator.clipboard?.writeText(text).then(() => showToast('Copied!')).catch(() => showToast('Copy failed'));
+  });
+
+  addDivider();
+
+  addItem('Remove from discover', () => {
+    palettes = palettes.filter(x => x.key !== p.key);
+    renderGallery();
+  }, false);
+
+  document.body.appendChild(menu);
+  let x = e.clientX, y = e.clientY;
+  requestAnimationFrame(() => {
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    if (x + mw > window.innerWidth - 8) x = window.innerWidth - mw - 8;
+    if (y + mh > window.innerHeight - 8) y = window.innerHeight - mh - 8;
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+  });
+}
+
+document.addEventListener('click', e => {
+  if (_ctxMenu && !_ctxMenu.contains(e.target)) closeCtxMenu();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && _ctxMenu) { closeCtxMenu(); }
+}, true);
+document.addEventListener('scroll', () => closeCtxMenu(), true);
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 loadAll();
