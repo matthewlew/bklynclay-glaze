@@ -442,6 +442,22 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .proj-context-bar{display:none;align-items:center;gap:8px;padding:5px 14px;background:var(--surf);border-bottom:1px solid var(--border);font-size:11px;color:var(--ink3);}
 .proj-context-bar.visible{display:flex;}
 .proj-context-name{font-weight:700;color:var(--ink);margin:0 2px;}
+/* ── COMPARISON MODAL ─────────────────────────────── */
+#compareOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;display:flex;align-items:center;justify-content:center;padding:16px;}
+.compare-box{background:var(--bg);border-radius:12px;padding:24px;width:min(720px,96vw);box-shadow:0 8px 40px rgba(0,0,0,.35);}
+.compare-header{font-size:13px;font-weight:700;text-align:center;color:var(--ink2);margin-bottom:18px;}
+.compare-progress{font-size:11px;color:var(--ink3);text-align:center;margin-top:-10px;margin-bottom:16px;}
+.compare-pair{display:flex;gap:16px;justify-content:center;}
+.compare-card{flex:1;max-width:280px;cursor:pointer;border:2px solid transparent;border-radius:10px;overflow:hidden;transition:border-color .15s,transform .1s;}
+.compare-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+.compare-card .compare-swatch{height:120px;border-radius:8px 8px 0 0;}
+.compare-card .compare-label{padding:10px 12px;font-size:12px;font-weight:600;color:var(--ink1);background:var(--bg2);border-radius:0 0 8px 8px;}
+.compare-card .compare-glazes{font-size:10px;color:var(--ink3);padding:0 12px 8px;background:var(--bg2);}
+.compare-skip{display:block;margin:14px auto 0;font-size:11px;color:var(--ink3);background:none;border:none;cursor:pointer;text-decoration:underline;}
+.compare-done-msg{text-align:center;padding:24px 0;}
+.compare-done-msg h3{font-size:16px;margin-bottom:8px;}
+.compare-done-msg p{font-size:12px;color:var(--ink2);margin-bottom:16px;}
+.calibrate-badge{font-size:9px;background:var(--accent);color:#fff;border-radius:4px;padding:1px 4px;margin-left:4px;vertical-align:middle;}
 </style>
 </head>
 <body>
@@ -505,6 +521,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
         <span class="view-section-label">Discover</span>
         <span class="view-section-count" id="discoverContext"></span>
         <button class="btn xs" id="scoreSortBtn" onclick="toggleScoreSort()" title="Sort by aesthetic score" style="margin-left:auto;">★ Score</button>
+        <button class="btn xs" id="calibrateBtn" onclick="openCalibrate()" title="Run pairwise comparisons to personalize scores">Calibrate</button>
       </div>
       <div class="gallery" id="gallery" role="list"></div>
     </div>
@@ -644,6 +661,15 @@ let likedKeys    = new Set();
 let likedMeta    = [];
 let compPairs      = [];   // [{a, b, winner, ts}]
 let learnedWeights = null; // [w1..w7] or null
+function updateCalibrateBtn(){
+  const btn=document.getElementById('calibrateBtn');if(!btn)return;
+  const existing=btn.querySelector('.calibrate-badge');
+  if(learnedWeights){
+    if(!existing){const b=document.createElement('span');b.className='calibrate-badge';b.textContent='✓';btn.appendChild(b);}
+  } else {
+    if(existing)existing.remove();
+  }
+}
 // projects: [{id, name, leverState}]
 let projects     = [];
 let labelStore   = {};
@@ -1779,6 +1805,7 @@ function loadAll(){
     compPairs=d.pairs||[];
     learnedWeights=d.learnedWeights||null;
     if(d.rankState&&d.rankState.mode==='done'){rankMode='done';rankSorted=(d.rankState.sorted||[]).map(k=>likedMeta.find(m=>m.key===k)).filter(Boolean);}
+    updateCalibrateBtn();
   }}catch(e){}
   renderSidebar();renderTopbarTabs();updateCount();
 }
@@ -1817,6 +1844,7 @@ function doImport(){
         rankMode='done';
         rankSorted=(d.rankState.sorted||[]).map(k=>likedMeta.find(m=>m.key===k)).filter(Boolean);
       }
+      updateCalibrateBtn();
       saveAll();renderSidebar();renderTopbarTabs();closeImport();
       showToast(`Session restored: ${likedMeta.length} palette${likedMeta.length!==1?'s':''}, ${projects.length} project${projects.length!==1?'s':''}.`);
       return;
