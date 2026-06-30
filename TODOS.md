@@ -4,23 +4,9 @@
 
 ## Engineering Architecture (from /plan-eng-review · 2026-06-30)
 
-### T5 — Per-project score weight presets (P2)
-Add `scorePreset` field to project schema: `Banding`, `Harmony`, `Contrast`, `MaterialMix`. Each carries different F1-F7 weight vectors. Wire into `scoreAesthetic()`.
-**Files:** `scoring.js` (after T1) or `index.html` lines 852-919
-**Depends on:** T1 (ideally).
-
----
-
 ### T6 — Wire pairwise rankings into glaze affinity map (P2)
 Feed `rankSorted` results into a per-project glaze affinity map. Cap each glaze's multiplier at 2× and normalize after each update so accumulated rankings don't overwhelm the base algorithm.
 **Files:** `scoring.js` + `state.js` (after T1) or `index.html` lines 2092-2172
-**Depends on:** T1 (ideally).
-
----
-
-### T8 — Targeted SVG refresh in renderGallery() (P2)
-`renderGallery()` currently does full `innerHTML=''` on every update. Call `innerHTML=''` only on palette set changes; use existing `refreshStack()` for clay/lever changes.
-**Files:** `render.js` (after T1) or `index.html` lines 1401-1406, 763
 **Depends on:** T1 (ideally).
 
 ---
@@ -46,8 +32,15 @@ Add Playwright tests for: pin palette, save to board, export/import JSON, score 
 ### T4 — Move GLAZES to glazes.json with embedded fallback (P2)
 **Completed:** 2026-06-30 (Extract `GLAZES` array to `glazes.json`, fetch at startup using top-level await with embedded fallback)
 
+### T5 — Per-project score weight presets (P2)
+**Completed:** 2026-06-30 (Add `scorePreset` dropdown menu and hint block, connect to projects schema in relational database, and integrate selectable F1-F7 weight vectors in score calculations)
+
 ### T7 — Split buildCard() into sub-functions (P2)
 **Completed:** 2026-06-30 (Extract `buildCardTile()`, `buildGlazeChips()`, `buildPinButton()`, `buildBoardDropdown()`, `buildDragHandlers()`)
+
+### T8 — Targeted SVG refresh in renderGallery() (P2)
+**Completed:** 2026-06-30 (Check list of palette keys to perform targeted element-level updates of SVGs and aesthetic score badges instead of full DOM rebuilding on clay/preset changes)
+
 
 ## Design + UX (from /plan-design-review · 2026-06-30)
 
