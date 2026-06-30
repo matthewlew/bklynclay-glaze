@@ -642,6 +642,8 @@ let palettes     = [];
 let likedKeys    = new Set();
 // likedMeta: [{key, label, tag, names, hexes, projectId|null}]
 let likedMeta    = [];
+let compPairs      = [];   // [{a, b, winner, ts}]
+let learnedWeights = null; // [w1..w7] or null
 // projects: [{id, name, leverState}]
 let projects     = [];
 let labelStore   = {};
@@ -1768,12 +1770,14 @@ function updateCount(){renderSavedSection();}
 // ── PERSISTENCE ───────────────────────────────────────────────────────────────
 function saveAll(){
   const rankState=rankMode==='done'?{sorted:rankSorted.map(m=>m.key),mode:'done'}:null;
-  try{localStorage.setItem('bklyn_v6',JSON.stringify({keys:[...likedKeys],meta:likedMeta,projects,labels:labelStore,rankState}));}catch(e){}
+  try{localStorage.setItem('bklyn_v6',JSON.stringify({keys:[...likedKeys],meta:likedMeta,projects,labels:labelStore,rankState,pairs:compPairs,learnedWeights}));}catch(e){}
   const f=document.getElementById('flash');if(f){f.style.display='';setTimeout(()=>f.style.display='none',1100);}
   updateCount();
 }
 function loadAll(){
   try{const r=localStorage.getItem('bklyn_v6');if(r){const d=JSON.parse(r);likedKeys=new Set(d.keys||[]);likedMeta=d.meta||[];projects=d.projects||[];labelStore=d.labels||{};
+    compPairs=d.pairs||[];
+    learnedWeights=d.learnedWeights||null;
     if(d.rankState&&d.rankState.mode==='done'){rankMode='done';rankSorted=(d.rankState.sorted||[]).map(k=>likedMeta.find(m=>m.key===k)).filter(Boolean);}
   }}catch(e){}
   renderSidebar();renderTopbarTabs();updateCount();
@@ -1787,7 +1791,7 @@ function copyText(){
 }
 function exportSession(){
   const rankState=rankMode==='done'?{sorted:rankSorted.map(m=>m.key),mode:'done'}:null;
-  const data={keys:[...likedKeys],meta:likedMeta,projects,labels:labelStore,rankState};
+  const data={keys:[...likedKeys],meta:likedMeta,projects,labels:labelStore,rankState,pairs:compPairs,learnedWeights};
   const txt=JSON.stringify(data,null,2);
   navigator.clipboard.writeText(txt).then(()=>showToast('Session copied to clipboard.')).catch(()=>{
     const ta=document.createElement('textarea');ta.value=txt;ta.style.cssText='position:fixed;opacity:0;top:0;left:0';
@@ -1807,6 +1811,8 @@ function doImport(){
       likedMeta=d.meta||[];
       projects=d.projects||[];
       labelStore=d.labels||{};
+      compPairs=d.pairs||[];
+      learnedWeights=d.learnedWeights||null;
       if(d.rankState&&d.rankState.mode==='done'){
         rankMode='done';
         rankSorted=(d.rankState.sorted||[]).map(k=>likedMeta.find(m=>m.key===k)).filter(Boolean);
