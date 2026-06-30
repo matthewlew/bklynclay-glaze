@@ -1,7 +1,8 @@
 // ── GLAZE DATA ────────────────────────────────────────────────────────────────
 export const CLAY = { white:'#E2DDD6', red:'#7A3828' };
 
-export const GLAZES = [
+// Embedded fallback constant
+const FALLBACK_GLAZES = [
   {name:'Mary',                   hex:'#C8788A',fin:'matte',        hue:345,sat:.36,lum:.63,trans:0},
   {name:'Alice',                  hex:'#D4A0A8',fin:'matte',        hue:350,sat:.30,lum:.73,trans:0},
   {name:'Jerry',                  hex:'#B898C8',fin:'matte',        hue:280,sat:.26,lum:.69,trans:0},
@@ -41,6 +42,21 @@ export const GLAZES = [
   {name:'Lars',                   hex:'#080808',fin:'shiny',        hue:  0,sat:0,  lum:.03,trans:0},
   {name:'Louise',                 hex:'#101010',fin:'crawl-leather',hue:  0,sat:0,  lum:.06,trans:0},
 ];
+
+export let GLAZES = [...FALLBACK_GLAZES];
+
+// Fetch glazes from JSON and assign dynamically at load-time (top-level await)
+try {
+  const response = await fetch('./glazes.json');
+  if (response.ok) {
+    const data = await response.json();
+    if (Array.isArray(data) && data.length > 0) {
+      GLAZES = data;
+    }
+  }
+} catch (e) {
+  console.warn("Failed to fetch glazes.json, using embedded fallback.", e);
+}
 
 export const NL = GLAZES.map(g => ({ g, lc: g.name.toLowerCase() }));
 

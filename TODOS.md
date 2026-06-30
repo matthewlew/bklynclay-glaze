@@ -4,34 +4,6 @@
 
 ## Engineering Architecture (from /plan-eng-review · 2026-06-30)
 
-### T1 — Split index.html into ES modules (P1)
-Extract into `glazes-data.js`, `scoring.js`, `state.js`, `render.js`, `persistence.js` using vanilla ES modules (`<script type="module">`). No build tool required.
-**Files:** `index.html` + 5 new `.js` modules
-**Depends on:** Nothing (foundation task).
-
----
-
-### T2 — Migrate localStorage to IndexedDB (P1)
-Replace `bklyn_v6` localStorage with IndexedDB (50MB+). Add one-time migration that reads existing `bklyn_v6` data on first IndexedDB init. Show warning if IndexedDB unavailable (private/incognito).
-**Files:** `persistence.js` (new module from T1)
-**Depends on:** T1.
-
----
-
-### T3 — Fix silent save failure (P1)
-At `saveAll()` catch block (currently silent): show a toast notification + trigger `exportSession()` automatically so no work is lost.
-**Files:** `index.html` line ~1772 (or `persistence.js` after T1)
-**Depends on:** Nothing.
-
----
-
-### T4 — Move GLAZES to glazes.json with embedded fallback (P2)
-Extract `GLAZES` array to `glazes.json`, fetch at startup. If fetch fails, fall back to the embedded `GLAZES` constant in JS (already there as a constant).
-**Files:** `glazes.json` (new), `index.html` / `glazes-data.js`
-**Depends on:** T1 (ideally, but can be done standalone).
-
----
-
 ### T5 — Per-project score weight presets (P2)
 Add `scorePreset` field to project schema: `Banding`, `Harmony`, `Contrast`, `MaterialMix`. Each carries different F1-F7 weight vectors. Wire into `scoreAesthetic()`.
 **Files:** `scoring.js` (after T1) or `index.html` lines 852-919
@@ -42,13 +14,6 @@ Add `scorePreset` field to project schema: `Banding`, `Harmony`, `Contrast`, `Ma
 ### T6 — Wire pairwise rankings into glaze affinity map (P2)
 Feed `rankSorted` results into a per-project glaze affinity map. Cap each glaze's multiplier at 2× and normalize after each update so accumulated rankings don't overwhelm the base algorithm.
 **Files:** `scoring.js` + `state.js` (after T1) or `index.html` lines 2092-2172
-**Depends on:** T1 (ideally).
-
----
-
-### T7 — Split buildCard() into sub-functions (P2)
-`buildCard()` is 160+ lines. Extract: `buildCardTile()`, `buildGlazeChips()`, `buildPinButton()`, `buildBoardDropdown()`, `buildDragHandlers()`.
-**Files:** `render.js` (after T1) or `index.html` lines 1233-1399
 **Depends on:** T1 (ideally).
 
 ---
@@ -66,6 +31,23 @@ Add Playwright tests for: pin palette, save to board, export/import JSON, score 
 **Depends on:** T2 (stable persistence before testing).
 
 ---
+
+## Completed
+
+### T1 — Split index.html into ES modules (P1)
+**Completed:** 2026-06-30 (Extract into `glazes-data.js`, `scoring.js`, `state.js`, `render.js`, `persistence.js` using vanilla ES modules)
+
+### T2 — Migrate localStorage to IndexedDB (P1)
+**Completed:** 2026-06-30 (Migrate `bklyn_v6` localStorage to IndexedDB with automatic one-time migration and private browsing restriction warning)
+
+### T3 — Fix silent save failure (P1)
+**Completed:** 2026-06-30 (Show toast + auto-export on localStorage quota exceeded or database write failure)
+
+### T4 — Move GLAZES to glazes.json with embedded fallback (P2)
+**Completed:** 2026-06-30 (Extract `GLAZES` array to `glazes.json`, fetch at startup using top-level await with embedded fallback)
+
+### T7 — Split buildCard() into sub-functions (P2)
+**Completed:** 2026-06-30 (Extract `buildCardTile()`, `buildGlazeChips()`, `buildPinButton()`, `buildBoardDropdown()`, `buildDragHandlers()`)
 
 ## Design + UX (from /plan-design-review · 2026-06-30)
 
