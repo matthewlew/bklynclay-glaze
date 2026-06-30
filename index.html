@@ -330,7 +330,6 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .section-jump-drop{margin-left:auto;font-size:11px;color:var(--ink3);border:1.5px dashed var(--border);border-radius:6px;padding:3px 10px;cursor:default;transition:border-color .15s,color .15s;}
 .section-jump-drop.drag-active{border-color:var(--acc);color:var(--acc);background:#fff8f5;}
 .gallery-toolbar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:38px;z-index:9;}
-.gallery-toolbar .btn.primary{padding:6px 16px;font-size:13px;font-weight:700;}
 /* ── PROJECT ANALYTICS BAND ── */
 .proj-analytics-band{padding:8px 14px 10px;background:var(--surf-alt);border-bottom:1px solid var(--border);}
 .proj-analytics-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
@@ -562,7 +561,6 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
       </div>
       <!-- Gallery toolbar -->
       <div class="gallery-toolbar" id="galleryToolbar">
-        <button class="btn primary" id="toolbarShuffleBtn" onclick="shuffle()" title="Generate new palettes (Space)">Shuffle ↺</button>
         <button class="btn xs" id="scoreSortBtn" onclick="toggleScoreSort()" title="Sort by aesthetic score">★ Score</button>
       </div>
       <!-- Saved palettes section -->
