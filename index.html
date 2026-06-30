@@ -308,6 +308,8 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .section-jump-pill.active{background:var(--ink);color:#fff;border-color:var(--ink);}
 .section-jump-drop{margin-left:auto;font-size:11px;color:var(--ink3);border:1.5px dashed var(--border);border-radius:6px;padding:3px 10px;cursor:default;transition:border-color .15s,color .15s;}
 .section-jump-drop.drag-active{border-color:var(--acc);color:var(--acc);background:#fff8f5;}
+.gallery-toolbar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#fff;border-bottom:1px solid var(--border);position:sticky;top:38px;z-index:9;}
+.gallery-toolbar .btn.primary{padding:6px 16px;font-size:13px;font-weight:700;}
 /* ── PROJECT ANALYTICS BAND ── */
 .proj-analytics-band{padding:8px 14px 10px;background:var(--surf-alt);border-bottom:1px solid var(--border);}
 .proj-analytics-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
@@ -442,6 +444,32 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .proj-context-bar{display:none;align-items:center;gap:8px;padding:5px 14px;background:var(--surf);border-bottom:1px solid var(--border);font-size:11px;color:var(--ink3);}
 .proj-context-bar.visible{display:flex;}
 .proj-context-name{font-weight:700;color:var(--ink);margin:0 2px;}
+
+/* ── VESSEL PREVIEW MODAL ────────────────────────────────────────────────── */
+.vm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:500;}
+.vm-overlay.open{display:flex;}
+.vm-modal{background:#fff;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.22);width:min(820px,96vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;}
+.vm-header{display:flex;align-items:center;padding:13px 18px;border-bottom:1px solid var(--border);gap:10px;flex-shrink:0;}
+.vm-title{font-size:14px;font-weight:700;color:var(--ink);flex:1;}
+.vm-close{background:none;border:none;font-size:24px;cursor:pointer;color:var(--ink3);line-height:1;padding:0 4px;}
+.vm-close:hover{color:var(--ink);}
+.vm-body{display:flex;flex:1;min-height:0;overflow:hidden;}
+.vm-left{width:130px;flex-shrink:0;padding:16px 10px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;gap:10px;overflow-y:auto;}
+.vm-right{flex:1;padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;}
+.vm-panel-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.10em;color:var(--ink3);align-self:flex-start;}
+.vm-stack-wrap .tile-col{gap:2px;}
+.vm-ctrl-row{display:flex;gap:5px;flex-wrap:wrap;}
+.vm-seg-btn{padding:5px 11px;font-size:11px;font-weight:600;border:1.5px solid var(--border);border-radius:var(--r);background:#fff;color:var(--ink2);cursor:pointer;font-family:var(--font);transition:all .12s;line-height:1;}
+.vm-seg-btn:hover{border-color:var(--border2);color:var(--ink);}
+.vm-seg-btn.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+.vm-canvas{border-radius:8px;background:#f5f3f0;display:block;max-width:100%;}
+.vm-stop-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.10em;color:var(--ink3);}
+.vm-stop-editor{padding:2px 0 4px;}
+.vm-stop-track{position:relative;height:30px;border-radius:6px;border:1.5px solid var(--border);margin:0 12px;user-select:none;}
+.vm-stop-handle{position:absolute;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.30);cursor:grab;touch-action:none;z-index:2;}
+.vm-stop-handle:active{cursor:grabbing;}
+.vm-export-btn{align-self:flex-start;margin-top:2px;}
+.vessel-btn{font-size:11px;}
 </style>
 </head>
 <body>
@@ -485,10 +513,15 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
       <!-- Jump nav pills -->
       <div class="section-jump-nav" id="sectionJumpNav">
         <button class="section-jump-pill" id="jumpSaved" onclick="document.getElementById('savedSection').scrollIntoView({behavior:'smooth'})">↑ Saved</button>
-        <button class="section-jump-pill active" id="jumpDiscover" onclick="document.getElementById('discoverHead').scrollIntoView({behavior:'smooth'})">Discover ↓</button>
+        <button class="section-jump-pill" id="jumpDiscover" onclick="document.getElementById('discoverHead').scrollIntoView({behavior:'smooth'})">Discover ↓</button>
         <div class="section-jump-drop" id="sectionJumpDrop" title="Drop an image here to extract a palette">
           <span>🖼 Drop image</span>
         </div>
+      </div>
+      <!-- Gallery toolbar -->
+      <div class="gallery-toolbar" id="galleryToolbar">
+        <button class="btn primary" id="toolbarShuffleBtn" onclick="shuffle()" title="Generate new palettes (Space)">Shuffle ↺</button>
+        <button class="btn xs" id="scoreSortBtn" onclick="toggleScoreSort()" title="Sort by aesthetic score">★ Score</button>
       </div>
       <!-- Saved palettes section -->
       <div id="savedSection" style="display:none;">
@@ -504,7 +537,6 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
       <div class="view-section-head" id="discoverHead">
         <span class="view-section-label">Discover</span>
         <span class="view-section-count" id="discoverContext"></span>
-        <button class="btn xs" id="scoreSortBtn" onclick="toggleScoreSort()" title="Sort by aesthetic score" style="margin-left:auto;">★ Score</button>
       </div>
       <div class="gallery" id="gallery" role="list"></div>
     </div>
@@ -569,6 +601,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     </div>
   </div>
 </div>
+<div class="vm-overlay" id="vesselModal" role="dialog" aria-modal="true"></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -822,7 +855,20 @@ function updatePresetName(){
   if(c<35)parts.push('Quiet');else if(c>65)parts.push('Saturated');
   el.textContent=parts.length?parts.join(' + '):'Custom';
 }
-function shuffle(){palettes=genBatch();renderGallery();}
+function shuffle(){
+  const gal=document.getElementById('gallery');
+  if(gal){
+    gal.style.transition='opacity .1s';
+    gal.style.opacity='0';
+    setTimeout(()=>{
+      palettes=genBatch();renderGallery();
+      gal.style.transition='opacity .15s';
+      gal.style.opacity='1';
+    },100);
+  } else {
+    palettes=genBatch();renderGallery();
+  }
+}
 
 // ── GENERATION ────────────────────────────────────────────────────────────────
 const plain=GLAZES.filter(g=>!['crawl-dot','crawl-leather','crawl-crackle','textured'].includes(g.fin));
@@ -1320,7 +1366,9 @@ function buildCard(p,isLiked,compact){
   pinBtn.addEventListener('click',()=>togglePin(p,pinBtn,card,compact));
   const riffBtn=document.createElement('button');riffBtn.className='btn';riffBtn.textContent='Riff';
   riffBtn.addEventListener('click',()=>{palettes=doRiff(p);if(currentTab!=='explore')setTab('explore');renderGallery();document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth'});});
-  btns.appendChild(pinBtn);btns.appendChild(riffBtn);footer.appendChild(btns);
+  const vesBtn=document.createElement('button');vesBtn.className='btn vessel-btn';vesBtn.textContent='View';vesBtn.title='Preview on vessel';
+  vesBtn.addEventListener('click',e=>{e.stopPropagation();openVesselModal(p.glazes,clayKey,labelStore[p.key]||p.label);});
+  btns.appendChild(pinBtn);btns.appendChild(riffBtn);btns.appendChild(vesBtn);footer.appendChild(btns);
   // Save-to-board: only on full explore cards OR compact cards in global context
   if(projects.length&&(!compact||activeContext==='global')){
     const row2=document.createElement('div');row2.className='card-btns-row2';
@@ -2185,6 +2233,301 @@ function buildRankCard(m,label){
 }
 
 
+// ── VESSEL PREVIEW ────────────────────────────────────────────────────────────
+let _vs={shape:'cylinder',direction:'top',stops:[],glazes:[],ck:'white'};
+
+function openVesselModal(glazes,ck,label){
+  const n=glazes.length;
+  _vs={shape:'cylinder',direction:'top',stops:n>1?glazes.map((_,i)=>i/(n-1)):[0.5],glazes,ck:ck||clayKey};
+  const ov=document.getElementById('vesselModal');
+  ov.innerHTML='';
+  _buildVesselModal(ov,glazes,ck||clayKey,label);
+  ov.classList.add('open');
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('open');},{once:true});
+}
+
+function _buildVesselModal(ov,glazes,ck,label){
+  const modal=document.createElement('div');modal.className='vm-modal';
+  // Header
+  const hdr=document.createElement('div');hdr.className='vm-header';
+  const ttl=document.createElement('div');ttl.className='vm-title';ttl.textContent=label||'Vessel Preview';
+  const xBtn=document.createElement('button');xBtn.className='vm-close';xBtn.textContent='×';xBtn.setAttribute('aria-label','Close');
+  xBtn.onclick=()=>ov.classList.remove('open');
+  hdr.append(ttl,xBtn);modal.appendChild(hdr);
+  // Body
+  const body=document.createElement('div');body.className='vm-body';
+  // Left: flat tiles
+  const lft=document.createElement('div');lft.className='vm-left';
+  const lftLbl=document.createElement('div');lftLbl.className='vm-panel-label';lftLbl.textContent='Flat tile';
+  const sw=document.createElement('div');sw.className='vm-stack-wrap';sw.appendChild(buildStack(glazes,ck,80));
+  lft.append(lftLbl,sw);body.appendChild(lft);
+  // Right: vessel controls + canvas
+  const rgt=document.createElement('div');rgt.className='vm-right';
+  const rgtLbl=document.createElement('div');rgtLbl.className='vm-panel-label';rgtLbl.textContent='On vessel';
+  rgt.appendChild(rgtLbl);
+  // Reusable segmented control builder
+  const segRow=(items,getVal,setVal,cvs)=>{
+    const row=document.createElement('div');row.className='vm-ctrl-row';
+    items.forEach(({id,lbl})=>{
+      const b=document.createElement('button');b.className='vm-seg-btn'+(id===getVal()?' on':'');b.textContent=lbl;
+      b.onclick=()=>{setVal(id);row.querySelectorAll('.vm-seg-btn').forEach(x=>x.classList.remove('on'));b.classList.add('on');_vesselDraw(cvs);};
+      row.appendChild(b);
+    });
+    return row;
+  };
+  // Canvas (created early so segRows can reference it)
+  const dpr=window.devicePixelRatio||1,CW=300,CH=336;
+  const cvs=document.createElement('canvas');cvs.className='vm-canvas';
+  cvs.width=CW*dpr;cvs.height=CH*dpr;cvs.style.width=CW+'px';cvs.style.height=CH+'px';
+  // Shape picker
+  rgt.appendChild(segRow(
+    [{id:'cylinder',lbl:'Jar'},{id:'squat',lbl:'Squat Jar'},{id:'bowl',lbl:'Bowl'},{id:'plate',lbl:'Plate'}],
+    ()=>_vs.shape,v=>_vs.shape=v,cvs
+  ));
+  // Spray direction
+  rgt.appendChild(segRow(
+    [{id:'top',lbl:'↓ Top'},{id:'bottom',lbl:'↑ Bottom'},{id:'horizontal',lbl:'→ Side'}],
+    ()=>_vs.direction,v=>_vs.direction=v,cvs
+  ));
+  // Clay toggle
+  rgt.appendChild(segRow(
+    [{id:'white',lbl:'White clay'},{id:'red',lbl:'Red clay'}],
+    ()=>_vs.ck,v=>_vs.ck=v,cvs
+  ));
+  rgt.appendChild(cvs);
+  // Stop editor (multi-glaze only)
+  if(glazes.length>1){
+    const sl=document.createElement('div');sl.className='vm-stop-label';sl.textContent='Gradient stops — drag to adjust';
+    rgt.append(sl,_buildStopEditor(glazes,cvs));
+  }else{
+    const note=document.createElement('div');note.style.cssText='font-size:11px;color:var(--ink3);';
+    note.textContent='Single glaze — solid color on vessel.';
+    rgt.appendChild(note);
+  }
+  // Export
+  const expBtn=document.createElement('button');expBtn.className='btn vm-export-btn';expBtn.textContent='Save PNG';
+  expBtn.onclick=()=>{
+    const a=document.createElement('a');
+    a.download=glazes.map(g=>g.name.replace(/\s+/g,'-')).join('_').slice(0,36)+`-${_vs.shape}.png`;
+    a.href=cvs.toDataURL('image/png');a.click();
+  };
+  rgt.appendChild(expBtn);
+  body.appendChild(rgt);
+  modal.appendChild(body);
+  ov.appendChild(modal);
+  requestAnimationFrame(()=>_vesselDraw(cvs));
+}
+
+function _buildStopEditor(glazes,cvs){
+  const wrap=document.createElement('div');wrap.className='vm-stop-editor';
+  const track=document.createElement('div');track.className='vm-stop-track';
+  const syncBg=()=>{
+    const pts=_vs.stops.map((t,i)=>{const c=applyGlaze(glazes[i],_vs.ck);return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${(t*100).toFixed(1)}%`;});
+    track.style.background=`linear-gradient(to right,${pts.join(',')})`;
+  };
+  glazes.forEach((g,i)=>{
+    const h=document.createElement('div');h.className='vm-stop-handle';
+    const c=applyGlaze(g,_vs.ck);h.style.background=`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})`;
+    h.style.left=(_vs.stops[i]*100)+'%';h.title=g.name;
+    const move=ex=>{
+      const r=track.getBoundingClientRect();
+      _vs.stops[i]=Math.max(0,Math.min(1,(ex-r.left)/r.width));
+      h.style.left=(_vs.stops[i]*100)+'%';syncBg();_vesselDraw(cvs);
+    };
+    h.addEventListener('mousedown',e=>{
+      e.preventDefault();
+      const mv=e2=>move(e2.clientX);
+      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);};
+      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+    });
+    h.addEventListener('touchstart',e=>{
+      e.preventDefault();
+      const mv=e2=>{e2.preventDefault();move(e2.touches[0].clientX);};
+      const up=()=>{h.removeEventListener('touchmove',mv);h.removeEventListener('touchend',up);};
+      h.addEventListener('touchmove',mv,{passive:false});h.addEventListener('touchend',up);
+    },{passive:false});
+    track.appendChild(h);
+  });
+  syncBg();wrap.appendChild(track);return wrap;
+}
+
+// Sample glaze color at position t using custom stop positions
+function _vsample(t){
+  const{glazes,stops,ck}=_vs;
+  if(!glazes.length)return{r:200,gr:200,b:200};
+  if(glazes.length===1)return applyGlaze(glazes[0],ck);
+  t=Math.max(0,Math.min(1,t));
+  const n=stops.length;let i=0;
+  while(i<n-2&&stops[i+1]<=t)i++;
+  if(i>=n-1)return applyGlaze(glazes[n-1],ck);
+  const t0=stops[i],t1=stops[i+1],s=t1>t0?(t-t0)/(t1-t0):0;
+  const c0=applyGlaze(glazes[i],ck),c1=applyGlaze(glazes[i+1],ck);
+  return{r:c0.r+(c1.r-c0.r)*s,gr:c0.gr+(c1.gr-c0.gr)*s,b:c0.b+(c1.b-c0.b)*s};
+}
+
+// Populate a canvas gradient with N sampled colors
+function _vfill(g,N,inv){
+  for(let i=0;i<=N;i++){let t=i/N;if(inv)t=1-t;const c=_vsample(t);g.addColorStop(i/N,`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})`);}
+}
+
+function _vesselDraw(cvs){
+  const dpr=window.devicePixelRatio||1,W=cvs.width/dpr,H=cvs.height/dpr;
+  const ctx=cvs.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#f5f3f0';ctx.fillRect(0,0,W,H);
+  if(!_vs.glazes||!_vs.glazes.length)return;
+  if(_vs.shape==='bowl')_vBowl(ctx,W,H);
+  else if(_vs.shape==='plate')_vPlate(ctx,W,H);
+  else _vCylinder(ctx,W,H);
+}
+
+function _vCylinder(ctx,W,H){
+  const{shape,direction:dir,ck}=_vs;
+  const clay=CLAY[ck];
+  const pT=38,pB=28,vesH=H-pT-pB,cx=W/2,eH=9,N=28;
+  const squat=shape==='squat';
+  const pr=yn=>squat?(0.29+0.13*Math.sin(Math.PI*yn))*W:0.31*W;
+  const topR=pr(0),botR=pr(1),maxR=squat?pr(0.5):topR;
+  const PTS=28;
+
+  const sil=()=>{
+    ctx.beginPath();
+    // Start top-left
+    ctx.moveTo(cx-topR,pT);
+    if(squat){
+      // Left side down
+      for(let i=1;i<=PTS;i++){const yn=i/PTS;ctx.lineTo(cx-pr(yn),pT+yn*vesH);}
+    }else{
+      ctx.lineTo(cx-botR,pT+vesH);
+    }
+    // Bottom arc: left→bottom→right (anticlockwise PI→0 in canvas Y-down = lower arc)
+    ctx.ellipse(cx,pT+vesH,botR,eH,0,Math.PI,0,true);
+    if(squat){
+      // Right side up
+      for(let i=PTS-1;i>=0;i--){const yn=i/PTS;ctx.lineTo(cx+pr(yn),pT+yn*vesH);}
+    }else{
+      ctx.lineTo(cx+topR,pT);
+    }
+    // Top arc: right→top→left (anticlockwise 0→PI in canvas Y-down = upper arc)
+    ctx.ellipse(cx,pT,topR,eH,0,0,Math.PI,true);
+    ctx.closePath();
+  };
+
+  // Clay base + clip
+  ctx.save();sil();ctx.fillStyle=clay;ctx.fill();ctx.clip();
+
+  // Glaze gradient
+  let grd;
+  if(dir==='horizontal'){grd=ctx.createLinearGradient(cx-maxR,0,cx+maxR,0);_vfill(grd,N,false);}
+  else{grd=ctx.createLinearGradient(0,pT,0,pT+vesH);_vfill(grd,N,dir==='bottom');}
+  ctx.fillStyle=grd;sil();ctx.fill();
+
+  // Edge foreshortening shadows
+  const sl=ctx.createLinearGradient(cx-maxR,0,cx-maxR*0.32,0);
+  sl.addColorStop(0,'rgba(0,0,0,0.50)');sl.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sl;sil();ctx.fill();
+  const sr=ctx.createLinearGradient(cx+maxR*0.32,0,cx+maxR,0);
+  sr.addColorStop(0,'rgba(0,0,0,0)');sr.addColorStop(1,'rgba(0,0,0,0.50)');
+  ctx.fillStyle=sr;sil();ctx.fill();
+
+  // Specular highlight (upper-left arc)
+  const hlx=cx-maxR*0.14,hly=pT+vesH*0.15;
+  const hl=ctx.createRadialGradient(hlx,hly,0,hlx,hly,maxR*0.74);
+  hl.addColorStop(0,'rgba(255,255,255,0.34)');hl.addColorStop(0.42,'rgba(255,255,255,0.06)');hl.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=hl;sil();ctx.fill();
+
+  ctx.restore();
+
+  // Outline
+  ctx.save();sil();ctx.strokeStyle='rgba(0,0,0,0.13)';ctx.lineWidth=1;ctx.stroke();
+  // Rim disk (3D top opening)
+  ctx.beginPath();ctx.ellipse(cx,pT,topR,eH,0,0,Math.PI*2);
+  const rg=ctx.createLinearGradient(0,pT-eH,0,pT+eH);
+  rg.addColorStop(0,clay+'ee');rg.addColorStop(1,clay+'77');
+  ctx.fillStyle=rg;ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.18)';ctx.lineWidth=0.8;ctx.stroke();
+  ctx.restore();
+}
+
+function _vBowl(ctx,W,H){
+  const{direction:dir,ck}=_vs;
+  const clay=CLAY[ck],cx=W/2,cy=H/2,rx=W*0.42,ry=H*0.40,maxR=Math.max(rx,ry),N=28;
+
+  ctx.save();
+  ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fillStyle=clay;ctx.fill();ctx.clip();
+
+  let grd;
+  if(dir==='horizontal'){
+    grd=ctx.createLinearGradient(cx-rx,cy,cx+rx,cy);_vfill(grd,N,false);
+  }else{
+    grd=ctx.createRadialGradient(cx,cy,0,cx,cy,maxR);_vfill(grd,N,dir==='bottom');
+  }
+  ctx.fillStyle=grd;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fill();
+
+  // Rim shadow
+  const rs=ctx.createRadialGradient(cx,cy,maxR*0.74,cx,cy,maxR);
+  rs.addColorStop(0,'rgba(0,0,0,0)');rs.addColorStop(1,'rgba(0,0,0,0.22)');
+  ctx.fillStyle=rs;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fill();
+
+  // Center highlight
+  const hl=ctx.createRadialGradient(cx-rx*0.14,cy-ry*0.14,0,cx,cy,Math.min(rx,ry)*0.52);
+  hl.addColorStop(0,'rgba(255,255,255,0.24)');hl.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=hl;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fill();
+
+  ctx.restore();
+  ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.strokeStyle='rgba(0,0,0,0.15)';ctx.lineWidth=1.5;ctx.stroke();
+}
+
+function _vPlate(ctx,W,H){
+  const{direction:dir,ck}=_vs;
+  const clay=CLAY[ck],cx=W/2,cy=H/2,rx=W*0.44,ry=H*0.33,maxR=Math.max(rx,ry),N=28;
+
+  ctx.save();
+  ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fillStyle=clay;ctx.fill();ctx.clip();
+
+  let grd;
+  if(dir==='horizontal'){
+    grd=ctx.createLinearGradient(cx-rx,cy,cx+rx,cy);_vfill(grd,N,false);
+  }else{
+    grd=ctx.createRadialGradient(cx,cy,0,cx,cy,maxR);_vfill(grd,N,dir==='bottom');
+  }
+  ctx.fillStyle=grd;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fill();
+
+  // Well depression (center shadow ring)
+  const ws=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.min(rx,ry)*0.28);
+  ws.addColorStop(0,'rgba(0,0,0,0.12)');ws.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=ws;ctx.beginPath();ctx.ellipse(cx,cy,rx*0.28,ry*0.28,0,0,Math.PI*2);ctx.fill();
+
+  // Rim shadow
+  const rs=ctx.createRadialGradient(cx,cy,maxR*0.77,cx,cy,maxR);
+  rs.addColorStop(0,'rgba(0,0,0,0)');rs.addColorStop(1,'rgba(0,0,0,0.19)');
+  ctx.fillStyle=rs;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fill();
+
+  ctx.restore();
+  ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.strokeStyle='rgba(0,0,0,0.12)';ctx.lineWidth=1.5;ctx.stroke();
+}
+
+// ── SECTION OBSERVER ──────────────────────────────────────────────────────────
+function initSectionObserver(){
+  const mainEl=document.getElementById('mainContent');
+  if(!mainEl||!('IntersectionObserver' in window))return;
+  const saved=document.getElementById('savedSection');
+  const disc=document.getElementById('discoverHead');
+  if(!saved||!disc)return;
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      const id=entry.target.id;
+      if(id==='savedSection'){
+        document.getElementById('jumpSaved')?.classList.toggle('active',entry.isIntersecting);
+      }else if(id==='discoverHead'){
+        document.getElementById('jumpDiscover')?.classList.toggle('active',entry.isIntersecting);
+      }
+    });
+  },{root:mainEl,threshold:0.1});
+  obs.observe(saved);obs.observe(disc);
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 loadAll();
 buildLeversUI();
@@ -2193,6 +2536,7 @@ renderTopbarTabs();
 renderLeftPanelPairings();
 renderRightGlazeRef();
 wireImageDrop();
+initSectionObserver();
 </script>
 </body>
 </html>
