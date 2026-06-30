@@ -1315,6 +1315,7 @@ function makeProjTab(label, isActive, colorNames, onActivate, onDelete, projId){
 }
 
 function renderSidebar(){
+  if(typeof _activeSheet!=='undefined' && _activeSheet && _activeSheet.id==='sheetBoards') closeSheet();
   const scroll=document.getElementById('sbScroll');if(!scroll)return;
   scroll.innerHTML='';
 
@@ -1420,6 +1421,7 @@ function buildCard(p,isLiked,compact){
           showToast('Saved!');
         }
       } else {
+        if(typeof selectedKeys!=='undefined') { selectedKeys.delete(p.key); updateMultiBar?.(); }
         palettes = palettes.filter(x => x.key !== p.key);
         card.style.transition = 'opacity .15s, transform .15s';
         card.style.opacity = '0';
@@ -2873,6 +2875,7 @@ let _activeSheet = null;
 
 function openSheet(name) {
   closeSheet();
+  clearMultiSelect?.();
   const backdrop = document.getElementById('sheetBackdrop');
   const sheet = document.getElementById('sheet' + name.charAt(0).toUpperCase() + name.slice(1));
   if (!sheet) return;
