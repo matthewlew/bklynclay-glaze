@@ -375,6 +375,18 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .glaze-chip-rm:hover{color:var(--danger);}
 .card.drag-over-glaze{border-color:var(--acc)!important;box-shadow:0 0 0 2px rgba(var(--acc-rgb),.22);}
 .card.card-highlight{border-color:var(--acc)!important;box-shadow:0 0 0 3px rgba(var(--acc-rgb),.28)!important;transition:box-shadow .15s,border-color .15s;}
+.card.card-kb-focus{outline:2px solid var(--ink);outline-offset:2px;}
+/* ── SHORTCUT OVERLAY ── */
+.shortcut-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:600;}
+.shortcut-overlay.open{display:flex;}
+.shortcut-modal{background:#fff;border-radius:10px;padding:22px;box-shadow:0 12px 40px rgba(0,0,0,.18);width:min(420px,92vw);max-height:80vh;overflow-y:auto;}
+.shortcut-modal h3{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px;letter-spacing:.05em;text-transform:uppercase;}
+.shortcut-table{width:100%;border-collapse:collapse;}
+.shortcut-table tr+tr td{border-top:1px solid var(--border);}
+.shortcut-table td{padding:6px 4px;font-size:12px;color:var(--ink2);}
+.shortcut-table td:first-child{width:80px;}
+.shortcut-key{display:inline-block;background:var(--surf);border:1px solid var(--border2);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;color:var(--ink);font-family:var(--font);min-width:20px;text-align:center;}
+.shortcut-close-btn{margin-top:14px;width:100%;}
 /* ── PALETTE PREVIEW MODAL ── */
 .palette-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;}
 .palette-modal{background:#fff;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.22);width:340px;max-width:90vw;overflow:hidden;}
@@ -607,6 +619,20 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 </div>
 <div class="vm-overlay" id="vesselModal" role="dialog" aria-modal="true"></div>
 <div class="toast" id="toast"></div>
+<div class="shortcut-overlay" id="shortcutOverlay" onclick="if(event.target===this)closeShortcutOverlay()">
+  <div class="shortcut-modal">
+    <h3>Keyboard Shortcuts</h3>
+    <table class="shortcut-table">
+      <tr><td><span class="shortcut-key">Space</span> <span class="shortcut-key">R</span></td><td>Shuffle — generate new palettes</td></tr>
+      <tr><td><span class="shortcut-key">S</span></td><td>Save / pin the focused palette</td></tr>
+      <tr><td><span class="shortcut-key">↑ ↓ ← →</span></td><td>Navigate palettes</td></tr>
+      <tr><td><span class="shortcut-key">1</span>–<span class="shortcut-key">8</span></td><td>Apply style preset (Turrell → Wada)</td></tr>
+      <tr><td><span class="shortcut-key">Esc</span></td><td>Close overlay / clear selection</td></tr>
+      <tr><td><span class="shortcut-key">?</span></td><td>Show this overlay</td></tr>
+    </table>
+    <button class="btn shortcut-close-btn" onclick="closeShortcutOverlay()">Close</button>
+  </div>
+</div>
 
 <script>
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
@@ -2549,6 +2575,81 @@ function initSectionObserver(){
     });
   },{root:mainEl,threshold:0.1});
   obs.observe(saved);obs.observe(disc);
+}
+
+// ── KEYBOARD SHORTCUTS ────────────────────────────────────────────────────────
+let _focusedCardKey = null;
+
+function openShortcutOverlay(){
+  document.getElementById('shortcutOverlay')?.classList.add('open');
+}
+function closeShortcutOverlay(){
+  document.getElementById('shortcutOverlay')?.classList.remove('open');
+}
+
+const PRESET_KEYS = ['turrell','rothko','albers','martin','kelly','judd','eliasson','wada'];
+
+document.addEventListener('keydown', e => {
+  // Skip when typing in inputs/textareas/contenteditable
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+
+  switch(e.key) {
+    case ' ':
+    case 'r':
+    case 'R':
+      if (e.key === ' ') e.preventDefault();
+      shuffle();
+      break;
+    case 's':
+    case 'S': {
+      // Save/pin the focused card
+      if (!_focusedCardKey) return;
+      const card = document.querySelector(`[data-key="${_focusedCardKey}"]`);
+      if (!card) return;
+      const pinBtn = card.querySelector('.btn.pin-on, .btn:not(.remove-subtle):not(.vessel-btn):not(.board-dropdown-btn)');
+      if (pinBtn && !pinBtn.classList.contains('pin-on')) pinBtn.click();
+      break;
+    }
+    case 'ArrowRight':
+    case 'ArrowDown':
+      e.preventDefault();
+      moveFocusToCard(1);
+      break;
+    case 'ArrowLeft':
+    case 'ArrowUp':
+      e.preventDefault();
+      moveFocusToCard(-1);
+      break;
+    case 'Escape':
+      closeShortcutOverlay();
+      clearMultiSelect?.();
+      break;
+    case '?':
+      openShortcutOverlay();
+      break;
+    default:
+      if (e.key >= '1' && e.key <= '8') {
+        const preset = PRESET_KEYS[parseInt(e.key) - 1];
+        if (preset) applyPreset(preset);
+      }
+  }
+});
+
+function moveFocusToCard(dir) {
+  const cards = [...document.querySelectorAll('#gallery .card')];
+  if (!cards.length) return;
+  const idx = _focusedCardKey
+    ? cards.findIndex(c => c.dataset.key === _focusedCardKey)
+    : -1;
+  const next = Math.max(0, Math.min(cards.length - 1, idx + dir));
+  const nextCard = cards[next];
+  if (!nextCard) return;
+  _focusedCardKey = nextCard.dataset.key;
+  // Visual focus ring
+  cards.forEach(c => c.classList.remove('card-kb-focus'));
+  nextCard.classList.add('card-kb-focus');
+  nextCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
