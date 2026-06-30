@@ -9,6 +9,9 @@ const TG = 1;
 const NT = 4;
 const SVG_W = 100;
 
+let lastRenderedKeys = [];
+let lastSavedKeys = [];
+
 // ── COLOR MATH ────────────────────────────────────────────────────────────────
 export function hexRGB(h){return{r:parseInt(h.slice(1,3),16),g:parseInt(h.slice(3,5),16),b:parseInt(h.slice(5,7),16)};}
 
@@ -818,10 +821,38 @@ export function buildCard(p,isLiked,compact){
 }
 
 export function renderGallery(){
-  const gal=document.getElementById('gallery');if(!gal)return;gal.innerHTML='';
+  const gal=document.getElementById('gallery');if(!gal)return;
   const w=activeScoreWeights();
   const toRender=sortByScore?[...palettes].sort((a,b)=>scoreAesthetic(b.glazes,w)-scoreAesthetic(a.glazes,w)):palettes;
-  toRender.forEach(p=>gal.appendChild(buildCard(p,likedKeys.has(p.key),false)));
+  const currentKeys = toRender.map(p => p.key);
+  const keysMatch = currentKeys.length === lastRenderedKeys.length && currentKeys.every((k, i) => k === lastRenderedKeys[i]);
+
+  if (keysMatch) {
+    toRender.forEach(p => {
+      const card = gal.querySelector(`[data-key="${p.key}"]`);
+      if (card) {
+        const stack = card.querySelector('.tile-col');
+        if (stack) {
+          const isCompact = card.classList.contains('compact');
+          refreshStack(stack, p.glazes, clayKey, isCompact ? 44 : TH);
+        }
+        const badge = card.querySelector('.score-badge');
+        if (badge) {
+          const sc = scoreAesthetic(p.glazes, w);
+          badge.className = 'score-badge' + (sc >= 70 ? ' score-hi' : sc >= 45 ? ' score-mid' : ' score-lo');
+          badge.textContent = '★ ' + sc;
+        }
+        const peek = card.querySelector('.card-score-peek');
+        if (peek) {
+          peek.textContent = '★ ' + scoreAesthetic(p.glazes, w);
+        }
+      }
+    });
+  } else {
+    gal.innerHTML='';
+    toRender.forEach(p=>gal.appendChild(buildCard(p,likedKeys.has(p.key),false)));
+    lastRenderedKeys = currentKeys;
+  }
   renderSavedSection();
 }
 
@@ -884,7 +915,6 @@ export function renderSavedSection(){
   }
   updateJumpNav(filtered.length);
   renderProjectAnalyticsBand();
-  sg.innerHTML='';
   const w=activeScoreWeights();
   const toShow=sortByScore
     ?[...filtered].sort((a,b)=>{
@@ -893,12 +923,42 @@ export function renderSavedSection(){
         return scoreAesthetic(gb,w)-scoreAesthetic(ga,w);
       })
     :filtered;
-  toShow.forEach(m=>{
-    const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
-    if(!glazes.length)return;
-    const p=withKey({id:mkid(),label:labelStore[m.key]||m.label,feeling:'',tag:m.tag||'Pinned',glazes});
-    sg.appendChild(buildCard(p,true,false));
-  });
+
+  const currentKeys = toShow.map(m => m.key);
+  const keysMatch = currentKeys.length === lastSavedKeys.length && currentKeys.every((k, i) => k === lastSavedKeys[i]);
+
+  if (keysMatch) {
+    toShow.forEach(m => {
+      const card = sg.querySelector(`[data-key="${m.key}"]`);
+      if (card) {
+        const stack = card.querySelector('.tile-col');
+        const glazes = (m.names || []).map(n => GLAZES.find(g => g.name === n)).filter(Boolean);
+        if (stack && glazes.length) {
+          const isCompact = card.classList.contains('compact');
+          refreshStack(stack, glazes, clayKey, isCompact ? 44 : TH);
+        }
+        const badge = card.querySelector('.score-badge');
+        if (badge && glazes.length) {
+          const sc = scoreAesthetic(glazes, w);
+          badge.className = 'score-badge' + (sc >= 70 ? ' score-hi' : sc >= 45 ? ' score-mid' : ' score-lo');
+          badge.textContent = '★ ' + sc;
+        }
+        const peek = card.querySelector('.card-score-peek');
+        if (peek && glazes.length) {
+          peek.textContent = '★ ' + scoreAesthetic(glazes, w);
+        }
+      }
+    });
+  } else {
+    sg.innerHTML='';
+    toShow.forEach(m=>{
+      const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+      if(!glazes.length)return;
+      const p=withKey({id:mkid(),label:labelStore[m.key]||m.label,feeling:'',tag:m.tag||'Pinned',glazes});
+      sg.appendChild(buildCard(p,true,false));
+    });
+    lastSavedKeys = currentKeys;
+  }
 }
 
 // ── PROJECT ANALYTICS BAND ────────────────────────────────────────────────────
