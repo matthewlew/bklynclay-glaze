@@ -1831,7 +1831,7 @@ function updateCount(){renderSavedSection();}
 // ── PERSISTENCE ───────────────────────────────────────────────────────────────
 function saveAll(){
   const rankState=rankMode==='done'?{sorted:rankSorted.map(m=>m.key),mode:'done'}:null;
-  try{localStorage.setItem('bklyn_v6',JSON.stringify({keys:[...likedKeys],meta:likedMeta,projects,labels:labelStore,rankState}));}catch(e){}
+  try{localStorage.setItem('bklyn_v6',JSON.stringify({keys:[...likedKeys],meta:likedMeta,projects,labels:labelStore,rankState}));}catch(e){showToast('Storage full — auto-saving backup…');setTimeout(exportSession,400);}
   const f=document.getElementById('flash');if(f){f.style.display='';setTimeout(()=>f.style.display='none',1100);}
   updateCount();
 }
