@@ -689,7 +689,7 @@ function closeCalibrate(){
 function renderComparePair(candidates){
   const box=document.getElementById('compareBox');
   const total=Math.min(30,candidates.length*(candidates.length-1)/2);
-  const done=compPairs.length;
+  const done=compPairs.filter(p=>p.winner!=='skip').length;
 
   if(done>=25){
     fitWeights();
