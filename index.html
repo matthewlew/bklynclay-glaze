@@ -282,7 +282,8 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .mobile-bar-btn:active{background:var(--surf);}
 .mobile-bar-btn .mbb-icon{font-size:14px;line-height:1;}
 .mobile-bar-btn .mbb-label{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;}
-.mobile-bar-btn.shuffle{color:var(--ink);}
+.mobile-shuffle-fab{display:none;position:fixed;right:16px;bottom:72px;width:56px;height:56px;border-radius:50%;background:var(--ink);color:var(--white);border:none;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28);z-index:210;}
+.mobile-shuffle-fab:active{background:var(--ink-hover,#2a2a2a);}
 /* ── BOTTOM SHEET ── */
 .sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:210;display:none;}
 .sheet-backdrop.open{display:block;}
@@ -316,6 +317,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   .card-footer{opacity:1;}
   .card:not(.compact){min-height:0;}
   .mobile-bottom-bar{display:flex;}
+  .mobile-shuffle-fab{display:flex;align-items:center;justify-content:center;}
   .multi-action-bar{bottom:72px;}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;}}
@@ -863,15 +865,12 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     <span class="mbb-icon">⚙</span>
     <span class="mbb-label">Controls</span>
   </button>
-  <button class="mobile-bar-btn shuffle" onclick="shuffle()" title="Shuffle">
-    <span class="mbb-icon">↺</span>
-    <span class="mbb-label">Shuffle</span>
-  </button>
   <button class="mobile-bar-btn" onclick="openSheet('boards')" title="Boards">
     <span class="mbb-icon">☰</span>
     <span class="mbb-label">Boards</span>
   </button>
 </div>
+<button class="mobile-shuffle-fab" id="mobileShuffleFab" onclick="shuffle()" title="Shuffle">↺</button>
 <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
 <!-- Controls sheet -->
 <div class="bottom-sheet" id="sheetControls">

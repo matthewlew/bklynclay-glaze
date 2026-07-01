@@ -877,6 +877,8 @@ function _ensurePinned(key,projId){
 
 export function updateMultiBar(){
   if(_multiBar)_multiBar.remove();_multiBar=null;
+  const fab=document.getElementById('mobileShuffleFab');
+  if(fab)fab.style.visibility=selectedKeys.size?'hidden':'';
   if(!selectedKeys.size)return;
   const bar=document.createElement('div');bar.className='multi-action-bar';_multiBar=bar;
   bar.innerHTML=`<span>${selectedKeys.size} selected</span>`;
@@ -923,6 +925,8 @@ export function clearMultiSelect(){
   selectedKeys.clear();
   document.querySelectorAll('.card-selected').forEach(c=>c.classList.remove('card-selected'));
   if(_multiBar){_multiBar.remove();_multiBar=null;}
+  const fab=document.getElementById('mobileShuffleFab');
+  if(fab)fab.style.visibility='';
 }
 
 export function renderSavedSection(){
