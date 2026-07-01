@@ -538,12 +538,7 @@ export function buildSidebarChip(m,inProject){
     });
   });
   chip.appendChild(rm);
-  const loadIt=()=>{
-    if(currentTab!=='explore')setTab('explore');
-    const el=document.querySelector(`#savedGallery [data-key="${m.key}"]`);
-    if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('card-highlight');setTimeout(()=>el.classList.remove('card-highlight'),1400);}
-    else{document.getElementById('savedSection')?.scrollIntoView({behavior:'smooth'});}
-  };
+  const loadIt=()=>{ if(typeof openPaletteDetail==='function') openPaletteDetail(m.key); };
   chip.addEventListener('click',loadIt);chip.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();loadIt();}});
   return chip;
 }
@@ -574,13 +569,12 @@ export function buildGlazeChips(p, stack, card) {
     chipsWrap.innerHTML='';
     p.glazes.forEach((g,idx)=>{
       const chip=document.createElement('div');chip.className='glaze-chip';chip.draggable=true;chip.dataset.idx=idx;
-      const hdl=document.createElement('span');hdl.className='glaze-chip-handle';hdl.textContent='⠿';
       const c=applyGlaze(g,clayKey);
       const sw=document.createElement('div');sw.className='glaze-chip-swatch';sw.style.background=`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})`;
       const nm=document.createElement('span');nm.className='glaze-chip-name';nm.textContent=g.name;
       const rm=document.createElement('button');rm.className='glaze-chip-rm';rm.textContent='×';rm.title='Remove glaze';
       rm.addEventListener('click',e=>{e.stopPropagation();if(p.glazes.length<=2)return;p.glazes.splice(idx,1);p.key=p.glazes.map(g=>g.name).join('|');card.dataset.key=p.key;refreshStack(stack,p.glazes,clayKey,TH);rebuildChips();});
-      chip.appendChild(hdl);chip.appendChild(sw);chip.appendChild(nm);chip.appendChild(rm);
+      chip.appendChild(sw);chip.appendChild(nm);chip.appendChild(rm);
       chip.addEventListener('dragstart',e=>{dragSrcIdx=idx;e.dataTransfer.effectAllowed='move';chip.style.opacity='.4';});
       chip.addEventListener('dragend',()=>{chip.style.opacity='';chipsWrap.querySelectorAll('.glaze-chip').forEach(c=>c.classList.remove('drag-over-chip'));});
       chip.addEventListener('dragover',e=>{e.preventDefault();chip.classList.add('drag-over-chip');});
@@ -669,7 +663,7 @@ export function buildCard(p,isLiked,compact){
   const card=document.createElement('article');
   card.className='card'+(isLiked&&!compact?' liked':'')+(compact?' compact':'');
   card.dataset.pid=p.id;card.dataset.key=p.key||'';
-  card.addEventListener('click',e=>{if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);}else if(bandView&&!e.target.closest('button,a,input,[contenteditable]')){card.classList.toggle('card-open');}else{_focusedCardKey=p.key;}});
+  card.addEventListener('click',e=>{if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);}else if(!e.target.closest('button,a,input,[contenteditable]')){_focusedCardKey=p.key;if(typeof openPaletteDetail==='function')openPaletteDetail(p.key);}});
   card.addEventListener('contextmenu', e => { if(!compact) openCtxMenu(e, p); });
 
   if (!compact) {
@@ -747,11 +741,6 @@ export function buildCard(p,isLiked,compact){
     badge.title='Aesthetic score: contrast, harmony, distinctness, material variety';
     badge.textContent='★ '+sc;
     tagRow.appendChild(tag);tagRow.appendChild(badge);footer.appendChild(tagRow);
-    const sciRow=document.createElement('div');sciRow.className='card-science-row';
-    const temp=cardTemperature(p.glazes);
-    if(temp){const tempBadge=document.createElement('span');tempBadge.className='card-sci-badge'+(temp==='warm'?' warm':temp==='cool'?' cool':'');tempBadge.title='Temperature: average hue of chromatic glazes';tempBadge.textContent=temp==='warm'?'⬤ Warm':temp==='cool'?'⬤ Cool':'⬤ Neutral';sciRow.appendChild(tempBadge);}
-    const depth=cardDepth(p.glazes);const depthBadge=document.createElement('span');depthBadge.className='card-sci-badge';depthBadge.title='Depth: luminosity range across glazes';depthBadge.textContent='◆'.repeat(depth)+'◇'.repeat(3-depth)+' Depth';sciRow.appendChild(depthBadge);
-    footer.appendChild(sciRow);
     const peekScore = document.createElement('div');
     peekScore.className = 'card-score-peek';
     peekScore.textContent = '★ ' + sc;
@@ -775,6 +764,9 @@ export function buildCard(p,isLiked,compact){
     footer.appendChild(row2);
   }
   card.appendChild(footer);
+  // Smart footer foreground: dark palette bottoms → white text
+  const bottomGlaze = p.glazes[p.glazes.length - 1];
+  if (bottomGlaze && bottomGlaze.lum < 0.38) footer.classList.add('dark-foot');
   if(!compact){
     card.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('glaze')){e.preventDefault();card.classList.add('drag-over-glaze');}});
     card.addEventListener('dragleave',()=>card.classList.remove('drag-over-glaze'));
