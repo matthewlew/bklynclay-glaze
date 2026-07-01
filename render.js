@@ -1068,6 +1068,20 @@ export function updateJumpNav(savedCount){
   if(jd){jd.classList.toggle('active',!savedCount);}
 }
 
+// Shared by desktop drag-drop and the mobile photo picker. Returns true on success.
+async function _extractAndInsertPalette(file){
+  const glazes=await extractImagePalette(file);
+  if(!glazes.length){showToast('Could not extract colors from image');return false;}
+  const label=file.name.replace(/\.[^.]+$/,'');
+  const p=withKey({id:mkid(),label,feeling:'',tag:'From Image',glazes});
+  palettes=[p,...palettes.slice(0,19)];
+  if(currentTab!=='explore')setTab('explore');
+  renderGallery();
+  document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth'});
+  showToast(`Palette from "${label}" — ${glazes.map(g=>g.name).join(', ')}`);
+  return true;
+}
+
 export function wireImageDrop(){
   const zone=document.getElementById('sectionJumpDrop');
   const view=document.getElementById('view_explore');
@@ -1079,19 +1093,31 @@ export function wireImageDrop(){
     if(!file)return;
     e.preventDefault();zone.classList.remove('drag-active');
     zone.textContent='Extracting…';
-    const glazes=await extractImagePalette(file);
+    await _extractAndInsertPalette(file);
     zone.innerHTML='<span>🖼 Drop image</span>';
-    if(!glazes.length){showToast('Could not extract colors from image');return;}
-    const label=file.name.replace(/\.[^.]+$/,'');
-    const p=withKey({id:mkid(),label,feeling:'',tag:'From Image',glazes});
-    palettes=[p,...palettes.slice(0,19)];
-    renderGallery();
-    document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth'});
-    showToast(`Palette from "${label}" — ${glazes.map(g=>g.name).join(', ')}`);
   };
   view.addEventListener('dragover',onOver);
   view.addEventListener('dragleave',onLeave);
   view.addEventListener('drop',onDrop);
+}
+
+// Mobile has no drag-and-drop, so the Controls sheet exposes a native photo
+// picker (tap → file input → camera roll) that feeds the same extractor.
+export function wireMobileImagePicker(){
+  const btn=document.getElementById('sheetPhotoBtn');
+  const input=document.getElementById('mobileImageInput');
+  if(!btn||!input)return;
+  btn.addEventListener('click',()=>input.click());
+  input.addEventListener('change',async()=>{
+    const file=input.files[0];
+    input.value='';
+    if(!file)return;
+    const prevText=btn.textContent;
+    btn.textContent='Extracting…';btn.disabled=true;
+    await _extractAndInsertPalette(file);
+    btn.textContent=prevText;btn.disabled=false;
+    closeSheet();
+  });
 }
 
 // ── GLAZE TILES ───────────────────────────────────────────────────────────────

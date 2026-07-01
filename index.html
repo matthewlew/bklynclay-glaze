@@ -298,6 +298,8 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .sb-board-switcher:empty{display:none;}
 .sbs-pill{flex-shrink:0;padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--ink2);font-size:12px;font-weight:600;font-family:var(--font);white-space:nowrap;cursor:pointer;min-height:32px;}
 .sbs-pill.on{background:var(--ink);border-color:var(--ink);color:var(--white);}
+.sb-photo-btn{display:none;margin:0 16px 14px;padding:11px 14px;min-height:44px;border-radius:var(--r);border:1px solid var(--border);background:var(--surf);color:var(--ink);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;text-align:center;}
+@media(max-width:700px){.sb-photo-btn{display:block;}}
 @media(max-width:700px){
   /* Hide desktop nav — bottom bar handles it */
   .topbar{display:none;}
@@ -879,6 +881,8 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     <span class="sheet-title">Controls</span>
     <button class="sheet-close" onclick="closeSheet()">✕</button>
   </div>
+  <button class="sb-photo-btn" id="sheetPhotoBtn">🖼 Select photo → extract palette</button>
+  <input type="file" id="mobileImageInput" accept="image/*" style="display:none">
   <div class="sheet-body" id="sheetControlsBody"></div>
 </div>
 <!-- Boards sheet -->
@@ -966,10 +970,10 @@ import {
   createNewProject, startQuickRate, startRank, rankChoose, rankSkip,
   openVesselModal, setGlazeFilter, clearGlazeSelection, closeCtxMenu,
   switchContext, switchToProjectTab, buildLeversUI, renderTopbarTabs,
-  renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, initSectionObserver,
+  renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, wireMobileImagePicker, initSectionObserver,
   moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection,
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer
-} from './render.js?v=3';
+} from './render.js?v=4';
 import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise } from './palette-detail.js';
 
 // ── WINDOW EXPORTS (required for inline onclick= handlers in module scope) ────
@@ -1100,6 +1104,7 @@ loadAll().then(() => {
   renderLeftPanelPairings();
   renderScoreWeighting();
   wireImageDrop();
+  wireMobileImagePicker();
   initSectionObserver();
 });
 </script>
