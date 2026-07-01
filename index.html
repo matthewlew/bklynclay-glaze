@@ -303,8 +303,17 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .sb-board-switcher:empty{display:none;}
 .sbs-pill{flex-shrink:0;padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--ink2);font-size:12px;font-weight:600;font-family:var(--font);white-space:nowrap;cursor:pointer;min-height:32px;}
 .sbs-pill.on{background:var(--ink);border-color:var(--ink);color:var(--white);}
-.sb-photo-btn{display:none;margin:0 16px 14px;padding:11px 14px;min-height:44px;border-radius:var(--r);border:1px solid var(--border);background:var(--surf);color:var(--ink);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;text-align:center;}
-@media(max-width:700px){.sb-photo-btn{display:block;}}
+.sb-photo-btn{display:block;width:100%;padding:11px 14px;min-height:44px;border-radius:var(--r);border:1px solid var(--border);background:var(--surf);color:var(--ink);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;text-align:center;}
+.cs-section-tabs{display:none;gap:4px;padding:0 14px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.cs-tab{flex-shrink:0;padding:7px 13px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--ink2);font-size:12px;font-weight:600;font-family:var(--font);white-space:nowrap;cursor:pointer;min-height:32px;}
+.cs-tab.on{background:var(--ink);border-color:var(--ink);color:var(--white);}
+@media(max-width:700px){
+  .cs-section-tabs{display:flex;}
+  #sheetControls{top:auto;max-height:62vh;}
+  #sheetControlsBody .ps[data-sec],#sheetControls>.ps[data-sec]{display:none;}
+  #sheetControlsBody .ps[data-sec].active-sec,#sheetControls>.ps[data-sec].active-sec{display:block;}
+  #sheetControlsBody .shuffle-btn{display:none;}
+}
 @media(max-width:700px){
   /* Hide desktop nav — bottom bar handles it */
   .topbar{display:none;}
@@ -823,7 +832,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   <aside class="right-sidebar" id="rightSidebar">
     <div class="flash" id="flash">Saved</div>
 
-    <div class="ps">
+    <div class="ps" data-sec="clay">
       <div class="plabel">Clay Body</div>
       <div class="clay-toggle">
         <button class="clay-btn on" id="clay_white" onclick="setClay('white')">White</button>
@@ -831,7 +840,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
       </div>
     </div>
 
-    <div class="ps">
+    <div class="ps" data-sec="view">
       <div class="plabel">Gallery View</div>
       <div class="gallery-view-toggle" id="galleryViewToggle">
         <button class="gv-btn on" data-mode="tiles" onclick="setGalleryViewMode('tiles')">Tiles</button>
@@ -841,13 +850,13 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
       </div>
     </div>
 
-    <div class="ps">
+    <div class="ps" data-sec="score">
       <div class="plabel">Aesthetic Score Weighting</div>
       <select id="scoreWeightSelect" class="score-weight-select"></select>
       <div id="scoreWeightHint" class="score-weight-hint"></div>
     </div>
 
-    <div class="ps">
+    <div class="ps" data-sec="style">
       <div class="plabel">Style Presets</div>
       <div class="artist-grid">
         <button class="achip" data-preset="turrell" onclick="applyPreset('turrell')">Turrell</button>
@@ -861,7 +870,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
       </div>
     </div>
 
-    <div class="ps grow">
+    <div class="ps grow" data-sec="adjust">
       <div class="preset-row">
         <span class="preset-name" id="presetName">Custom</span>
         <button class="preset-reset" onclick="resetLevers()">Reset</button>
@@ -896,8 +905,18 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     <span class="sheet-title">Controls</span>
     <button class="sheet-close" onclick="closeSheet()">✕</button>
   </div>
-  <button class="sb-photo-btn" id="sheetPhotoBtn">🖼 Select photo → extract palette</button>
-  <input type="file" id="mobileImageInput" accept="image/*" style="display:none">
+  <div class="cs-section-tabs" id="csSectionTabs">
+    <button class="cs-tab on" data-sec="clay" onclick="setControlsSection('clay')">Clay</button>
+    <button class="cs-tab" data-sec="view" onclick="setControlsSection('view')">View</button>
+    <button class="cs-tab" data-sec="score" onclick="setControlsSection('score')">Score</button>
+    <button class="cs-tab" data-sec="style" onclick="setControlsSection('style')">Style</button>
+    <button class="cs-tab" data-sec="adjust" onclick="setControlsSection('adjust')">Adjust</button>
+    <button class="cs-tab" data-sec="photo" onclick="setControlsSection('photo')">Photo</button>
+  </div>
+  <div class="ps" data-sec="photo">
+    <button class="sb-photo-btn" id="sheetPhotoBtn">🖼 Select photo → extract palette</button>
+    <input type="file" id="mobileImageInput" accept="image/*" style="display:none">
+  </div>
   <div class="sheet-body" id="sheetControlsBody"></div>
 </div>
 <!-- Boards sheet -->
@@ -986,9 +1005,9 @@ import {
   openVesselModal, setGlazeFilter, clearGlazeSelection, closeCtxMenu,
   switchContext, switchToProjectTab, buildLeversUI, renderTopbarTabs,
   renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, wireMobileImagePicker, initSectionObserver,
-  moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection, setGalleryViewMode,
+  moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection, setGalleryViewMode, setControlsSection,
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer
-} from './render.js?v=5';
+} from './render.js?v=6';
 import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise } from './palette-detail.js';
 
 // ── WINDOW EXPORTS (required for inline onclick= handlers in module scope) ────
@@ -1026,7 +1045,7 @@ Object.assign(window, {
   editLabel: (key, el) => { el.contentEditable = 'true'; el.focus(); },
   
   // UI callbacks called across files
-  renderSidebar, renderTopbarTabs, updateCount, showToast, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer, setGalleryViewMode,
+  renderSidebar, renderTopbarTabs, updateCount, showToast, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer, setGalleryViewMode, setControlsSection,
 
   // Palette detail page
   openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise,

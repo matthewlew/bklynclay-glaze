@@ -1954,6 +1954,7 @@ export function openSheet(name) {
       sheet._contentSource = sidebar;
       sheet._contentBody = body;
     }
+    setControlsSection('clay');
   }
   if (name === 'boards') {
     renderBoardSwitcher();
@@ -1993,6 +1994,14 @@ export function closeSheet() {
     _activeSheet = null;
   }
   document.getElementById('sheetBackdrop')?.classList.remove('open');
+}
+
+// Mobile Controls sheet shows one section at a time (CapCut-style header nav)
+// so the gallery stays visible behind it instead of a single tall scrolling list.
+export function setControlsSection(sec){
+  const sheet=document.getElementById('sheetControls');if(!sheet)return;
+  sheet.querySelectorAll('[data-sec]').forEach(el=>el.classList.toggle('active-sec',el.dataset.sec===sec));
+  sheet.querySelectorAll('.cs-tab').forEach(b=>b.classList.toggle('on',b.dataset.sec===sec));
 }
 
 // ── CONTEXT MENU ─────────────────────────────────────────────────────────────
