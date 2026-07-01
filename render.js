@@ -6,7 +6,7 @@ import { saveAll, exportSession } from './persistence.js';
 // Constants for SVG
 const TH = 78;
 const TG = 1;
-const NT = 4;
+let NT = 4;
 const SVG_W = 100;
 
 const SCORE_HI = 70;
@@ -82,10 +82,16 @@ export function tileInner(glazes,ck,tf,tb,H,W){
   return`<defs>${defs}</defs><rect width="${W}" height="${H}" fill="${clayHex}"/>${body}${overlay}${dots}`;
 }
 
+// Total stack height is pinned to the classic 4-tile size regardless of NT,
+// so raising the tile-division count subdivides the same card height into
+// thinner bands instead of making cards grow taller.
+function _stackTotalHeight(tH){return 4*tH+3*TG;}
+
 export function tileSVG(ti,glazes,ck,tH){
   tH=tH||TH;ck=ck||clayKey;
-  const TOTAL=NT*tH+(NT-1)*TG;
-  const top=ti*(tH+TG),bot=top+tH,tf=top/TOTAL,tb=bot/TOTAL,W=SVG_W,H=tH;
+  const TOTAL=_stackTotalHeight(tH);
+  const effH=(TOTAL-(NT-1)*TG)/NT;
+  const top=ti*(effH+TG),bot=top+effH,tf=top/TOTAL,tb=bot/TOTAL,W=SVG_W,H=effH;
   return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="display:block;width:100%;border-radius:3px;" aria-hidden="true">${tileInner(glazes,ck,tf,tb,H,W)}</svg>`;
 }
 
@@ -127,9 +133,8 @@ export function galleryGradientCSS(glazes,ck,mode){
 export function buildStack(glazes,ck,tH){
   tH=tH||TH;
   if(galleryViewMode&&galleryViewMode!=='tiles'){
-    const totalH=NT*tH+(NT-1)*TG;
     const wrap=document.createElement('div');wrap.className='tile-col tile-gradient';
-    wrap.style.height=totalH+'px';
+    wrap.style.height=_stackTotalHeight(tH)+'px';
     wrap.style.background=galleryGradientCSS(glazes,ck||clayKey,galleryViewMode);
     return wrap;
   }
@@ -150,6 +155,13 @@ export function refreshStack(col,glazes,ck,tH){
 export function setGalleryViewMode(mode){
   galleryViewMode=mode;
   document.querySelectorAll('.gv-btn').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
+  lastRenderedKeys=[];lastSavedKeys=[];
+  if(currentTab==='explore'){renderGallery();}
+}
+
+export function setTileDivisions(n){
+  NT=n;
+  document.querySelectorAll('.td-btn').forEach(b=>b.classList.toggle('on',parseInt(b.dataset.n,10)===n));
   lastRenderedKeys=[];lastSavedKeys=[];
   if(currentTab==='explore'){renderGallery();}
 }

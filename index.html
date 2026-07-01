@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BklynClay Glaze Studio</title>
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="./manifest.json">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -80,9 +80,9 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .clay-btn.on{background:var(--ink);color:var(--white);}
 .clay-btn.red.on{background:var(--clay-r);color:var(--white);}
 .gallery-view-toggle{display:grid;grid-template-columns:repeat(4,1fr);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;}
-.gv-btn{padding:8px 0;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:var(--font);color:var(--ink3);background:var(--card);transition:background .12s,color .12s;text-align:center;min-height:36px;}
-.gv-btn+.gv-btn{border-left:1.5px solid var(--border);}
-.gv-btn.on{background:var(--ink);color:var(--white);}
+.gv-btn,.td-btn{padding:8px 0;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:var(--font);color:var(--ink3);background:var(--card);transition:background .12s,color .12s;text-align:center;min-height:36px;}
+.gv-btn+.gv-btn,.td-btn+.td-btn{border-left:1.5px solid var(--border);}
+.gv-btn.on,.td-btn.on{background:var(--ink);color:var(--white);}
 
 /* Artist chips */
 .artist-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
@@ -312,7 +312,6 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   #sheetControls{top:auto;max-height:62vh;}
   #sheetControlsBody .ps[data-sec],#sheetControls>.ps[data-sec]{display:none;}
   #sheetControlsBody .ps[data-sec].active-sec,#sheetControls>.ps[data-sec].active-sec{display:block;}
-  #sheetControlsBody .shuffle-btn{display:none;}
 }
 @media(max-width:700px){
   /* Hide desktop nav — bottom bar handles it */
@@ -848,6 +847,13 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
         <button class="gv-btn" data-mode="radial" onclick="setGalleryViewMode('radial')">Radial</button>
         <button class="gv-btn" data-mode="conic" onclick="setGalleryViewMode('conic')">Conic</button>
       </div>
+      <div class="plabel" style="margin-top:12px;">Tile Divisions</div>
+      <div class="gallery-view-toggle" id="tileDivisionToggle">
+        <button class="td-btn on" data-n="4" onclick="setTileDivisions(4)">4</button>
+        <button class="td-btn" data-n="8" onclick="setTileDivisions(8)">8</button>
+        <button class="td-btn" data-n="12" onclick="setTileDivisions(12)">12</button>
+        <button class="td-btn" data-n="16" onclick="setTileDivisions(16)">16</button>
+      </div>
     </div>
 
     <div class="ps" data-sec="score">
@@ -879,7 +885,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
       <div class="levers-list" id="leversList"></div>
     </div>
 
-    <div class="ps">
+    <div class="ps" data-sec="shuffle-desktop-only">
       <button class="shuffle-btn" onclick="shuffle()">Shuffle ↺</button>
     </div>
   </aside>
@@ -1005,9 +1011,9 @@ import {
   openVesselModal, setGlazeFilter, clearGlazeSelection, closeCtxMenu,
   switchContext, switchToProjectTab, buildLeversUI, renderTopbarTabs,
   renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, wireMobileImagePicker, initSectionObserver,
-  moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection, setGalleryViewMode, setControlsSection,
+  moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection, setGalleryViewMode, setControlsSection, setTileDivisions,
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer
-} from './render.js?v=6';
+} from './render.js?v=7';
 import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise } from './palette-detail.js';
 
 // ── WINDOW EXPORTS (required for inline onclick= handlers in module scope) ────
@@ -1045,7 +1051,7 @@ Object.assign(window, {
   editLabel: (key, el) => { el.contentEditable = 'true'; el.focus(); },
   
   // UI callbacks called across files
-  renderSidebar, renderTopbarTabs, updateCount, showToast, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer, setGalleryViewMode, setControlsSection,
+  renderSidebar, renderTopbarTabs, updateCount, showToast, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer, setGalleryViewMode, setControlsSection, setTileDivisions,
 
   // Palette detail page
   openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise,
@@ -1191,8 +1197,12 @@ loadAll().then(() => {
 
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
 }
+</script>
+<script type="module">
+  import { initUpdateBanner } from './update-banner.js';
+  initUpdateBanner();
 </script>
 </body>
 </html>
