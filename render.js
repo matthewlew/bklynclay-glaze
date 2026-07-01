@@ -9,6 +9,9 @@ const TG = 1;
 const NT = 4;
 const SVG_W = 100;
 
+const SCORE_HI = 70;
+const SCORE_MID = 45;
+
 let lastRenderedKeys = [];
 let lastSavedKeys = [];
 
@@ -216,15 +219,6 @@ export function toggleScoreSort(){
   renderGallery();
 }
 
-export function toggleBandView(){
-  bandView=!bandView;
-  const btn=document.getElementById('bandViewBtn');
-  if(btn)btn.className='btn xs'+(bandView?' filter-on':'');
-  document.querySelector('.main-content')?.classList.toggle('band-view',bandView);
-  renderGallery();
-  renderSavedSection();
-}
-
 export function weightedPick(pool,scores,n){
   const out=[],used=new Set();let att=0;
   while(out.length<n&&att<400){att++;const tot=scores.reduce((a,b)=>a+b,0);let r=Math.random()*tot;for(let i=0;i<pool.length;i++){r-=scores[i];if(r<=0&&!used.has(i)){used.add(i);out.push(pool[i]);break;}}}
@@ -362,29 +356,6 @@ export function updateProjectBanner(){
       nameEl.className='mcb-project';
       if(countEl){const count=likedMeta.filter(m=>m.projectId===activeContext).length;countEl.textContent=`${count}`;countEl.style.display='';}
     }
-  }
-}
-
-export function setMobileTab(tab){
-  const savedBtn=document.getElementById('mbbSaved');
-  const discBtn=document.getElementById('mbbDiscover');
-  if(savedBtn)savedBtn.classList.toggle('mbb-active',tab==='saved');
-  if(discBtn)discBtn.classList.toggle('mbb-active',tab==='discover');
-  if(currentTab!=='explore')setTab('explore');
-  
-  const isMobile = window.innerWidth <= 700;
-  if (isMobile) {
-    const savedSec = document.getElementById('savedSection');
-    if (savedSec) {
-      if (tab === 'saved') {
-        savedSec.classList.add('open');
-      } else {
-        savedSec.classList.remove('open');
-      }
-    }
-  } else {
-    if(tab==='saved'){document.getElementById('savedSection')?.scrollIntoView({behavior:'smooth',block:'start'});}
-    else{document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth',block:'start'});}
   }
 }
 
@@ -772,7 +743,7 @@ export function buildCard(p,isLiked,compact){
     const tag=document.createElement('div');tag.className='card-tag';tag.textContent=(isBanding?'≋ ':'')+p.tag;
     const sc=scoreAesthetic(p.glazes,activeScoreWeights());
     const badge=document.createElement('span');
-    badge.className='score-badge'+(sc>=70?' score-hi':sc>=45?' score-mid':' score-lo');
+    badge.className='score-badge'+(sc>=SCORE_HI?' score-hi':sc>=SCORE_MID?' score-mid':' score-lo');
     badge.title='Aesthetic score: contrast, harmony, distinctness, material variety';
     badge.textContent='★ '+sc;
     tagRow.appendChild(tag);tagRow.appendChild(badge);footer.appendChild(tagRow);
@@ -844,7 +815,7 @@ export function renderGallery(){
         const sc = scoreAesthetic(p.glazes, w);
         const badge = card.querySelector('.score-badge');
         if (badge) {
-          badge.className = 'score-badge' + (sc >= 70 ? ' score-hi' : sc >= 45 ? ' score-mid' : ' score-lo');
+          badge.className = 'score-badge' + (sc >= SCORE_HI ? ' score-hi' : sc >= SCORE_MID ? ' score-mid' : ' score-lo');
           badge.textContent = '★ ' + sc;
         }
         const peek = card.querySelector('.card-score-peek');
@@ -945,7 +916,7 @@ export function renderSavedSection(){
         const sc = glazes.length ? scoreAesthetic(glazes, w) : 0;
         const badge = card.querySelector('.score-badge');
         if (badge && glazes.length) {
-          badge.className = 'score-badge' + (sc >= 70 ? ' score-hi' : sc >= 45 ? ' score-mid' : ' score-lo');
+          badge.className = 'score-badge' + (sc >= SCORE_HI ? ' score-hi' : sc >= SCORE_MID ? ' score-mid' : ' score-lo');
           badge.textContent = '★ ' + sc;
         }
         const peek = card.querySelector('.card-score-peek');
@@ -2004,73 +1975,4 @@ export function openCtxMenu(e, p) {
     menu.style.left = x + 'px';
     menu.style.top = y + 'px';
   });
-}
-
-let _mobileMoreMenuOpen = null;
-export function showMobileMoreMenu(anchor) {
-  if (_mobileMoreMenuOpen) { _mobileMoreMenuOpen.remove(); _mobileMoreMenuOpen = null; return; }
-  const popup = document.createElement('div');
-  popup.className = 'proj-menu-popup';
-  _mobileMoreMenuOpen = popup;
-
-  const toggleViewItem = document.createElement('button');
-  toggleViewItem.className = 'proj-menu-item';
-  if (currentTab === 'explore') {
-    toggleViewItem.textContent = 'View Analytics';
-    toggleViewItem.addEventListener('click', () => {
-      popup.remove(); _mobileMoreMenuOpen = null;
-      setTab('analytics');
-    });
-  } else {
-    toggleViewItem.textContent = 'View Explore';
-    toggleViewItem.addEventListener('click', () => {
-      popup.remove(); _mobileMoreMenuOpen = null;
-      setTab('explore');
-    });
-  }
-  popup.appendChild(toggleViewItem);
-
-  const importItem = document.createElement('button');
-  importItem.className = 'proj-menu-item';
-  importItem.textContent = 'Import Palettes…';
-  importItem.addEventListener('click', () => {
-    popup.remove(); _mobileMoreMenuOpen = null;
-    window.openImport();
-  });
-  popup.appendChild(importItem);
-
-  const exportItem = document.createElement('button');
-  exportItem.className = 'proj-menu-item';
-  exportItem.textContent = 'Copy Session JSON';
-  exportItem.addEventListener('click', () => {
-    popup.remove(); _mobileMoreMenuOpen = null;
-    window.exportSession();
-  });
-  popup.appendChild(exportItem);
-
-  const shortcutItem = document.createElement('button');
-  shortcutItem.className = 'proj-menu-item';
-  shortcutItem.textContent = 'Keyboard Shortcuts';
-  shortcutItem.addEventListener('click', () => {
-    popup.remove(); _mobileMoreMenuOpen = null;
-    openShortcutOverlay();
-  });
-  popup.appendChild(shortcutItem);
-
-  const r = anchor.getBoundingClientRect();
-  popup.style.top = (r.bottom + 4) + 'px';
-  popup.style.right = '16px';
-  document.body.appendChild(popup);
-
-  const close = e => {
-    if (!popup.contains(e.target) && e.target !== anchor) {
-      popup.remove(); _mobileMoreMenuOpen = null;
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('touchstart', close);
-    }
-  };
-  setTimeout(() => {
-    document.addEventListener('mousedown', close);
-    document.addEventListener('touchstart', close, {passive:true});
-  }, 0);
 }
