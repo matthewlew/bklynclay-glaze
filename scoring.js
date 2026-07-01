@@ -49,11 +49,24 @@ export function harmonyScore(hues) {
   return Math.max(0, Math.min(1, best));
 }
 
-// F1-F7 weighted aesthetic score (0-100).
-// Weights: saturation spread 18%, lightness range 15%, lightness balance 17%,
-// min pairwise distance 25%, hue harmony 7%, material variety 5%, achromatic penalty 13%.
-export function scoreAesthetic(glazes) {
+// F1-F7 weight presets, selectable per project. Each sums to 1.0.
+// f1 contrast/saturation spread, f2 lightness range (banding/stripes), f3 lightness balance,
+// f4 min pairwise distance, f5 hue harmony, f6 material variety, f7 achromatic penalty.
+export const SCORE_PRESETS = {
+  Balanced:    { label: 'Balanced',      desc: 'Equal weight across all qualities — good starting point for mixed collections.', weights: [0.18, 0.15, 0.17, 0.25, 0.07, 0.05, 0.13] },
+  Banding:     { label: 'Banding',       desc: 'Favors light-to-dark transitions and stripe patterns where glazes repeat for layered flow effects.', weights: [0.10, 0.34, 0.12, 0.18, 0.06, 0.05, 0.15] },
+  Harmony:     { label: 'Harmony',       desc: 'Rewards analogous, complementary, or triadic hue relationships — palettes that feel tonally cohesive.', weights: [0.08, 0.12, 0.16, 0.12, 0.34, 0.05, 0.13] },
+  Contrast:    { label: 'Contrast',      desc: 'Prioritizes color pop and glaze separation — high saturation variance and visually distinct neighbors.', weights: [0.30, 0.10, 0.10, 0.34, 0.04, 0.04, 0.08] },
+  MaterialMix: { label: 'Material Mix',  desc: 'Values finish variety — matte, shiny, transparent, and textured glazes together in the same palette.', weights: [0.12, 0.13, 0.15, 0.20, 0.06, 0.26, 0.08] },
+};
+
+export const DEFAULT_SCORE_WEIGHTS = SCORE_PRESETS.Balanced.weights;
+
+// F1-F7 weighted aesthetic score (0-100). `weights` is an optional [f1..f7]
+// array (see SCORE_PRESETS); defaults to the Balanced preset.
+export function scoreAesthetic(glazes, weights) {
   if (!glazes || glazes.length < 2) return 0;
+  const w = weights || DEFAULT_SCORE_WEIGHTS;
   const n = glazes.length;
   const lums = glazes.map(g => g.lum);
   const sats = glazes.map(g => g.sat);
@@ -89,7 +102,7 @@ export function scoreAesthetic(glazes) {
   const achromaticCount = glazes.filter(g => g.sat < 0.10).length;
   const f7 = achromaticCount <= 1 ? 1.0 : Math.max(0.3, 1 - (achromaticCount - 1) * 0.35);
 
-  return Math.round((f1 * 0.18 + f2 * 0.15 + f3 * 0.17 + f4 * 0.25 + f5 * 0.07 + f6 * 0.05 + f7 * 0.13) * 100);
+  return Math.round((f1 * w[0] + f2 * w[1] + f3 * w[2] + f4 * w[3] + f5 * w[4] + f6 * w[5] + f7 * w[6]) * 100);
 }
 
 // Lever-based glaze score (0 → not preferred, higher → more preferred given current levers).

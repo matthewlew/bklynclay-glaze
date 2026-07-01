@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BklynClay — How scoreAesthetic() Works</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --clay-w:#E2DDD6;
+  --clay-r:#7A3828;
+  --ink:#111;
+  --ink2:#444;
+  --ink3:#888;
+  --border:#e4e4e0;
+  --border2:#ccc;
+  --surf:#f5f3f0;
+  --card:#fff;
+  --acc:#b84510;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  --r:6px;
+  --ds-nav:220px;
+  --ds-max:760px;
+}
+body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);background:var(--surf);display:flex;min-height:100vh;}
+
+.ds-nav{width:var(--ds-nav);flex-shrink:0;background:#fff;border-right:1px solid var(--border);position:sticky;top:0;height:100vh;overflow-y:auto;padding:24px 0 40px;}
+.ds-nav-brand{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);padding:0 18px 16px;border-bottom:1px solid var(--border);margin-bottom:12px;}
+.ds-nav-section{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.10em;color:var(--ink3);padding:10px 18px 4px;}
+.ds-nav a{display:block;font-size:12px;color:var(--ink2);text-decoration:none;padding:5px 18px;transition:color .1s,background .1s;border-left:2px solid transparent;}
+.ds-nav a:hover{color:var(--ink);background:var(--surf);}
+.ds-nav a.active{color:var(--ink);border-left-color:var(--acc);font-weight:600;}
+
+.ds-main{flex:1;min-width:0;padding:48px 48px 120px;max-width:calc(var(--ds-max) + 96px);}
+.ds-page-title{font-size:28px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-bottom:6px;}
+.ds-page-sub{font-size:14px;color:var(--ink3);line-height:1.6;max-width:600px;margin-bottom:48px;}
+
+.ds-section{margin-bottom:56px;}
+.ds-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.10em;color:var(--ink3);margin-bottom:20px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.ds-section h3{font-size:13px;font-weight:700;color:var(--ink);margin:24px 0 10px;}
+.ds-section p{font-size:13px;color:var(--ink2);line-height:1.75;margin-bottom:12px;}
+.ds-section ul,.ds-section ol{margin:0 0 12px 18px;}
+.ds-section li{font-size:13px;color:var(--ink2);line-height:1.75;margin-bottom:4px;}
+
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--surf);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--ink);}
+pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.6;background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;overflow-x:auto;margin-bottom:12px;color:var(--ink2);}
+pre code{background:none;border:none;padding:0;}
+
+.ds-callout{border-radius:var(--r);padding:14px 16px;margin-bottom:12px;font-size:12px;line-height:1.7;}
+.ds-callout.note{background:#f0f4ff;border:1px solid #c4d0f0;color:#1a2a5a;}
+.ds-callout.do{background:#eaf6ea;border:1px solid #b8d8b8;color:#1a4a1a;}
+
+table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px;}
+th{text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);padding:6px 10px;border-bottom:1px solid var(--border);}
+td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--ink2);vertical-align:top;}
+td:first-child,th:first-child{color:var(--ink);font-weight:600;padding-left:0;}
+tr:last-child td{border-bottom:none;}
+
+.weight-bar-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.weight-bar-label{width:150px;font-size:11px;color:var(--ink2);flex-shrink:0;}
+.weight-bar-track{flex:1;height:8px;background:var(--surf);border-radius:4px;overflow:hidden;}
+.weight-bar-fill{height:100%;background:var(--acc);}
+.weight-bar-pct{width:36px;text-align:right;font-size:11px;color:var(--ink3);flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<nav class="ds-nav">
+  <div class="ds-nav-brand">BklynClay Docs</div>
+  <div class="ds-nav-section">On This Page</div>
+  <a href="#what">What scoreAesthetic Does</a>
+  <a href="#features">The Seven Features</a>
+  <a href="#weights">How Weights Combine</a>
+  <a href="#blackbox">Why Not Just Use AI?</a>
+  <a href="#phase2">Phase 2: Learned Weights</a>
+  <a href="#extending">Adding New Preferences</a>
+  <a href="#recipe">Worked Example: Stripe vs Linear</a>
+</nav>
+
+<main class="ds-main">
+  <div class="ds-page-title">How scoreAesthetic() Works</div>
+  <div class="ds-page-sub">A plain-language walkthrough of the function that scores every glaze palette in BklynClay, and a guide for adding new taste dimensions — like stripes vs. linear banding, gloss vs. matte, or crawling vs. smooth — without turning the system into a black box.</div>
+
+  <section class="ds-section" id="what">
+    <div class="ds-section-title">What scoreAesthetic Does</div>
+    <p><code>scoreAesthetic(glazes, weights)</code> in <code>scoring.js</code> takes a palette (an array of 2+ glazes) and returns a single number from 0–100. That number drives sort order in Discover, the "Aesthetic score" badge on every card, and ranking inside the Calibrate comparison flow.</p>
+    <p>It is not a neural net and it has no training data baked in. It is seven simple, named measurements — each one a deliberate guess about what makes a palette feel intentional rather than random — combined with a weighted sum. Every number it produces can be traced back to a specific, readable rule.</p>
+    <div class="ds-callout note"><strong>Where to look:</strong> the whole implementation is ~50 lines in <code>scoring.js</code> — <code>featureVector(glazes)</code> computes the seven raw features, <code>scoreAesthetic(glazes, weights)</code> combines them.</div>
+  </section>
+
+  <section class="ds-section" id="features">
+    <div class="ds-section-title">The Seven Features</div>
+    <p>Each feature is normalized to a 0–1 range before weighting. Here's what each one is actually measuring and why it exists:</p>
+    <table>
+      <tr><th>#</th><th>Feature</th><th>What it measures</th><th>Intuition</th></tr>
+      <tr><td>f1</td><td>Saturation spread</td><td>Standard deviation of saturation across the palette's glazes</td><td>A palette that's all-vivid or all-muted feels flat; mixing intensities feels composed</td></tr>
+      <tr><td>f2</td><td>Lightness range</td><td>Max lum − min lum across the palette</td><td>Too tight a lightness range looks muddy on a pot; too wide can look disjointed. A sweet spot in the middle scores highest</td></tr>
+      <tr><td>f3</td><td>Lightness balance</td><td>How close the palette's average lightness is to a mid-tone (0.47)</td><td>Palettes skewed all-dark or all-pale read as heavy or washed-out</td></tr>
+      <tr><td>f4</td><td>Min pairwise distance</td><td>The closest two glazes get to each other in hue/lum/sat space</td><td>If two glazes are nearly identical, the palette reads as a mistake, not a choice — this is the harshest penalty in the score</td></tr>
+      <tr><td>f5</td><td>Hue harmony</td><td>Best fit against analogous, complementary, and triadic hue relationships</td><td>Borrows directly from color theory — palettes that loosely match a known harmony pattern read as "designed"</td></tr>
+      <tr><td>f6</td><td>Material variety</td><td>Whether finishes span more than one type (e.g. gloss + matte, not gloss + gloss)</td><td>Visual texture variety reads as more considered than uniform finish</td></tr>
+      <tr><td>f7</td><td>Achromatic penalty</td><td>Penalizes having more than one near-gray (low saturation) glaze</td><td>One neutral anchors a palette; two or more grays reads as indecisive rather than intentional</td></tr>
+    </table>
+  </section>
+
+  <section class="ds-section" id="weights">
+    <div class="ds-section-title">How Weights Combine</div>
+    <p>The default weights (used until a user calibrates their own) are fixed constants chosen by hand, not learned:</p>
+    <div class="weight-bar-wrap"><span class="weight-bar-label">f4 — min pairwise distance</span><div class="weight-bar-track"><div class="weight-bar-fill" style="width:25%"></div></div><span class="weight-bar-pct">25%</span></div>
+    <div class="weight-bar-wrap"><span class="weight-bar-label">f1 — saturation spread</span><div class="weight-bar-track"><div class="weight-bar-fill" style="width:18%"></div></div><span class="weight-bar-pct">18%</span></div>
+    <div class="weight-bar-wrap"><span class="weight-bar-label">f3 — lightness balance</span><div class="weight-bar-track"><div class="weight-bar-fill" style="width:17%"></div></div><span class="weight-bar-pct">17%</span></div>
+    <div class="weight-bar-wrap"><span class="weight-bar-label">f2 — lightness range</span><div class="weight-bar-track"><div class="weight-bar-fill" style="width:15%"></div></div><span class="weight-bar-pct">15%</span></div>
+    <div class="weight-bar-wrap"><span class="weight-bar-label">f7 — achromatic penalty</span><div class="weight-bar-track"><div class="weight-bar-fill" style="width:13%"></div></div><span class="weight-bar-pct">13%</span></div>
+    <div class="weight-bar-wrap"><span class="weight-bar-label">f5 — hue harmony</span><div class="weight-bar-track"><div class="weight-bar-fill" style="width:7%"></div></div><span class="weight-bar-pct">7%</span></div>
+    <div class="weight-bar-wrap"><span class="weight-bar-label">f6 — material variety</span><div class="weight-bar-track"><div class="weight-bar-fill" style="width:5%"></div></div><span class="weight-bar-pct">5%</span></div>
+    <pre><code>score = round(100 * (f1·w1 + f2·w2 + f3·w3 + f4·w4 + f5·w5 + f6·w6 + f7·w7))</code></pre>
+    <p>Because it's a weighted sum of named, bounded features — not a model with millions of opaque parameters — every score is explainable: you can always say "this palette scored low because two glazes were nearly identical (f4) and it had three different grays (f7)."</p>
+  </section>
+
+  <section class="ds-section" id="blackbox">
+    <div class="ds-section-title">Why Not Just Use AI?</div>
+    <p>A neural net or LLM judge could absolutely produce a "does this look good" score. The reason BklynClay doesn't work that way:</p>
+    <ul>
+      <li><strong>Traceability.</strong> Every score decomposes into seven readable numbers. If a palette scores 40, you can see exactly which feature dragged it down — instead of "the model said so."</li>
+      <li><strong>No training data needed.</strong> The defaults work on day one with zero user history, because they encode established design rules (color harmony, contrast, balance) rather than learned correlations.</li>
+      <li><strong>Personalizable without retraining a model.</strong> Phase 2 (below) tunes the same seven weights to an individual's taste using ~25 comparisons and a tiny logistic regression — fast, local, and auditable.</li>
+    </ul>
+  </section>
+
+  <section class="ds-section" id="phase2">
+    <div class="ds-section-title">Phase 2: Learned Weights</div>
+    <p>The Calibrate flow shows pairs of saved palettes and asks "which do you prefer?" Each answer is stored as a comparison. After enough pairs, <code>fitWeights()</code> runs a small logistic regression (Bradley-Terry style) over the feature differences between the two palettes in each pair, and produces a personalized 7-weight vector saved to <code>learnedWeights</code> in localStorage.</p>
+    <p>Crucially, this still produces exactly the same kind of weighted sum over the same seven named features — calibration changes <em>how much</em> each feature matters to you, not <em>what</em> is being measured. The "Personalized score" badge always traces back to the same seven readable numbers.</p>
+  </section>
+
+  <section class="ds-section" id="extending">
+    <div class="ds-section-title">Adding New Preferences (Stripes vs. Linear, Gloss vs. Matte, Crawling vs. Not)</div>
+    <p>All three of these are the same kind of change: a new feature dimension that the current seven don't capture, because they all describe <em>color</em> relationships, not <em>finish/pattern</em> relationships. The path to adding any of them is the same three steps:</p>
+
+    <h3>1. Define what's measurable about it</h3>
+    <p>Each glaze in <code>glazes-data.js</code> already carries a <code>fin</code> (finish) field — values like <code>gloss</code>, <code>matte</code>, <code>transparent</code>, <code>crawl-*</code>. That's enough raw material for several new features without touching the data model:</p>
+    <table>
+      <tr><th>Preference</th><th>New feature, f8...</th><th>What it would measure</th></tr>
+      <tr><td>Gloss vs. matte</td><td><code>f8: finishContrast</code></td><td>Fraction of the palette that is gloss vs. matte — e.g. score high for a palette that's deliberately all-one or a clean 50/50 split, score low for an unintentional 2-gloss-1-matte mix</td></tr>
+      <tr><td>Crawling vs. smooth</td><td><code>f9: crawlRatio</code></td><td>Same shape as f7's achromatic penalty: does the palette use 0, 1, or 2+ crawl-texture glazes, and does that match the user's preference for "one textural accent" vs. "all-crawl" vs. "no texture"</td></tr>
+      <tr><td>Stripe vs. linear banding</td><td><code>f10: patternIntent</code></td><td>This one isn't a glaze property — it's how the glazes are <em>applied</em>. Needs a new field on the project/palette object (e.g. <code>applicationPattern: 'stripe'|'linear'|'dip'|'random'</code>) set when a user builds a layout, not derived from <code>GLAZES</code> data</td></tr>
+    </table>
+    <div class="ds-callout note"><strong>Key distinction:</strong> gloss/matte and crawling are <em>glaze</em> properties — already in <code>GLAZES</code>, so they slot into <code>featureVector()</code> immediately. Stripe vs. linear is an <em>application</em> property — it describes how glazes are arranged on a piece, which doesn't exist as data yet. That one needs a small data model addition before it can be scored at all.</div>
+
+    <h3>2. Add it to featureVector()</h3>
+    <p>Each new feature is just another 0–1 number appended to the array <code>featureVector()</code> returns. For example, gloss/matte balance:</p>
+    <pre><code>const finishCounts = { gloss: 0, matte: 0 };
+glazes.forEach(g => {
+  if (g.fin === 'gloss' || g.fin === 'transparent') finishCounts.gloss++;
+  if (g.fin === 'matte') finishCounts.matte++;
+});
+// 1.0 = clean split or clean uniform, lower = accidental in-between mix
+const f8 = Math.abs(finishCounts.gloss - finishCounts.matte) / glazes.length;</code></pre>
+    <p>Then add a default weight (e.g. start small, like 0.05, and rebalance the others so they still sum to 1) and update the array destructure everywhere <code>featureVector()</code> is consumed.</p>
+
+    <h3>3. Let calibration tune it per-user</h3>
+    <p>Because <code>fitWeights()</code> already runs a generic gradient descent over however many features <code>featureVector()</code> returns, a new feature is picked up automatically once it's added — no changes needed to the learning code itself. If someone consistently prefers matte-only palettes over mixed-finish ones during Calibrate, the regression will push that feature's learned weight toward what they showed, not what was hardcoded.</p>
+    <div class="ds-callout do"><strong>This is the point of the architecture:</strong> taste dimensions are added as named, inspectable features, and personalization happens by re-weighting those names — never by replacing the explainable model with an opaque one.</div>
+  </section>
+
+  <section class="ds-section" id="recipe">
+    <div class="ds-section-title">Worked Example: Stripe vs. Linear Banding</div>
+    <p>This is the most involved of the three because, as noted above, "stripe vs. linear" isn't a fact about a glaze — it's a fact about how a project's layers are arranged. Concretely:</p>
+    <ol>
+      <li><strong>Add the field.</strong> When a project is saved (see <code>persistence.js</code>), record how the user applied the palette: <code>{ pattern: 'stripe' | 'linear-band' | 'dip' | 'random' }</code>. Default to <code>'random'</code> for existing saved projects so nothing breaks retroactively.</li>
+      <li><strong>Score the match, not the pattern itself.</strong> Patterns aren't inherently better or worse — what should be scored is whether the <em>palette's structure</em> fits the chosen pattern. E.g. for <code>stripe</code>, high-contrast lightness steps between adjacent colors read well; for <code>linear-band</code>, smooth lightness progression (sorted lums with small deltas) reads well. So <code>f10</code> would be computed differently depending on the project's stored pattern.</li>
+      <li><strong>Surface it in Calibrate.</strong> Add stripe vs. linear example pairs (same palette, two different layouts) to the comparison pool so the regression has signal to learn from specifically on this axis, not just inherited from color-only pairs.</li>
+    </ol>
+    <p>The output is still one number, 0–100, still fully attributable to seven-to-ten named features — just with one more axis of taste the user can teach the app about them.</p>
+  </section>
+
+</main>
+
+</body>
+</html>

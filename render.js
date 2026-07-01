@@ -1,5 +1,5 @@
 import { CLAY, GLAZES, NL, LEVERS, PRESETS } from './glazes-data.js';
-import { hd, circularSpan, cardTemperature, cardDepth, harmonyScore, scoreAesthetic, scoreGlaze, pairingScore } from './scoring.js';
+import { hd, circularSpan, cardTemperature, cardDepth, harmonyScore, scoreAesthetic, scoreGlaze, pairingScore, SCORE_PRESETS, DEFAULT_SCORE_WEIGHTS } from './scoring.js';
 import { state } from './state.js';
 import { saveAll, exportSession } from './persistence.js';
 
@@ -8,6 +8,12 @@ const TH = 78;
 const TG = 1;
 const NT = 4;
 const SVG_W = 100;
+
+const SCORE_HI = 70;
+const SCORE_MID = 45;
+
+let lastRenderedKeys = [];
+let lastSavedKeys = [];
 
 // ── COLOR MATH ────────────────────────────────────────────────────────────────
 export function hexRGB(h){return{r:parseInt(h.slice(1,3),16),g:parseInt(h.slice(3,5),16),b:parseInt(h.slice(5,7),16)};}
@@ -100,7 +106,14 @@ export function swatchSVG(g,ck,h){
 }
 
 export function buildStack(glazes,ck,tH){
-  tH=tH||TH;const col=document.createElement('div');col.className='tile-col';
+  tH=tH||TH;
+  if(bandView){
+    const wrap=document.createElement('div');wrap.className='tile-band-wrap';
+    const band=document.createElement('div');band.className='tile-band tile-col';
+    band.style.background=glazeCSS(glazes,ck||clayKey);
+    wrap.appendChild(band);return wrap;
+  }
+  const col=document.createElement('div');col.className='tile-col';
   for(let ti=0;ti<NT;ti++){const w=document.createElement('div');w.className='tile-wrap';w.innerHTML=tileSVG(ti,glazes,ck||clayKey,tH);col.appendChild(w);}
   return col;
 }
@@ -270,7 +283,6 @@ export function setClay(k){
   });
   renderSidebar();
   renderLeftPanelPairings();
-  renderRightGlazeRef();
 }
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
@@ -288,34 +300,63 @@ export function setTab(tab){
 }
 
 // ── PROJECT CONTEXT ───────────────────────────────────────────────────────────
+export function activeScoreWeights(){
+  if(activeContext==='global')return DEFAULT_SCORE_WEIGHTS;
+  const proj=projects.find(p=>p.id===activeContext);
+  return SCORE_PRESETS[proj?.scorePreset]?.weights || DEFAULT_SCORE_WEIGHTS;
+}
+
 export function switchContext(ctx){
   activeContext=ctx;
+  let leversChanged=false;
   if(ctx!=='global'){
     const proj=projects.find(p=>p.id===ctx);
-    if(proj&&proj.leverState){levers={...proj.leverState};buildLeversUI();updatePresetName();}
+    if(proj&&proj.leverState){
+      const prev=JSON.stringify(levers);
+      levers={...proj.leverState};
+      leversChanged=JSON.stringify(levers)!==prev;
+      buildLeversUI();updatePresetName();
+    }
   }
   updateProjectBanner();
   renderSidebar();
   renderTopbarTabs();
   renderLeftPanelPairings();
-  if(currentTab==='explore'){palettes=genBatch();renderGallery();renderSavedSection();}
+  renderScoreWeighting();
+  if(currentTab==='explore'){if(leversChanged)palettes=genBatch();renderGallery();renderSavedSection();}
 }
 
 export function updateProjectBanner(){
   const ctx=document.getElementById('discoverContext');
-  if(ctx){
-    const proj=projects.find(p=>p.id===activeContext);
-    ctx.textContent=proj?`in ${proj.name}`:'';
-  }
+  if(ctx){const proj=projects.find(p=>p.id===activeContext);ctx.textContent=proj?`in ${proj.name}`:'';  }
   const banner=document.getElementById('projectBanner');
-  if(!banner)return;
-  if(activeContext==='global'){banner.classList.remove('visible');return;}
-  const proj=projects.find(p=>p.id===activeContext);
-  if(!proj){banner.classList.remove('visible');return;}
-  banner.classList.add('visible');
-  document.getElementById('bannerName').textContent=proj.name;
-  const count=likedMeta.filter(m=>m.projectId===activeContext).length;
-  document.getElementById('bannerInfo').textContent=`${count} palette${count!==1?'s':''}`;
+  if(banner){
+    if(activeContext==='global'){banner.classList.remove('visible');}
+    else{
+      const proj=projects.find(p=>p.id===activeContext);
+      if(proj){
+        banner.classList.add('visible');
+        document.getElementById('bannerName').textContent=proj.name;
+        const count=likedMeta.filter(m=>m.projectId===activeContext).length;
+        document.getElementById('bannerInfo').textContent=`${count} palette${count!==1?'s':''}`;
+      }else{banner.classList.remove('visible');}
+    }
+  }
+  const nameEl=document.getElementById('mcbProjectName');
+  const countEl=document.getElementById('mcbCount');
+  if(!nameEl)return;
+  if(activeContext==='global'){
+    nameEl.textContent='All Projects';
+    nameEl.className='mcb-project mcb-project-global';
+    if(countEl)countEl.style.display='none';
+  }else{
+    const proj=projects.find(p=>p.id===activeContext);
+    if(proj){
+      nameEl.textContent=proj.name;
+      nameEl.className='mcb-project';
+      if(countEl){const count=likedMeta.filter(m=>m.projectId===activeContext).length;countEl.textContent=`${count}`;countEl.style.display='';}
+    }
+  }
 }
 
 export function updateProjectPicker(){
@@ -328,7 +369,7 @@ export function updateProjectPicker(){
 // ── PROJECT MANAGEMENT ────────────────────────────────────────────────────────
 export function createNewProject(){
   const newId=mkid();
-  const proj={id:newId,name:'New Board',leverState:{...levers}};
+  const proj={id:newId,name:'New Board',leverState:{...levers},scorePreset:'Balanced'};
   projects.push(proj);
   saveAll();
   renderTopbarTabs();
@@ -393,7 +434,7 @@ export function makeProjTab(label, isActive, colorNames, onActivate, onDelete, p
     lbl.addEventListener('dblclick',e=>{
       e.stopPropagation();
       const inp=document.createElement('input');inp.type='text';inp.value=lbl.textContent;
-      inp.style.cssText='font-size:12px;font-weight:600;font-family:inherit;border:none;background:transparent;color:inherit;outline:none;width:100%;';
+      inp.className='proj-tab-input';
       lbl.replaceWith(inp);inp.focus();inp.select();
       let committed=false;
       const commit=()=>{
@@ -497,12 +538,7 @@ export function buildSidebarChip(m,inProject){
     });
   });
   chip.appendChild(rm);
-  const loadIt=()=>{
-    if(currentTab!=='explore')setTab('explore');
-    const el=document.querySelector(`#savedGallery [data-key="${m.key}"]`);
-    if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('card-highlight');setTimeout(()=>el.classList.remove('card-highlight'),1400);}
-    else{document.getElementById('savedSection')?.scrollIntoView({behavior:'smooth'});}
-  };
+  const loadIt=()=>{ if(typeof openPaletteDetail==='function') openPaletteDetail(m.key); };
   chip.addEventListener('click',loadIt);chip.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();loadIt();}});
   return chip;
 }
@@ -533,13 +569,12 @@ export function buildGlazeChips(p, stack, card) {
     chipsWrap.innerHTML='';
     p.glazes.forEach((g,idx)=>{
       const chip=document.createElement('div');chip.className='glaze-chip';chip.draggable=true;chip.dataset.idx=idx;
-      const hdl=document.createElement('span');hdl.className='glaze-chip-handle';hdl.textContent='⠿';
       const c=applyGlaze(g,clayKey);
       const sw=document.createElement('div');sw.className='glaze-chip-swatch';sw.style.background=`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})`;
       const nm=document.createElement('span');nm.className='glaze-chip-name';nm.textContent=g.name;
       const rm=document.createElement('button');rm.className='glaze-chip-rm';rm.textContent='×';rm.title='Remove glaze';
       rm.addEventListener('click',e=>{e.stopPropagation();if(p.glazes.length<=2)return;p.glazes.splice(idx,1);p.key=p.glazes.map(g=>g.name).join('|');card.dataset.key=p.key;refreshStack(stack,p.glazes,clayKey,TH);rebuildChips();});
-      chip.appendChild(hdl);chip.appendChild(sw);chip.appendChild(nm);chip.appendChild(rm);
+      chip.appendChild(sw);chip.appendChild(nm);chip.appendChild(rm);
       chip.addEventListener('dragstart',e=>{dragSrcIdx=idx;e.dataTransfer.effectAllowed='move';chip.style.opacity='.4';});
       chip.addEventListener('dragend',()=>{chip.style.opacity='';chipsWrap.querySelectorAll('.glaze-chip').forEach(c=>c.classList.remove('drag-over-chip'));});
       chip.addEventListener('dragover',e=>{e.preventDefault();chip.classList.add('drag-over-chip');});
@@ -607,7 +642,7 @@ export function buildBoardDropdown(p, pinBtn, card, compact) {
       const itemStrip=document.createElement('div');itemStrip.className='bd-item-strip';
       if(projGlazes.length)itemStrip.style.background=glazeCSS(projGlazes.slice(0,4),clayKey);
       const itemName=document.createElement('span');itemName.className='bd-item-name';itemName.textContent=proj.name;
-      const count=document.createElement('span');count.style.cssText='font-size:10px;color:var(--ink3);';count.textContent=likedMeta.filter(x=>x.projectId===proj.id).length+' palettes';
+      const count=document.createElement('span');count.className='bd-item-count';count.textContent=likedMeta.filter(x=>x.projectId===proj.id).length+' palettes';
       if(inP){const ck=document.createElement('span');ck.className='bd-item-check';ck.textContent='✓';item.appendChild(itemStrip);item.appendChild(itemName);item.appendChild(count);item.appendChild(ck);}
       else{item.appendChild(itemStrip);item.appendChild(itemName);item.appendChild(count);}
       item.addEventListener('click',e=>{e.stopPropagation();panel.remove();_dropOpen=null;saveToBoard(proj.id);});
@@ -628,7 +663,7 @@ export function buildCard(p,isLiked,compact){
   const card=document.createElement('article');
   card.className='card'+(isLiked&&!compact?' liked':'')+(compact?' compact':'');
   card.dataset.pid=p.id;card.dataset.key=p.key||'';
-  card.addEventListener('click',e=>{if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);}else{_focusedCardKey=p.key;}});
+  card.addEventListener('click',e=>{if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);}else if(!e.target.closest('button,a,input,[contenteditable]')){_focusedCardKey=p.key;if(typeof openPaletteDetail==='function')openPaletteDetail(p.key);}});
   card.addEventListener('contextmenu', e => { if(!compact) openCtxMenu(e, p); });
 
   if (!compact) {
@@ -700,21 +735,15 @@ export function buildCard(p,isLiked,compact){
     const tagRow=document.createElement('div');tagRow.className='card-tag-row';
     const isBanding=new Set(p.glazes.map(g=>g.name)).size<p.glazes.length;
     const tag=document.createElement('div');tag.className='card-tag';tag.textContent=(isBanding?'≋ ':'')+p.tag;
-    const sc=scoreAesthetic(p.glazes);
+    const sc=scoreAesthetic(p.glazes,activeScoreWeights());
     const badge=document.createElement('span');
-    badge.className='score-badge'+(sc>=70?' score-hi':sc>=45?' score-mid':' score-lo');
+    badge.className='score-badge'+(sc>=SCORE_HI?' score-hi':sc>=SCORE_MID?' score-mid':' score-lo');
     badge.title='Aesthetic score: contrast, harmony, distinctness, material variety';
     badge.textContent='★ '+sc;
     tagRow.appendChild(tag);tagRow.appendChild(badge);footer.appendChild(tagRow);
-    const sciRow=document.createElement('div');sciRow.className='card-science-row';
-    const temp=cardTemperature(p.glazes);
-    if(temp){const tempBadge=document.createElement('span');tempBadge.className='card-sci-badge'+(temp==='warm'?' warm':temp==='cool'?' cool':'');tempBadge.title='Temperature: average hue of chromatic glazes';tempBadge.textContent=temp==='warm'?'⬤ Warm':temp==='cool'?'⬤ Cool':'⬤ Neutral';sciRow.appendChild(tempBadge);}
-    const depth=cardDepth(p.glazes);const depthBadge=document.createElement('span');depthBadge.className='card-sci-badge';depthBadge.title='Depth: luminosity range across glazes';depthBadge.textContent='◆'.repeat(depth)+'◇'.repeat(3-depth)+' Depth';sciRow.appendChild(depthBadge);
-    footer.appendChild(sciRow);
     const peekScore = document.createElement('div');
     peekScore.className = 'card-score-peek';
-    const sc2 = scoreAesthetic(p.glazes);
-    peekScore.textContent = '★ ' + sc2;
+    peekScore.textContent = '★ ' + sc;
     card.appendChild(peekScore);
     footer.appendChild(buildGlazeChips(p, stack, card));
   }
@@ -735,6 +764,9 @@ export function buildCard(p,isLiked,compact){
     footer.appendChild(row2);
   }
   card.appendChild(footer);
+  // Smart footer foreground: dark palette bottoms → white text
+  const bottomGlaze = p.glazes[p.glazes.length - 1];
+  if (bottomGlaze && bottomGlaze.lum < 0.38) footer.classList.add('dark-foot');
   if(!compact){
     card.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('glaze')){e.preventDefault();card.classList.add('drag-over-glaze');}});
     card.addEventListener('dragleave',()=>card.classList.remove('drag-over-glaze'));
@@ -757,9 +789,38 @@ export function buildCard(p,isLiked,compact){
 }
 
 export function renderGallery(){
-  const gal=document.getElementById('gallery');if(!gal)return;gal.innerHTML='';
-  const toRender=sortByScore?[...palettes].sort((a,b)=>scoreAesthetic(b.glazes)-scoreAesthetic(a.glazes)):palettes;
-  toRender.forEach(p=>gal.appendChild(buildCard(p,likedKeys.has(p.key),false)));
+  const gal=document.getElementById('gallery');if(!gal)return;
+  const w=activeScoreWeights();
+  const toRender=sortByScore?[...palettes].sort((a,b)=>scoreAesthetic(b.glazes,w)-scoreAesthetic(a.glazes,w)):palettes;
+  const currentKeys = toRender.map(p => p.key);
+  const keysMatch = currentKeys.length === lastRenderedKeys.length && currentKeys.every((k, i) => k === lastRenderedKeys[i]);
+
+  if (keysMatch) {
+    toRender.forEach(p => {
+      const card = gal.querySelector(`[data-key="${p.key}"]`);
+      if (card) {
+        const stack = card.querySelector('.tile-col');
+        if (stack) {
+          const isCompact = card.classList.contains('compact');
+          refreshStack(stack, p.glazes, clayKey, isCompact ? 44 : TH);
+        }
+        const sc = scoreAesthetic(p.glazes, w);
+        const badge = card.querySelector('.score-badge');
+        if (badge) {
+          badge.className = 'score-badge' + (sc >= SCORE_HI ? ' score-hi' : sc >= SCORE_MID ? ' score-mid' : ' score-lo');
+          badge.textContent = '★ ' + sc;
+        }
+        const peek = card.querySelector('.card-score-peek');
+        if (peek) {
+          peek.textContent = '★ ' + sc;
+        }
+      }
+    });
+  } else {
+    gal.innerHTML='';
+    toRender.forEach(p=>gal.appendChild(buildCard(p,likedKeys.has(p.key),false)));
+    lastRenderedKeys = currentKeys;
+  }
   renderSavedSection();
 }
 
@@ -811,17 +872,61 @@ export function renderSavedSection(){
   if(!filtered.length){section.style.display='none';renderProjectAnalyticsBand();updateJumpNav(0);return;}
   section.style.display='';
   const proj=projects.find(p=>p.id===activeContext);
-  if(lbl)lbl.textContent=proj?`${proj.name} — Saved`:'All Saved';
-  if(cnt)cnt.textContent=`(${filtered.length})`;
+  
+  const isMobile = window.innerWidth <= 700;
+  if (isMobile) {
+    if(lbl) lbl.textContent = 'PINNED';
+    if(cnt) cnt.textContent = ` · ${filtered.length}`;
+  } else {
+    if(lbl) lbl.textContent = proj ? `${proj.name} — Saved` : 'All Saved';
+    if(cnt) cnt.textContent = `(${filtered.length})`;
+  }
   updateJumpNav(filtered.length);
   renderProjectAnalyticsBand();
-  sg.innerHTML='';
-  filtered.forEach(m=>{
-    const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
-    if(!glazes.length)return;
-    const p=withKey({id:mkid(),label:labelStore[m.key]||m.label,feeling:'',tag:m.tag||'Pinned',glazes});
-    sg.appendChild(buildCard(p,true,true));
-  });
+  const w=activeScoreWeights();
+  const toShow=sortByScore
+    ?[...filtered].sort((a,b)=>{
+        const ga=(a.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+        const gb=(b.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+        return scoreAesthetic(gb,w)-scoreAesthetic(ga,w);
+      })
+    :filtered;
+
+  const currentKeys = toShow.map(m => m.key);
+  const keysMatch = currentKeys.length === lastSavedKeys.length && currentKeys.every((k, i) => k === lastSavedKeys[i]);
+
+  if (keysMatch) {
+    toShow.forEach(m => {
+      const card = sg.querySelector(`[data-key="${m.key}"]`);
+      if (card) {
+        const stack = card.querySelector('.tile-col');
+        const glazes = (m.names || []).map(n => GLAZES.find(g => g.name === n)).filter(Boolean);
+        if (stack && glazes.length) {
+          const isCompact = card.classList.contains('compact');
+          refreshStack(stack, glazes, clayKey, isCompact ? 44 : TH);
+        }
+        const sc = glazes.length ? scoreAesthetic(glazes, w) : 0;
+        const badge = card.querySelector('.score-badge');
+        if (badge && glazes.length) {
+          badge.className = 'score-badge' + (sc >= SCORE_HI ? ' score-hi' : sc >= SCORE_MID ? ' score-mid' : ' score-lo');
+          badge.textContent = '★ ' + sc;
+        }
+        const peek = card.querySelector('.card-score-peek');
+        if (peek && glazes.length) {
+          peek.textContent = '★ ' + sc;
+        }
+      }
+    });
+  } else {
+    sg.innerHTML='';
+    toShow.forEach(m=>{
+      const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+      if(!glazes.length)return;
+      const p=withKey({id:mkid(),label:labelStore[m.key]||m.label,feeling:'',tag:m.tag||'Pinned',glazes});
+      sg.appendChild(buildCard(p,true,false));
+    });
+    lastSavedKeys = currentKeys;
+  }
 }
 
 // ── PROJECT ANALYTICS BAND ────────────────────────────────────────────────────
@@ -845,7 +950,7 @@ export function renderProjectAnalyticsBand(){
   let warm=0,cool=0;
   meta.forEach(m=>{const cg=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(g=>g&&g.sat>.18);if(cg.length){const avg=cg.reduce((s,g)=>s+g.hue,0)/cg.length;if(avg<70||avg>250)warm++;else cool++;}});
   const tempStat=document.createElement('div');tempStat.className='proj-analytics-stat';
-  const dominant=warm>=cool?`<strong style="color:#c87030">${warm} warm</strong>`:`<strong style="color:#4870a0">${cool} cool</strong>`;
+  const dominant=warm>=cool?`<strong style="color:var(--warm)">${warm} warm</strong>`:`<strong style="color:var(--cool)">${cool} cool</strong>`;
   tempStat.innerHTML=`${meta.length} palettes · ${dominant}`;
   row.appendChild(tempStat);
   div.appendChild(row);band.appendChild(div);
@@ -960,7 +1065,7 @@ export function renderGlazeTiles(){
 }
 
 // ── PAIRINGS ──────────────────────────────────────────────────────────────────
-export function renderPairingsTab(){renderAnchorGrid();if(anchorGlaze)renderPairingResults();else{const pc=document.getElementById('pairingsContent');if(pc)pc.innerHTML='<div style="padding:20px 12px;font-size:12px;color:var(--ink3);">Select a glaze above to see all combinations.</div>';}}
+export function renderPairingsTab(){renderAnchorGrid();if(anchorGlaze)renderPairingResults();else{const pc=document.getElementById('pairingsContent');if(pc)pc.innerHTML='<div style="padding:12px 14px;font-size:12px;color:var(--ink3);">Select a glaze above to see all combinations.</div>';}}
 
 export function renderAnchorGrid(){
   const grid=document.getElementById('anchorGrid');if(!grid)return;grid.innerHTML='';
@@ -975,7 +1080,7 @@ export function renderAnchorGrid(){
 
 export function renderPairingResults(){
   const content=document.getElementById('pairingsContent');if(!content)return;content.innerHTML='';
-  if(!anchorGlaze){content.innerHTML='<div style="padding:20px 12px;font-size:12px;color:var(--ink3);">Select a glaze above to see all combinations.</div>';return;}
+  if(!anchorGlaze){content.innerHTML='<div style="padding:12px 14px;font-size:12px;color:var(--ink3);">Select a glaze above to see all combinations.</div>';return;}
   const others=GLAZES.filter(g=>g.name!==anchorGlaze.name);
   const scored=others.map(g=>({g,score:pairingScore(anchorGlaze,g)})).sort((a,b)=>b.score-a.score);
   const renderPairSection=(label,list)=>{
@@ -1070,26 +1175,31 @@ export function renderLeftPanelPairings(){
   });
 }
 
-// ── RIGHT PANEL GLAZE REFERENCE ───────────────────────────────────────────────
-export function renderRightGlazeRef(){
-  const grid=document.getElementById('rsGlazeGrid');if(!grid)return;
-  grid.innerHTML='';
-  GLAZES.forEach(g=>{
-    const c=applyGlaze(g,clayKey);
-    const col=`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})`;
-    const sw=document.createElement('div');
-    sw.className='rs-glaze-swatch'+(leftAnchorGlaze&&leftAnchorGlaze.name===g.name?' selected':'');
-    sw.style.background=col;
-    sw.title=g.name+' ('+g.fin+') — drag onto a palette to add';
-    sw.draggable=true;
-    sw.addEventListener('dragstart',e=>{e.dataTransfer.setData('glaze',g.name);e.dataTransfer.effectAllowed='copy';});
-    sw.addEventListener('click',()=>{
-      leftAnchorGlaze=(leftAnchorGlaze===g?null:g);
-      renderRightGlazeRef();
-      renderLeftPanelPairings();
-    });
-    grid.appendChild(sw);
+// ── SCORE WEIGHTING (right panel) ─────────────────────────────────────────────
+export function renderScoreWeighting(){
+  const sel=document.getElementById('scoreWeightSelect');if(!sel)return;
+  const hint=document.getElementById('scoreWeightHint');
+  const proj=activeContext!=='global'?projects.find(p=>p.id===activeContext):null;
+  sel.innerHTML='';
+  Object.keys(SCORE_PRESETS).forEach(key=>{
+    const opt=document.createElement('option');opt.value=key;opt.textContent=SCORE_PRESETS[key].label;
+    sel.appendChild(opt);
   });
+  const activeKey=proj?(proj.scorePreset||'Balanced'):'Balanced';
+  sel.value=activeKey;
+  sel.disabled=!proj;
+  const updateHint=key=>{
+    if(!hint)return;
+    hint.textContent=proj?SCORE_PRESETS[key]?.desc||'':`Open a board to set its score weighting.`;
+  };
+  updateHint(activeKey);
+  sel.onchange=()=>{
+    if(!proj)return;
+    proj.scorePreset=sel.value;saveAll();
+    updateHint(sel.value);
+    if(!sortByScore){sortByScore=true;const btn=document.getElementById('scoreSortBtn');if(btn)btn.className='btn xs filter-on';}
+    if(currentTab==='explore')renderGallery();
+  };
 }
 
 // ── PIN TOGGLE ────────────────────────────────────────────────────────────────
@@ -1131,7 +1241,7 @@ export function showPaletteModal(m){
   const gn=document.createElement('div');gn.className='palette-modal-glazes';gn.textContent=(m.names||[]).join(' · ');
   const projNames=projects.filter(p=>m.projectId===p.id).map(p=>p.name);
   const projEl=document.createElement('div');projEl.className='palette-modal-projects';
-  projEl.innerHTML=projNames.length?`In board: <strong>${projNames.join(', ')}</strong>`:'Not in any board';
+  if(projNames.length){projEl.textContent='In board: ';const strong=document.createElement('strong');strong.textContent=projNames.join(', ');projEl.appendChild(strong);}else{projEl.textContent='Not in any board';}
   const closeBtn=document.createElement('button');closeBtn.className='palette-modal-close';closeBtn.textContent='Close';
   closeBtn.addEventListener('click',()=>backdrop.remove());
   body.appendChild(nm);body.appendChild(gn);body.appendChild(projEl);
@@ -1160,6 +1270,7 @@ export function renderTopbarTabs(){
   const nav=document.getElementById('topbarTabs');if(!nav)return;
   nav.querySelectorAll('.ttab[data-proj-id]').forEach(el=>el.remove());
   const exploreTab=document.getElementById('tab_explore');
+  if(exploreTab)exploreTab.classList.toggle('on',activeContext==='global');
   projects.forEach(proj=>{
     const btn=document.createElement('button');
     btn.className='ttab'+(activeContext===proj.id?' on':'');
@@ -1167,10 +1278,15 @@ export function renderTopbarTabs(){
     btn.textContent=proj.name;
     btn.title='Double-click to rename';
     btn.addEventListener('click',()=>switchToProjectTab(proj.id));
+    btn.addEventListener('contextmenu',e=>{e.preventDefault();showProjMenu(proj.id,btn);});
+    let _lpt=null;
+    btn.addEventListener('touchstart',e=>{_lpt=setTimeout(()=>{e.preventDefault();showProjMenu(proj.id,btn);},600);},{passive:false});
+    btn.addEventListener('touchend',()=>clearTimeout(_lpt));
+    btn.addEventListener('touchmove',()=>clearTimeout(_lpt));
     btn.addEventListener('dblclick',e=>{
       e.stopPropagation();
       const inp=document.createElement('input');inp.type='text';inp.value=btn.textContent;
-      inp.style.cssText='font-size:13px;font-weight:600;font-family:inherit;border:none;background:transparent;color:inherit;outline:none;width:90px;border-bottom:1.5px solid var(--ink);';
+      inp.className='topbar-tab-input';
       btn.replaceWith(inp);inp.focus();inp.select();
       let committed=false;
       const commit=()=>{
@@ -1235,7 +1351,7 @@ export function renderAnalyticsView(){
   const topPairs=Object.entries(pairCount).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const pairCard=document.createElement('div');pairCard.className='analytics-card';
   pairCard.innerHTML='<div class="analytics-card-title">Common Pairings</div>';
-  if(!topPairs.length){pairCard.innerHTML+='<div style="font-size:11px;color:var(--ink3);padding-top:6px;">No repeated pairings yet.</div>';}
+  if(!topPairs.length){const noPairs=document.createElement('div');noPairs.className='analytics-empty-msg';noPairs.textContent='No repeated pairings yet.';pairCard.appendChild(noPairs);}
   topPairs.forEach(([pair,count])=>{
     const[a,b]=pair.split(' + ');
     const ga=GLAZES.find(g=>g.name===a),gb=GLAZES.find(g=>g.name===b);
@@ -1243,8 +1359,8 @@ export function renderAnalyticsView(){
     const row=document.createElement('div');row.className='analytics-swatch-row';
     const sw=document.createElement('div');sw.className='analytics-swatch';
     if(glazes.length)sw.style.background=glazeCSS(glazes,clayKey);
-    const lbl=document.createElement('div');lbl.style.cssText='flex:1;font-size:11px;color:var(--ink);';lbl.textContent=pair;
-    const cnt=document.createElement('div');cnt.style.cssText='font-size:10px;color:var(--ink3);flex-shrink:0;margin-right:4px;';cnt.textContent=count+'×';
+    const lbl=document.createElement('div');lbl.className='analytics-pair-label';lbl.textContent=pair;
+    const cnt=document.createElement('div');cnt.className='analytics-pair-count';cnt.textContent=count+'×';
     const riffBtn=document.createElement('button');riffBtn.className='btn sm';riffBtn.textContent='Explore';riffBtn.title='Explore this pairing';
     riffBtn.addEventListener('click',()=>{
       if(glazes.length){
@@ -1257,16 +1373,16 @@ export function renderAnalyticsView(){
   grid.appendChild(pairCard);
 
   const tempCard=document.createElement('div');tempCard.className='analytics-card';
-  tempCard.innerHTML=`<div class="analytics-card-title">Temperature</div><div class="analytics-mood-grid"><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:#c87030">${warmCount}</div><div class="analytics-mood-label">Warm</div></div><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:#4870a0">${coolCount}</div><div class="analytics-mood-label">Cool</div></div></div><div class="analytics-mood-bar" style="margin-top:10px;"><div class="analytics-mood-bar-warm analytics-mood-bar-fill" style="flex:${warmCount};"></div><div class="analytics-mood-bar-cool analytics-mood-bar-fill" style="flex:${coolCount};"></div></div>`;
+  tempCard.innerHTML=`<div class="analytics-card-title">Temperature</div><div class="analytics-mood-grid"><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:var(--warm)">${warmCount}</div><div class="analytics-mood-label">Warm</div></div><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:var(--cool)">${coolCount}</div><div class="analytics-mood-label">Cool</div></div></div><div class="analytics-mood-bar" style="margin-top:10px;"><div class="analytics-mood-bar-warm analytics-mood-bar-fill" style="flex:${warmCount};"></div><div class="analytics-mood-bar-cool analytics-mood-bar-fill" style="flex:${coolCount};"></div></div>`;
   const bar=tempCard.querySelector('.analytics-mood-bar');
   if(bar){bar.style.cssText='margin-top:10px;height:10px;border-radius:5px;overflow:hidden;display:flex;';}
   grid.appendChild(tempCard);
 
   const valueCard=document.createElement('div');valueCard.className='analytics-card';
-  valueCard.innerHTML=`<div class="analytics-card-title">Luminosity</div><div class="analytics-mood-grid"><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:#181818">${darkCount}</div><div class="analytics-mood-label">Dark</div></div><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:#a0998e">${lightCount}</div><div class="analytics-mood-label">Light</div></div></div>`;
+  valueCard.innerHTML=`<div class="analytics-card-title">Luminosity</div><div class="analytics-mood-grid"><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:var(--tone-dark)">${darkCount}</div><div class="analytics-mood-label">Dark</div></div><div class="analytics-mood-cell"><div class="analytics-mood-count" style="color:var(--tone-light)">${lightCount}</div><div class="analytics-mood-label">Light</div></div></div>`;
   const lbar=document.createElement('div');lbar.style.cssText='margin-top:10px;height:10px;border-radius:5px;overflow:hidden;display:flex;';
-  const dk=document.createElement('div');dk.style.cssText=`flex:${darkCount};background:#181818;`;
-  const lt=document.createElement('div');lt.style.cssText=`flex:${lightCount};background:#d8d4cc;`;
+  const dk=document.createElement('div');dk.style.cssText=`flex:${darkCount};background:var(--tone-dark);`;
+  const lt=document.createElement('div');lt.style.cssText=`flex:${lightCount};background:var(--tone-light);`;
   lbar.appendChild(dk);lbar.appendChild(lt);valueCard.appendChild(lbar);
   grid.appendChild(valueCard);
 
@@ -1283,7 +1399,7 @@ export function renderAnalyticsView(){
 
 export function renderRankInContainer(container){
   container.innerHTML='';
-  if(!likedMeta.length){container.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:8px 0;">Pin some palettes to start ranking.</div>';return;}
+  if(!likedMeta.length){container.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:8px 14px;">Pin some palettes to start ranking.</div>';return;}
   if(rankMode==='idle'){
     const modeBtns=document.createElement('div');modeBtns.className='rate-rank-mode-btns';
     const fullBtn=document.createElement('button');fullBtn.className='rate-rank-mode-btn';
