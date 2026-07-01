@@ -108,13 +108,33 @@ export function swatchSVG(g,ck,h){
   return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${h}" style="display:block;width:100%;" aria-hidden="true"><defs>${defs}</defs><rect width="${W}" height="${h}" fill="${clayHex}"/>${body}${overlay}${gd}</svg>`;
 }
 
+function _galleryEqualStops(glazes,ck){
+  const n=glazes.length;
+  return glazes.map((g,i)=>{
+    const c=applyGlaze(g,ck);
+    const pct=n>1?(i/(n-1))*100:50;
+    return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${pct.toFixed(1)}%`;
+  }).join(',');
+}
+
+export function galleryGradientCSS(glazes,ck,mode){
+  ck=ck||clayKey;
+  if(!glazes||!glazes.length)return CLAY[ck];
+  if(mode==='radial')return`radial-gradient(circle,${_galleryEqualStops(glazes,ck)})`;
+  if(mode==='conic')return`conic-gradient(from 0deg,${_galleryEqualStops(glazes,ck)})`;
+  // Vertical, matching the top-to-bottom stacking of the tile view (glazeCSS runs left-to-right).
+  const stops=Array.from({length:9},(_,i)=>{const t=i/8,c=sampleAt(t,glazes,ck);return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${Math.round(t*100)}%`;});
+  return`linear-gradient(to bottom,${stops.join(',')})`;
+}
+
 export function buildStack(glazes,ck,tH){
   tH=tH||TH;
-  if(bandView){
-    const wrap=document.createElement('div');wrap.className='tile-band-wrap';
-    const band=document.createElement('div');band.className='tile-band tile-col';
-    band.style.background=glazeCSS(glazes,ck||clayKey);
-    wrap.appendChild(band);return wrap;
+  if(galleryViewMode&&galleryViewMode!=='tiles'){
+    const totalH=NT*tH+(NT-1)*TG;
+    const wrap=document.createElement('div');wrap.className='tile-col tile-gradient';
+    wrap.style.height=totalH+'px';
+    wrap.style.background=galleryGradientCSS(glazes,ck||clayKey,galleryViewMode);
+    return wrap;
   }
   const col=document.createElement('div');col.className='tile-col';
   for(let ti=0;ti<NT;ti++){const w=document.createElement('div');w.className='tile-wrap';w.innerHTML=tileSVG(ti,glazes,ck||clayKey,tH);col.appendChild(w);}
@@ -123,7 +143,18 @@ export function buildStack(glazes,ck,tH){
 
 export function refreshStack(col,glazes,ck,tH){
   tH=tH||TH;
+  if(col.classList.contains('tile-gradient')){
+    col.style.background=galleryGradientCSS(glazes,ck||clayKey,galleryViewMode);
+    return;
+  }
   col.querySelectorAll('.tile-wrap').forEach((w,ti)=>{w.innerHTML=tileSVG(ti,glazes,ck||clayKey,tH);});
+}
+
+export function setGalleryViewMode(mode){
+  galleryViewMode=mode;
+  document.querySelectorAll('.gv-btn').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
+  lastRenderedKeys=[];lastSavedKeys=[];
+  if(currentTab==='explore'){renderGallery();}
 }
 
 // ── LEVER UI ──────────────────────────────────────────────────────────────────
@@ -488,6 +519,23 @@ export function makeProjTab(label, isActive, colorNames, onActivate, onDelete, p
   return tab;
 }
 
+export function renderBoardSwitcher(){
+  const el=document.getElementById('sheetBoardSwitcher');if(!el)return;
+  el.innerHTML='';
+  const allBtn=document.createElement('button');
+  allBtn.className='sbs-pill'+(activeContext==='global'?' on':'');
+  allBtn.textContent='All Palettes';
+  allBtn.addEventListener('click',()=>switchToProjectTab('global'));
+  el.appendChild(allBtn);
+  projects.forEach(proj=>{
+    const btn=document.createElement('button');
+    btn.className='sbs-pill'+(activeContext===proj.id?' on':'');
+    btn.textContent=proj.name;
+    btn.addEventListener('click',()=>switchToProjectTab(proj.id));
+    el.appendChild(btn);
+  });
+}
+
 export function renderSidebar(){
   if(typeof _activeSheet!=='undefined' && _activeSheet && _activeSheet.id==='sheetBoards') closeSheet();
   const scroll=document.getElementById('sbScroll');if(!scroll)return;
@@ -666,7 +714,14 @@ export function buildCard(p,isLiked,compact){
   const card=document.createElement('article');
   card.className='card'+(isLiked&&!compact?' liked':'')+(compact?' compact':'');
   card.dataset.pid=p.id;card.dataset.key=p.key||'';
-  card.addEventListener('click',e=>{if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);}else if(!e.target.closest('button,a,input,[contenteditable]')){_focusedCardKey=p.key;if(typeof openPaletteDetail==='function')openPaletteDetail(p.key);}});
+  card.addEventListener('click',e=>{
+    if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);return;}
+    if(e.target.closest('button,a,input,[contenteditable]'))return;
+    // Once multi-select is active, plain taps keep adding to the selection
+    // instead of opening the editor — no need to hold every subsequent card.
+    if(p.key&&typeof selectedKeys!=='undefined'&&selectedKeys.size){toggleCardSelect(p.key,card);return;}
+    _focusedCardKey=p.key;if(typeof openPaletteDetail==='function')openPaletteDetail(p.key,p);
+  });
   card.addEventListener('contextmenu', e => { if(!compact) openCtxMenu(e, p); });
 
   if (!compact) {
@@ -834,20 +889,63 @@ export function toggleCardSelect(key,card){
   updateMultiBar();
 }
 
+function _resolvePaletteByKey(key){
+  const inPalettes=palettes.find(p=>p.key===key);
+  if(inPalettes)return inPalettes;
+  const m=likedMeta.find(x=>x.key===key);
+  if(m){
+    const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+    return{key,label:m.label,tag:m.tag||'Mood',glazes};
+  }
+  return null;
+}
+
+function _ensurePinned(key,projId){
+  const meta=likedMeta.find(m=>m.key===key);
+  if(meta){if(projId)meta.projectId=projId;likedKeys.add(key);return;}
+  const p=_resolvePaletteByKey(key);
+  if(!p||!p.glazes.length)return;
+  likedKeys.add(key);
+  likedMeta.push({key,label:p.label,feeling:'',tag:p.tag,names:p.glazes.map(g=>g.name),hexes:p.glazes.map(g=>g.hex),projectId:projId});
+}
+
 export function updateMultiBar(){
   if(_multiBar)_multiBar.remove();_multiBar=null;
+  const fab=document.getElementById('mobileShuffleFab');
+  if(fab)fab.style.visibility=selectedKeys.size?'hidden':'';
   if(!selectedKeys.size)return;
   const bar=document.createElement('div');bar.className='multi-action-bar';_multiBar=bar;
   bar.innerHTML=`<span>${selectedKeys.size} selected</span>`;
+  const pinAllBtn=document.createElement('button');pinAllBtn.textContent='Pin all';
+  pinAllBtn.addEventListener('click',()=>{
+    const n=selectedKeys.size;
+    selectedKeys.forEach(key=>_ensurePinned(key,activeContext!=='global'?activeContext:undefined));
+    saveAll();renderSidebar();updateCount();renderTopbarTabs();renderGallery();
+    showToast(`Pinned ${n} palette${n===1?'':'s'}`);
+    clearMultiSelect();
+  });
+  bar.appendChild(pinAllBtn);
+  const riffBtn=document.createElement('button');riffBtn.textContent='Riff together';
+  riffBtn.addEventListener('click',()=>{
+    const srcs=[...selectedKeys].map(_resolvePaletteByKey).filter(s=>s&&s.glazes.length);
+    if(!srcs.length)return;
+    const glazeMap=new Map();
+    srcs.forEach(s=>s.glazes.forEach(g=>glazeMap.set(g.name,g)));
+    const combined={label:'Combined riff',tag:'Mood',glazes:[...glazeMap.values()]};
+    palettes=doRiff(combined);
+    if(currentTab!=='explore')setTab('explore');
+    renderGallery();
+    document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth'});
+    clearMultiSelect();
+  });
+  bar.appendChild(riffBtn);
   projects.forEach(proj=>{
     const b=document.createElement('button');b.textContent=`→ ${proj.name}`;
     b.addEventListener('click',()=>{
-      selectedKeys.forEach(key=>{
-        if(!likedKeys.has(key)){likedKeys.add(key);const meta=likedMeta.find(m=>m.key===key);if(!meta){/* skip */}else meta.projectId=proj.id;}
-        else{const meta=likedMeta.find(m=>m.key===key);if(meta)meta.projectId=proj.id;}
-      });
+      const n=selectedKeys.size;
+      selectedKeys.forEach(key=>_ensurePinned(key,proj.id));
       saveAll();renderSidebar();updateCount();renderTopbarTabs();
-      showToast(`${selectedKeys.size} palettes → "${proj.name}"`);
+      showToast(`${n} palettes → "${proj.name}"`);
       clearMultiSelect();
     });
     bar.appendChild(b);
@@ -861,6 +959,8 @@ export function clearMultiSelect(){
   selectedKeys.clear();
   document.querySelectorAll('.card-selected').forEach(c=>c.classList.remove('card-selected'));
   if(_multiBar){_multiBar.remove();_multiBar=null;}
+  const fab=document.getElementById('mobileShuffleFab');
+  if(fab)fab.style.visibility='';
 }
 
 export function renderSavedSection(){
@@ -1002,6 +1102,20 @@ export function updateJumpNav(savedCount){
   if(jd){jd.classList.toggle('active',!savedCount);}
 }
 
+// Shared by desktop drag-drop and the mobile photo picker. Returns true on success.
+async function _extractAndInsertPalette(file){
+  const glazes=await extractImagePalette(file);
+  if(!glazes.length){showToast('Could not extract colors from image');return false;}
+  const label=file.name.replace(/\.[^.]+$/,'');
+  const p=withKey({id:mkid(),label,feeling:'',tag:'From Image',glazes});
+  palettes=[p,...palettes.slice(0,19)];
+  if(currentTab!=='explore')setTab('explore');
+  renderGallery();
+  document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth'});
+  showToast(`Palette from "${label}" — ${glazes.map(g=>g.name).join(', ')}`);
+  return true;
+}
+
 export function wireImageDrop(){
   const zone=document.getElementById('sectionJumpDrop');
   const view=document.getElementById('view_explore');
@@ -1013,19 +1127,31 @@ export function wireImageDrop(){
     if(!file)return;
     e.preventDefault();zone.classList.remove('drag-active');
     zone.textContent='Extracting…';
-    const glazes=await extractImagePalette(file);
+    await _extractAndInsertPalette(file);
     zone.innerHTML='<span>🖼 Drop image</span>';
-    if(!glazes.length){showToast('Could not extract colors from image');return;}
-    const label=file.name.replace(/\.[^.]+$/,'');
-    const p=withKey({id:mkid(),label,feeling:'',tag:'From Image',glazes});
-    palettes=[p,...palettes.slice(0,19)];
-    renderGallery();
-    document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth'});
-    showToast(`Palette from "${label}" — ${glazes.map(g=>g.name).join(', ')}`);
   };
   view.addEventListener('dragover',onOver);
   view.addEventListener('dragleave',onLeave);
   view.addEventListener('drop',onDrop);
+}
+
+// Mobile has no drag-and-drop, so the Controls sheet exposes a native photo
+// picker (tap → file input → camera roll) that feeds the same extractor.
+export function wireMobileImagePicker(){
+  const btn=document.getElementById('sheetPhotoBtn');
+  const input=document.getElementById('mobileImageInput');
+  if(!btn||!input)return;
+  btn.addEventListener('click',()=>input.click());
+  input.addEventListener('change',async()=>{
+    const file=input.files[0];
+    input.value='';
+    if(!file)return;
+    const prevText=btn.textContent;
+    btn.textContent='Extracting…';btn.disabled=true;
+    await _extractAndInsertPalette(file);
+    btn.textContent=prevText;btn.disabled=false;
+    closeSheet();
+  });
 }
 
 // ── GLAZE TILES ───────────────────────────────────────────────────────────────
@@ -1831,8 +1957,10 @@ export function openSheet(name) {
       sheet._contentSource = sidebar;
       sheet._contentBody = body;
     }
+    setControlsSection('clay');
   }
   if (name === 'boards') {
+    renderBoardSwitcher();
     const body = document.getElementById('sheetBoardsBody');
     const sbScroll = document.getElementById('sbScroll');
     if (body && sbScroll) {
@@ -1869,6 +1997,14 @@ export function closeSheet() {
     _activeSheet = null;
   }
   document.getElementById('sheetBackdrop')?.classList.remove('open');
+}
+
+// Mobile Controls sheet shows one section at a time (CapCut-style header nav)
+// so the gallery stays visible behind it instead of a single tall scrolling list.
+export function setControlsSection(sec){
+  const sheet=document.getElementById('sheetControls');if(!sheet)return;
+  sheet.querySelectorAll('[data-sec]').forEach(el=>el.classList.toggle('active-sec',el.dataset.sec===sec));
+  sheet.querySelectorAll('.cs-tab').forEach(b=>b.classList.toggle('on',b.dataset.sec===sec));
 }
 
 // ── CONTEXT MENU ─────────────────────────────────────────────────────────────

@@ -79,6 +79,10 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .clay-btn+.clay-btn{border-left:1.5px solid var(--border);}
 .clay-btn.on{background:var(--ink);color:var(--white);}
 .clay-btn.red.on{background:var(--clay-r);color:var(--white);}
+.gallery-view-toggle{display:grid;grid-template-columns:repeat(4,1fr);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.gv-btn{padding:8px 0;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:var(--font);color:var(--ink3);background:var(--card);transition:background .12s,color .12s;text-align:center;min-height:36px;}
+.gv-btn+.gv-btn{border-left:1.5px solid var(--border);}
+.gv-btn.on{background:var(--ink);color:var(--white);}
 
 /* Artist chips */
 .artist-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
@@ -93,13 +97,13 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .preset-reset:hover{color:var(--ink);}
 
 /* Lever */
-.levers-list{display:flex;flex-direction:column;gap:16px;}
+.levers-list{display:flex;flex-direction:column;gap:32px;}
 .lever-poles{display:flex;justify-content:space-between;margin-bottom:5px;}
 .lever-pole{font-size:11px;font-weight:600;color:var(--ink3);}
 .lever-pole.active{color:var(--ink);}
 .lever-track{position:relative;height:4px;border-radius:2px;overflow:visible;}
-.lever-track input[type=range]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0;-webkit-appearance:none;}
-.lever-track-vis{position:absolute;inset:0;border-radius:2px;pointer-events:none;}
+.lever-track input[type=range]{position:absolute;left:0;right:0;top:50%;width:100%;height:44px;transform:translateY(-50%);opacity:0;cursor:pointer;margin:0;-webkit-appearance:none;touch-action:pan-x;}
+.lever-track-vis{position:absolute;top:50%;left:0;right:0;height:4px;transform:translateY(-50%);border-radius:2px;pointer-events:none;}
 .lever-thumb{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:var(--white);border:2px solid var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.18);transform:translate(-50%,-50%);pointer-events:none;}
 
 /* Shuffle */
@@ -126,6 +130,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .card.liked{border-color:var(--acc);}
 
 .tile-col{display:flex;flex-direction:column;gap:1px;padding:7px 7px 0;}
+.tile-gradient{border-radius:3px;}
 .tile-wrap{display:block;line-height:0;font-size:0;}
 .card-footer{padding:7px 9px 9px;position:absolute;bottom:0;left:0;right:0;background:rgba(255,255,255,.70);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);border-top:1px solid rgba(0,0,0,.06);opacity:0;transition:opacity .20s ease;z-index:2;}
 .card:hover .card-footer,.card.card-open .card-footer{opacity:1;}
@@ -282,7 +287,8 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .mobile-bar-btn:active{background:var(--surf);}
 .mobile-bar-btn .mbb-icon{font-size:14px;line-height:1;}
 .mobile-bar-btn .mbb-label{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;}
-.mobile-bar-btn.shuffle{color:var(--ink);}
+.mobile-shuffle-fab{display:none;position:fixed;right:16px;bottom:72px;width:56px;height:56px;border-radius:50%;background:var(--ink);color:var(--white);border:none;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28);z-index:210;}
+.mobile-shuffle-fab:active{background:var(--ink-hover,#2a2a2a);}
 /* ── BOTTOM SHEET ── */
 .sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:210;display:none;}
 .sheet-backdrop.open{display:block;}
@@ -293,6 +299,21 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .sheet-title{font-size:13px;font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.08em;}
 .sheet-close{background:none;border:none;font-size:14px;cursor:pointer;color:var(--ink3);line-height:1;padding:0 4px;}
 .sheet-body{padding:0 0 56px;}
+.sb-board-switcher{display:flex;gap:6px;overflow-x:auto;padding:0 16px 12px;-webkit-overflow-scrolling:touch;}
+.sb-board-switcher:empty{display:none;}
+.sbs-pill{flex-shrink:0;padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--ink2);font-size:12px;font-weight:600;font-family:var(--font);white-space:nowrap;cursor:pointer;min-height:32px;}
+.sbs-pill.on{background:var(--ink);border-color:var(--ink);color:var(--white);}
+.sb-photo-btn{display:block;width:100%;padding:11px 14px;min-height:44px;border-radius:var(--r);border:1px solid var(--border);background:var(--surf);color:var(--ink);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;text-align:center;}
+.cs-section-tabs{display:none;gap:4px;padding:0 14px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.cs-tab{flex-shrink:0;padding:7px 13px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--ink2);font-size:12px;font-weight:600;font-family:var(--font);white-space:nowrap;cursor:pointer;min-height:32px;}
+.cs-tab.on{background:var(--ink);border-color:var(--ink);color:var(--white);}
+@media(max-width:700px){
+  .cs-section-tabs{display:flex;}
+  #sheetControls{top:auto;max-height:62vh;}
+  #sheetControlsBody .ps[data-sec],#sheetControls>.ps[data-sec]{display:none;}
+  #sheetControlsBody .ps[data-sec].active-sec,#sheetControls>.ps[data-sec].active-sec{display:block;}
+  #sheetControlsBody .shuffle-btn{display:none;}
+}
 @media(max-width:700px){
   /* Hide desktop nav — bottom bar handles it */
   .topbar{display:none;}
@@ -312,6 +333,8 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   .card-footer{opacity:1;}
   .card:not(.compact){min-height:0;}
   .mobile-bottom-bar{display:flex;}
+  .mobile-shuffle-fab{display:flex;align-items:center;justify-content:center;}
+  .multi-action-bar{bottom:72px;}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;}}
 
@@ -443,8 +466,8 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .card.card-selected{border-color:var(--ink)!important;box-shadow:0 0 0 2px var(--ink);}
 .card-check{position:absolute;top:6px;left:6px;width:18px;height:18px;border-radius:4px;border:2px solid rgba(255,255,255,.8);background:rgba(0,0,0,.18);display:none;align-items:center;justify-content:center;font-size:10px;color:var(--white);pointer-events:none;}
 .card-selected .card-check{display:flex;background:var(--ink);border-color:var(--ink);}
-.multi-action-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--white);border-radius:22px;padding:8px 18px;display:flex;align-items:center;gap:12px;font-size:12px;font-weight:500;z-index:600;box-shadow:0 4px 20px rgba(0,0,0,.22);white-space:nowrap;}
-.multi-action-bar button{background:rgba(255,255,255,.15);border:none;color:var(--white);border-radius:var(--r);padding:4px 12px;font-size:11px;font-family:var(--font);cursor:pointer;}
+.multi-action-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--white);border-radius:22px;padding:8px 18px;display:flex;align-items:center;gap:12px;font-size:12px;font-weight:500;z-index:600;box-shadow:0 4px 20px rgba(0,0,0,.22);white-space:nowrap;max-width:calc(100vw - 32px);overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.multi-action-bar button{flex-shrink:0;background:rgba(255,255,255,.15);border:none;color:var(--white);border-radius:var(--r);padding:4px 12px;font-size:11px;font-family:var(--font);cursor:pointer;}
 .multi-action-bar button:hover{background:rgba(255,255,255,.25);}
 /* ── GLAZE REORDER CHIPS ── */
 .glaze-chips{display:flex;flex-direction:column;gap:0;margin-top:4px;}
@@ -573,6 +596,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .vm-stop-editor{padding:2px 0 4px;}
 .vm-stop-track{position:relative;height:30px;border-radius:var(--r);border:1.5px solid var(--border);margin:0 12px;user-select:none;}
 .vm-stop-handle{position:absolute;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;border:2.5px solid var(--white);box-shadow:0 1px 5px rgba(0,0,0,.30);cursor:grab;touch-action:none;z-index:2;}
+.vm-stop-handle::before{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%);border-radius:50%;}
 .vm-stop-handle:active{cursor:grabbing;}
 .vm-export-btn{align-self:flex-start;margin-top:2px;}
 .vessel-btn{font-size:11px;}
@@ -825,7 +849,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   <aside class="right-sidebar" id="rightSidebar">
     <div class="flash" id="flash">Saved</div>
 
-    <div class="ps">
+    <div class="ps" data-sec="clay">
       <div class="plabel">Clay Body</div>
       <div class="clay-toggle">
         <button class="clay-btn on" id="clay_white" onclick="setClay('white')">White</button>
@@ -833,13 +857,23 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
       </div>
     </div>
 
-    <div class="ps">
+    <div class="ps" data-sec="view">
+      <div class="plabel">Gallery View</div>
+      <div class="gallery-view-toggle" id="galleryViewToggle">
+        <button class="gv-btn on" data-mode="tiles" onclick="setGalleryViewMode('tiles')">Tiles</button>
+        <button class="gv-btn" data-mode="linear" onclick="setGalleryViewMode('linear')">Linear</button>
+        <button class="gv-btn" data-mode="radial" onclick="setGalleryViewMode('radial')">Radial</button>
+        <button class="gv-btn" data-mode="conic" onclick="setGalleryViewMode('conic')">Conic</button>
+      </div>
+    </div>
+
+    <div class="ps" data-sec="score">
       <div class="plabel">Aesthetic Score Weighting</div>
       <select id="scoreWeightSelect" class="score-weight-select"></select>
       <div id="scoreWeightHint" class="score-weight-hint"></div>
     </div>
 
-    <div class="ps">
+    <div class="ps" data-sec="style">
       <div class="plabel">Style Presets</div>
       <div class="artist-grid">
         <button class="achip" data-preset="turrell" onclick="applyPreset('turrell')">Turrell</button>
@@ -853,7 +887,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
       </div>
     </div>
 
-    <div class="ps grow">
+    <div class="ps grow" data-sec="adjust">
       <div class="preset-row">
         <span class="preset-name" id="presetName">Custom</span>
         <button class="preset-reset" onclick="resetLevers()">Reset</button>
@@ -874,15 +908,12 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     <span class="mbb-icon">⚙</span>
     <span class="mbb-label">Controls</span>
   </button>
-  <button class="mobile-bar-btn shuffle" onclick="shuffle()" title="Shuffle">
-    <span class="mbb-icon">↺</span>
-    <span class="mbb-label">Shuffle</span>
-  </button>
   <button class="mobile-bar-btn" onclick="openSheet('boards')" title="Boards">
     <span class="mbb-icon">☰</span>
     <span class="mbb-label">Boards</span>
   </button>
 </div>
+<button class="mobile-shuffle-fab" id="mobileShuffleFab" onclick="shuffle()" title="Shuffle">↺</button>
 <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
 <!-- Controls sheet -->
 <div class="bottom-sheet" id="sheetControls">
@@ -890,6 +921,18 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   <div class="sheet-header">
     <span class="sheet-title">Controls</span>
     <button class="sheet-close" onclick="closeSheet()">✕</button>
+  </div>
+  <div class="cs-section-tabs" id="csSectionTabs">
+    <button class="cs-tab on" data-sec="clay" onclick="setControlsSection('clay')">Clay</button>
+    <button class="cs-tab" data-sec="view" onclick="setControlsSection('view')">View</button>
+    <button class="cs-tab" data-sec="score" onclick="setControlsSection('score')">Score</button>
+    <button class="cs-tab" data-sec="style" onclick="setControlsSection('style')">Style</button>
+    <button class="cs-tab" data-sec="adjust" onclick="setControlsSection('adjust')">Adjust</button>
+    <button class="cs-tab" data-sec="photo" onclick="setControlsSection('photo')">Photo</button>
+  </div>
+  <div class="ps" data-sec="photo">
+    <button class="sb-photo-btn" id="sheetPhotoBtn">🖼 Select photo → extract palette</button>
+    <input type="file" id="mobileImageInput" accept="image/*" style="display:none">
   </div>
   <div class="sheet-body" id="sheetControlsBody"></div>
 </div>
@@ -900,6 +943,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     <span class="sheet-title">Boards</span>
     <button class="sheet-close" onclick="closeSheet()">✕</button>
   </div>
+  <div class="sb-board-switcher" id="sheetBoardSwitcher"></div>
   <div class="sheet-body" id="sheetBoardsBody"></div>
 </div>
 <div class="modal-overlay" id="importModal">
@@ -938,7 +982,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 // Declare global variables for backward compatibility across ES modules in strict mode
 var clayKey      = 'white';
 var currentTab   = 'explore';
-var bandView     = false;
+var galleryViewMode = 'tiles';
 var palettes     = [];
 var likedKeys    = new Set();
 var likedMeta    = [];
@@ -983,8 +1027,8 @@ import {
   createNewProject, startQuickRate, startRank, rankChoose, rankSkip,
   openVesselModal, setGlazeFilter, clearGlazeSelection, closeCtxMenu,
   switchContext, switchToProjectTab, buildLeversUI, renderTopbarTabs,
-  renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, initSectionObserver,
-  moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection,
+  renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, wireMobileImagePicker, initSectionObserver,
+  moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection, setGalleryViewMode, setControlsSection,
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer,
   updateCalibrateBtn, openCalibrate, closeCalibrate, renderComparePair,
   recordPair, fitWeights, spearmanRho, resetLearnedWeights
@@ -1026,7 +1070,7 @@ Object.assign(window, {
   editLabel: (key, el) => { el.contentEditable = 'true'; el.focus(); },
 
   // UI callbacks called across files
-  renderSidebar, renderTopbarTabs, updateCount, showToast, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer,
+  renderSidebar, renderTopbarTabs, updateCount, showToast, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer, setGalleryViewMode, setControlsSection,
 
   // Preference calibration (Phase 2)
   updateCalibrateBtn, openCalibrate, closeCalibrate, renderComparePair,
@@ -1124,6 +1168,7 @@ loadAll().then(() => {
   renderLeftPanelPairings();
   renderScoreWeighting();
   wireImageDrop();
+  wireMobileImagePicker();
   document.getElementById('compareOverlay').addEventListener('click',e=>{
     if(e.target.id==='compareOverlay')closeCalibrate();
   });
