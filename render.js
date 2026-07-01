@@ -485,6 +485,23 @@ export function makeProjTab(label, isActive, colorNames, onActivate, onDelete, p
   return tab;
 }
 
+export function renderBoardSwitcher(){
+  const el=document.getElementById('sheetBoardSwitcher');if(!el)return;
+  el.innerHTML='';
+  const allBtn=document.createElement('button');
+  allBtn.className='sbs-pill'+(activeContext==='global'?' on':'');
+  allBtn.textContent='All Palettes';
+  allBtn.addEventListener('click',()=>switchToProjectTab('global'));
+  el.appendChild(allBtn);
+  projects.forEach(proj=>{
+    const btn=document.createElement('button');
+    btn.className='sbs-pill'+(activeContext===proj.id?' on':'');
+    btn.textContent=proj.name;
+    btn.addEventListener('click',()=>switchToProjectTab(proj.id));
+    el.appendChild(btn);
+  });
+}
+
 export function renderSidebar(){
   if(typeof _activeSheet!=='undefined' && _activeSheet && _activeSheet.id==='sheetBoards') closeSheet();
   const scroll=document.getElementById('sbScroll');if(!scroll)return;
@@ -1830,6 +1847,7 @@ export function openSheet(name) {
     }
   }
   if (name === 'boards') {
+    renderBoardSwitcher();
     const body = document.getElementById('sheetBoardsBody');
     const sbScroll = document.getElementById('sbScroll');
     if (body && sbScroll) {

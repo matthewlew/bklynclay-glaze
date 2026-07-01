@@ -293,6 +293,10 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .sheet-title{font-size:13px;font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.08em;}
 .sheet-close{background:none;border:none;font-size:14px;cursor:pointer;color:var(--ink3);line-height:1;padding:0 4px;}
 .sheet-body{padding:0 0 56px;}
+.sb-board-switcher{display:flex;gap:6px;overflow-x:auto;padding:0 16px 12px;-webkit-overflow-scrolling:touch;}
+.sb-board-switcher:empty{display:none;}
+.sbs-pill{flex-shrink:0;padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--ink2);font-size:12px;font-weight:600;font-family:var(--font);white-space:nowrap;cursor:pointer;min-height:32px;}
+.sbs-pill.on{background:var(--ink);border-color:var(--ink);color:var(--white);}
 @media(max-width:700px){
   /* Hide desktop nav — bottom bar handles it */
   .topbar{display:none;}
@@ -883,6 +887,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     <span class="sheet-title">Boards</span>
     <button class="sheet-close" onclick="closeSheet()">✕</button>
   </div>
+  <div class="sb-board-switcher" id="sheetBoardSwitcher"></div>
   <div class="sheet-body" id="sheetBoardsBody"></div>
 </div>
 <div class="modal-overlay" id="importModal">
