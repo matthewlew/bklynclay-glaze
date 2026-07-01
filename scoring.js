@@ -49,6 +49,19 @@ export function harmonyScore(hues) {
   return Math.max(0, Math.min(1, best));
 }
 
+// F1-F7 weight presets, selectable per project. Each sums to 1.0.
+// f1 contrast/saturation spread, f2 lightness range (banding/stripes), f3 lightness balance,
+// f4 min pairwise distance, f5 hue harmony, f6 material variety, f7 achromatic penalty.
+export const SCORE_PRESETS = {
+  Balanced:    { label: 'Balanced',      desc: 'Equal weight across all qualities — good starting point for mixed collections.', weights: [0.18, 0.15, 0.17, 0.25, 0.07, 0.05, 0.13] },
+  Banding:     { label: 'Banding',       desc: 'Favors light-to-dark transitions and stripe patterns where glazes repeat for layered flow effects.', weights: [0.10, 0.34, 0.12, 0.18, 0.06, 0.05, 0.15] },
+  Harmony:     { label: 'Harmony',       desc: 'Rewards analogous, complementary, or triadic hue relationships — palettes that feel tonally cohesive.', weights: [0.08, 0.12, 0.16, 0.12, 0.34, 0.05, 0.13] },
+  Contrast:    { label: 'Contrast',      desc: 'Prioritizes color pop and glaze separation — high saturation variance and visually distinct neighbors.', weights: [0.30, 0.10, 0.10, 0.34, 0.04, 0.04, 0.08] },
+  MaterialMix: { label: 'Material Mix',  desc: 'Values finish variety — matte, shiny, transparent, and textured glazes together in the same palette.', weights: [0.12, 0.13, 0.15, 0.20, 0.06, 0.26, 0.08] },
+};
+
+export const DEFAULT_SCORE_WEIGHTS = SCORE_PRESETS.Balanced.weights;
+
 // Raw [f1..f7] feature values (0-1 each) — used by scoreAesthetic and fitWeights.
 export function featureVector(glazes) {
   if (!glazes || glazes.length < 2) return [0, 0, 0, 0, 0, 0, 0];
@@ -90,13 +103,10 @@ export function featureVector(glazes) {
   return [f1, f2, f3, f4, f5, f6, f7];
 }
 
-// F1-F7 weighted aesthetic score (0-100). Pass optional weights array to override defaults.
-// Default weights: saturation spread 18%, lightness range 15%, lightness balance 17%,
-// min pairwise distance 25%, hue harmony 7%, material variety 5%, achromatic penalty 13%.
 export function scoreAesthetic(glazes, weights) {
   if (!glazes || glazes.length < 2) return 0;
   const [f1, f2, f3, f4, f5, f6, f7] = featureVector(glazes);
-  const w = weights || [0.18, 0.15, 0.17, 0.25, 0.07, 0.05, 0.13];
+  const w = weights || DEFAULT_SCORE_WEIGHTS;
   return Math.round((f1 * w[0] + f2 * w[1] + f3 * w[2] + f4 * w[3] + f5 * w[4] + f6 * w[5] + f7 * w[6]) * 100);
 }
 

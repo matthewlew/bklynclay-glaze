@@ -25,11 +25,10 @@ export function parseBlocks(raw) {
   }).filter(b=>b.glazes.length>=2);
 }
 
-// ── INDEXEDDB PERSISTENCE ──────────────────────────────────────────────────────
+// ── RELATIONAL INDEXEDDB PERSISTENCE ──────────────────────────────────────────
 const DB_NAME = 'bklyn_glaze_db';
 const DB_VERSION = 1;
-const STORE_NAME = 'state_store';
-const KEY_NAME = 'bklyn_v6_state';
+const STORES = ['projects', 'palettes', 'labels', 'config'];
 
 let db = null;
 let useLocalStorageFallback = false;
@@ -54,46 +53,12 @@ function openDB() {
     };
     request.onupgradeneeded = (e) => {
       const dbInstance = e.target.result;
-      if (!dbInstance.objectStoreNames.contains(STORE_NAME)) {
-        dbInstance.createObjectStore(STORE_NAME);
-      }
+      STORES.forEach(s => {
+        if (!dbInstance.objectStoreNames.contains(s)) {
+          dbInstance.createObjectStore(s);
+        }
+      });
     };
-  });
-}
-
-function getDBState() {
-  return new Promise((resolve) => {
-    if (useLocalStorageFallback || !db) {
-      resolve(null);
-      return;
-    }
-    try {
-      const transaction = db.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(KEY_NAME);
-      request.onerror = () => resolve(null);
-      request.onsuccess = () => resolve(request.result || null);
-    } catch (e) {
-      resolve(null);
-    }
-  });
-}
-
-function setDBState(data) {
-  return new Promise((resolve, reject) => {
-    if (useLocalStorageFallback || !db) {
-      reject(new Error("No DB"));
-      return;
-    }
-    try {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(data, KEY_NAME);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-    } catch (e) {
-      reject(e);
-    }
   });
 }
 
@@ -112,7 +77,32 @@ export async function saveAll() {
   let success = false;
   if (db && !useLocalStorageFallback) {
     try {
-      await setDBState(data);
+      const transaction = db.transaction(STORES, 'readwrite');
+      
+      // 1. Save projects
+      const projStore = transaction.objectStore('projects');
+      projStore.clear();
+      state.projects.forEach(p => projStore.put(p, p.id));
+      
+      // 2. Save palettes
+      const palStore = transaction.objectStore('palettes');
+      palStore.clear();
+      state.likedMeta.forEach(m => palStore.put(m, m.key));
+      
+      // 3. Save labels
+      const labelStoreDb = transaction.objectStore('labels');
+      labelStoreDb.clear();
+      Object.entries(state.labelStore).forEach(([k, v]) => labelStoreDb.put(v, k));
+      
+      // 4. Save config parameters
+      const configStore = transaction.objectStore('config');
+      configStore.put([...state.likedKeys], 'likedKeys');
+      configStore.put(rankState, 'rankState');
+      
+      await new Promise((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
       success = true;
     } catch (e) {
       console.error("IndexedDB write failed:", e);
@@ -120,7 +110,7 @@ export async function saveAll() {
     }
   }
 
-  // Fallback to localStorage if DB unavailable
+  // Fallback to localStorage if IndexedDB fails
   if (!success) {
     try {
       localStorage.setItem('bklyn_v6', JSON.stringify(data));
@@ -142,30 +132,95 @@ export async function saveAll() {
 export async function loadAll() {
   await openDB();
 
-  let data = null;
+  let loadedData = null;
   let migrated = false;
-
   const localDataStr = localStorage.getItem('bklyn_v6');
 
   if (db && !useLocalStorageFallback) {
-    data = await getDBState();
-    if (!data && localDataStr) {
-      // Perform one-time migration
+    try {
+      const transaction = db.transaction(STORES, 'readonly');
+      const projRequest = transaction.objectStore('projects').getAll();
+      const palRequest = transaction.objectStore('palettes').getAll();
+      const keysRequest = transaction.objectStore('config').get('likedKeys');
+      const rankRequest = transaction.objectStore('config').get('rankState');
+
+      const allResult = await new Promise((resolve, reject) => {
+        transaction.oncomplete = () => resolve({
+          projects: projRequest.result || [],
+          palettes: palRequest.result || [],
+          keys: keysRequest.result || [],
+          rankState: rankRequest.result || null
+        });
+        transaction.onerror = () => reject(transaction.error);
+      });
+
+      // Load labels manually using a cursor
+      const labels = {};
+      await new Promise((resolve) => {
+        const trans = db.transaction(['labels'], 'readonly');
+        const store = trans.objectStore('labels');
+        store.openCursor().onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (cursor) {
+            labels[cursor.key] = cursor.value;
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+      });
+
+      if (allResult.palettes.length > 0 || allResult.projects.length > 0) {
+        loadedData = {
+          keys: allResult.keys,
+          meta: allResult.palettes,
+          projects: allResult.projects,
+          labels: labels,
+          rankState: allResult.rankState
+        };
+      }
+    } catch (e) {
+      console.error("Failed to load from IndexedDB stores:", e);
+    }
+
+    // One-time migration from localStorage
+    if (!loadedData && localDataStr) {
       try {
-        data = JSON.parse(localDataStr);
-        await setDBState(data);
+        const d = JSON.parse(localDataStr);
+        const transaction = db.transaction(STORES, 'readwrite');
+        
+        const projStore = transaction.objectStore('projects');
+        (d.projects || []).forEach(p => projStore.put(p, p.id));
+        
+        const palStore = transaction.objectStore('palettes');
+        (d.meta || []).forEach(m => palStore.put(m, m.key));
+        
+        const labelStoreDb = transaction.objectStore('labels');
+        Object.entries(d.labels || {}).forEach(([k, v]) => labelStoreDb.put(v, k));
+        
+        const configStore = transaction.objectStore('config');
+        configStore.put(d.keys || [], 'likedKeys');
+        if (d.rankState) configStore.put(d.rankState, 'rankState');
+
+        await new Promise((resolve, reject) => {
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error);
+        });
+
+        loadedData = d;
         localStorage.removeItem('bklyn_v6');
         migrated = true;
-        console.log("Successfully migrated localStorage to IndexedDB.");
+        console.log("Successfully migrated localStorage to relational IndexedDB stores.");
       } catch (err) {
         console.error("Migration failed:", err);
       }
     }
   }
 
-  if (!data && localDataStr) {
+  // Load from localStorage fallback if database is not active
+  if (!loadedData && localDataStr) {
     try {
-      data = JSON.parse(localDataStr);
+      loadedData = JSON.parse(localDataStr);
     } catch (e) {
       console.error("Failed to parse localStorage fallback data:", e);
     }
@@ -177,14 +232,14 @@ export async function loadAll() {
     }, 1000);
   }
 
-  if (data) {
-    state.likedKeys = new Set(data.keys || []);
-    state.likedMeta = data.meta || [];
-    state.projects = data.projects || [];
-    state.labelStore = data.labels || {};
-    if (data.rankState && data.rankState.mode === 'done') {
+  if (loadedData) {
+    state.likedKeys = new Set(loadedData.keys || []);
+    state.likedMeta = loadedData.meta || [];
+    state.projects = loadedData.projects || [];
+    state.labelStore = loadedData.labels || {};
+    if (loadedData.rankState && loadedData.rankState.mode === 'done') {
       state.rankMode = 'done';
-      state.rankSorted = (data.rankState.sorted || []).map(k => state.likedMeta.find(m => m.key === k)).filter(Boolean);
+      state.rankSorted = (loadedData.rankState.sorted || []).map(k => state.likedMeta.find(m => m.key === k)).filter(Boolean);
     }
     state.compPairs = data.pairs || [];
     state.learnedWeights = data.learnedWeights || null;
