@@ -663,7 +663,7 @@ export function buildCard(p,isLiked,compact){
   const card=document.createElement('article');
   card.className='card'+(isLiked&&!compact?' liked':'')+(compact?' compact':'');
   card.dataset.pid=p.id;card.dataset.key=p.key||'';
-  card.addEventListener('click',e=>{if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);}else if(!e.target.closest('button,a,input,[contenteditable]')){_focusedCardKey=p.key;if(typeof openPaletteDetail==='function')openPaletteDetail(p.key);}});
+  card.addEventListener('click',e=>{if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);}else if(!e.target.closest('button,a,input,[contenteditable]')){_focusedCardKey=p.key;if(typeof openPaletteDetail==='function')openPaletteDetail(p.key,p);}});
   card.addEventListener('contextmenu', e => { if(!compact) openCtxMenu(e, p); });
 
   if (!compact) {

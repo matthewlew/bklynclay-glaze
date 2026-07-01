@@ -227,20 +227,22 @@ function updatePinBadge() {
 }
 
 // ── Load data ──────────────────────────────────────────────────────────────────
-function _loadKeyData(key) {
+// `fallback` is the in-memory palette object (p.glazes/p.label) used when the
+// palette hasn't been pinned yet, so likedMeta has no entry for its key.
+function _loadKeyData(key, fallback) {
   _key = key;
   const m = likedMeta.find(x => x.key === key);
-  if (!m) return;
   _stops = [];
-  const names = m.names || [];
-  const hexes = m.hexes  || [];
-  const w = names.length ? 100 / names.length : 100;
+  const names = m ? (m.names || []) : (fallback?.glazes || []).map(g => g.name);
+  const hexes = m ? (m.hexes || []) : (fallback?.glazes || []).map(g => g.hex);
+  if (!names.length) return;
+  const w = 100 / names.length;
   names.forEach((name, i) => {
     const hex = hexes[i] || (GLAZES.find(g => g.name === name)?.hex) || '#888';
     _stops.push(mkStop(name, hex, w));
   });
   const title = document.getElementById('pdTitle');
-  if (title) title.value = (typeof labelStore !== 'undefined' ? labelStore[key] : null) || m.label || 'Palette';
+  if (title) title.value = (typeof labelStore !== 'undefined' ? labelStore[key] : null) || m?.label || fallback?.label || 'Palette';
   renderGradBg(_stops);
 }
 
@@ -594,7 +596,7 @@ export function pdCopyNames() {
 }
 
 // ── Open / close ───────────────────────────────────────────────────────────────
-export function openPaletteDetail(key) {
+export function openPaletteDetail(key, fallback) {
   _allKeys = likedMeta.map(m => m.key);
   _keyIdx  = _allKeys.indexOf(key);
   if (_keyIdx === -1) { _allKeys = [key]; _keyIdx = 0; }
@@ -603,7 +605,7 @@ export function openPaletteDetail(key) {
   document.getElementById('paletteDetail').style.display = 'flex';
   document.body.style.overflow = 'hidden';
 
-  _loadKeyData(key);
+  _loadKeyData(key, fallback);
   updateNav();
   updateModeBar();
   updatePinBadge();
