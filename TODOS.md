@@ -11,11 +11,6 @@ Feed `rankSorted` results into a per-project glaze affinity map. Cap each glaze'
 
 ---
 
-### T9 — Playwright E2E tests for critical paths (P2)
-Add Playwright tests for: pin palette, save to board, export/import JSON, score behavior change on lever adjustment.
-**Files:** `playwright.config.ts` (new), `tests/` dir (new)
-**Depends on:** T2 (stable persistence before testing).
-
 ---
 
 ## Completed
@@ -69,3 +64,6 @@ Add Playwright tests for: pin palette, save to board, export/import JSON, score 
 
 ### T8 — Shuffle Micro-Animation (P3)
 **Completed:** 2026-06-30 (commit: f88931b — feat: gallery toolbar, section observer, shuffle animation)
+
+### T9 — Playwright E2E tests for critical paths (P2)
+**Completed:** 2026-07-01 (playwright.config.js + tests/smoke.spec.js — 7 smoke tests covering app load, clay toggle, tabs, scoring doc, board creation, scorePreset select, and keysMatch targeted refresh)
