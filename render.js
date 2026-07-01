@@ -680,7 +680,14 @@ export function buildCard(p,isLiked,compact){
   const card=document.createElement('article');
   card.className='card'+(isLiked&&!compact?' liked':'')+(compact?' compact':'');
   card.dataset.pid=p.id;card.dataset.key=p.key||'';
-  card.addEventListener('click',e=>{if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);}else if(!e.target.closest('button,a,input,[contenteditable]')){_focusedCardKey=p.key;if(typeof openPaletteDetail==='function')openPaletteDetail(p.key,p);}});
+  card.addEventListener('click',e=>{
+    if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);return;}
+    if(e.target.closest('button,a,input,[contenteditable]'))return;
+    // Once multi-select is active, plain taps keep adding to the selection
+    // instead of opening the editor — no need to hold every subsequent card.
+    if(p.key&&typeof selectedKeys!=='undefined'&&selectedKeys.size){toggleCardSelect(p.key,card);return;}
+    _focusedCardKey=p.key;if(typeof openPaletteDetail==='function')openPaletteDetail(p.key,p);
+  });
   card.addEventListener('contextmenu', e => { if(!compact) openCtxMenu(e, p); });
 
   if (!compact) {
@@ -848,20 +855,61 @@ export function toggleCardSelect(key,card){
   updateMultiBar();
 }
 
+function _resolvePaletteByKey(key){
+  const inPalettes=palettes.find(p=>p.key===key);
+  if(inPalettes)return inPalettes;
+  const m=likedMeta.find(x=>x.key===key);
+  if(m){
+    const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+    return{key,label:m.label,tag:m.tag||'Mood',glazes};
+  }
+  return null;
+}
+
+function _ensurePinned(key,projId){
+  const meta=likedMeta.find(m=>m.key===key);
+  if(meta){if(projId)meta.projectId=projId;likedKeys.add(key);return;}
+  const p=_resolvePaletteByKey(key);
+  if(!p||!p.glazes.length)return;
+  likedKeys.add(key);
+  likedMeta.push({key,label:p.label,feeling:'',tag:p.tag,names:p.glazes.map(g=>g.name),hexes:p.glazes.map(g=>g.hex),projectId:projId});
+}
+
 export function updateMultiBar(){
   if(_multiBar)_multiBar.remove();_multiBar=null;
   if(!selectedKeys.size)return;
   const bar=document.createElement('div');bar.className='multi-action-bar';_multiBar=bar;
   bar.innerHTML=`<span>${selectedKeys.size} selected</span>`;
+  const pinAllBtn=document.createElement('button');pinAllBtn.textContent='Pin all';
+  pinAllBtn.addEventListener('click',()=>{
+    const n=selectedKeys.size;
+    selectedKeys.forEach(key=>_ensurePinned(key,activeContext!=='global'?activeContext:undefined));
+    saveAll();renderSidebar();updateCount();renderTopbarTabs();renderGallery();
+    showToast(`Pinned ${n} palette${n===1?'':'s'}`);
+    clearMultiSelect();
+  });
+  bar.appendChild(pinAllBtn);
+  const riffBtn=document.createElement('button');riffBtn.textContent='Riff together';
+  riffBtn.addEventListener('click',()=>{
+    const srcs=[...selectedKeys].map(_resolvePaletteByKey).filter(s=>s&&s.glazes.length);
+    if(!srcs.length)return;
+    const glazeMap=new Map();
+    srcs.forEach(s=>s.glazes.forEach(g=>glazeMap.set(g.name,g)));
+    const combined={label:'Combined riff',tag:'Mood',glazes:[...glazeMap.values()]};
+    palettes=doRiff(combined);
+    if(currentTab!=='explore')setTab('explore');
+    renderGallery();
+    document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth'});
+    clearMultiSelect();
+  });
+  bar.appendChild(riffBtn);
   projects.forEach(proj=>{
     const b=document.createElement('button');b.textContent=`→ ${proj.name}`;
     b.addEventListener('click',()=>{
-      selectedKeys.forEach(key=>{
-        if(!likedKeys.has(key)){likedKeys.add(key);const meta=likedMeta.find(m=>m.key===key);if(!meta){/* skip */}else meta.projectId=proj.id;}
-        else{const meta=likedMeta.find(m=>m.key===key);if(meta)meta.projectId=proj.id;}
-      });
+      const n=selectedKeys.size;
+      selectedKeys.forEach(key=>_ensurePinned(key,proj.id));
       saveAll();renderSidebar();updateCount();renderTopbarTabs();
-      showToast(`${selectedKeys.size} palettes → "${proj.name}"`);
+      showToast(`${n} palettes → "${proj.name}"`);
       clearMultiSelect();
     });
     bar.appendChild(b);
