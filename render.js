@@ -783,8 +783,7 @@ export function buildCard(p,isLiked,compact){
     footer.appendChild(sciRow);
     const peekScore = document.createElement('div');
     peekScore.className = 'card-score-peek';
-    const sc2 = scoreAesthetic(p.glazes,activeScoreWeights());
-    peekScore.textContent = '★ ' + sc2;
+    peekScore.textContent = '★ ' + sc;
     card.appendChild(peekScore);
     footer.appendChild(buildGlazeChips(p, stack, card));
   }
@@ -842,15 +841,15 @@ export function renderGallery(){
           const isCompact = card.classList.contains('compact');
           refreshStack(stack, p.glazes, clayKey, isCompact ? 44 : TH);
         }
+        const sc = scoreAesthetic(p.glazes, w);
         const badge = card.querySelector('.score-badge');
         if (badge) {
-          const sc = scoreAesthetic(p.glazes, w);
           badge.className = 'score-badge' + (sc >= 70 ? ' score-hi' : sc >= 45 ? ' score-mid' : ' score-lo');
           badge.textContent = '★ ' + sc;
         }
         const peek = card.querySelector('.card-score-peek');
         if (peek) {
-          peek.textContent = '★ ' + scoreAesthetic(p.glazes, w);
+          peek.textContent = '★ ' + sc;
         }
       }
     });
@@ -943,15 +942,15 @@ export function renderSavedSection(){
           const isCompact = card.classList.contains('compact');
           refreshStack(stack, glazes, clayKey, isCompact ? 44 : TH);
         }
+        const sc = glazes.length ? scoreAesthetic(glazes, w) : 0;
         const badge = card.querySelector('.score-badge');
         if (badge && glazes.length) {
-          const sc = scoreAesthetic(glazes, w);
           badge.className = 'score-badge' + (sc >= 70 ? ' score-hi' : sc >= 45 ? ' score-mid' : ' score-lo');
           badge.textContent = '★ ' + sc;
         }
         const peek = card.querySelector('.card-score-peek');
         if (peek && glazes.length) {
-          peek.textContent = '★ ' + scoreAesthetic(glazes, w);
+          peek.textContent = '★ ' + sc;
         }
       }
     });
@@ -1279,7 +1278,7 @@ export function showPaletteModal(m){
   const gn=document.createElement('div');gn.className='palette-modal-glazes';gn.textContent=(m.names||[]).join(' · ');
   const projNames=projects.filter(p=>m.projectId===p.id).map(p=>p.name);
   const projEl=document.createElement('div');projEl.className='palette-modal-projects';
-  projEl.innerHTML=projNames.length?`In board: <strong>${projNames.join(', ')}</strong>`:'Not in any board';
+  if(projNames.length){projEl.textContent='In board: ';const strong=document.createElement('strong');strong.textContent=projNames.join(', ');projEl.appendChild(strong);}else{projEl.textContent='Not in any board';}
   const closeBtn=document.createElement('button');closeBtn.className='palette-modal-close';closeBtn.textContent='Close';
   closeBtn.addEventListener('click',()=>backdrop.remove());
   body.appendChild(nm);body.appendChild(gn);body.appendChild(projEl);
