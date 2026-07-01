@@ -105,13 +105,33 @@ export function swatchSVG(g,ck,h){
   return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${h}" style="display:block;width:100%;" aria-hidden="true"><defs>${defs}</defs><rect width="${W}" height="${h}" fill="${clayHex}"/>${body}${overlay}${gd}</svg>`;
 }
 
+function _galleryEqualStops(glazes,ck){
+  const n=glazes.length;
+  return glazes.map((g,i)=>{
+    const c=applyGlaze(g,ck);
+    const pct=n>1?(i/(n-1))*100:50;
+    return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${pct.toFixed(1)}%`;
+  }).join(',');
+}
+
+export function galleryGradientCSS(glazes,ck,mode){
+  ck=ck||clayKey;
+  if(!glazes||!glazes.length)return CLAY[ck];
+  if(mode==='radial')return`radial-gradient(circle,${_galleryEqualStops(glazes,ck)})`;
+  if(mode==='conic')return`conic-gradient(from 0deg,${_galleryEqualStops(glazes,ck)})`;
+  // Vertical, matching the top-to-bottom stacking of the tile view (glazeCSS runs left-to-right).
+  const stops=Array.from({length:9},(_,i)=>{const t=i/8,c=sampleAt(t,glazes,ck);return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${Math.round(t*100)}%`;});
+  return`linear-gradient(to bottom,${stops.join(',')})`;
+}
+
 export function buildStack(glazes,ck,tH){
   tH=tH||TH;
-  if(bandView){
-    const wrap=document.createElement('div');wrap.className='tile-band-wrap';
-    const band=document.createElement('div');band.className='tile-band tile-col';
-    band.style.background=glazeCSS(glazes,ck||clayKey);
-    wrap.appendChild(band);return wrap;
+  if(galleryViewMode&&galleryViewMode!=='tiles'){
+    const totalH=NT*tH+(NT-1)*TG;
+    const wrap=document.createElement('div');wrap.className='tile-col tile-gradient';
+    wrap.style.height=totalH+'px';
+    wrap.style.background=galleryGradientCSS(glazes,ck||clayKey,galleryViewMode);
+    return wrap;
   }
   const col=document.createElement('div');col.className='tile-col';
   for(let ti=0;ti<NT;ti++){const w=document.createElement('div');w.className='tile-wrap';w.innerHTML=tileSVG(ti,glazes,ck||clayKey,tH);col.appendChild(w);}
@@ -120,7 +140,18 @@ export function buildStack(glazes,ck,tH){
 
 export function refreshStack(col,glazes,ck,tH){
   tH=tH||TH;
+  if(col.classList.contains('tile-gradient')){
+    col.style.background=galleryGradientCSS(glazes,ck||clayKey,galleryViewMode);
+    return;
+  }
   col.querySelectorAll('.tile-wrap').forEach((w,ti)=>{w.innerHTML=tileSVG(ti,glazes,ck||clayKey,tH);});
+}
+
+export function setGalleryViewMode(mode){
+  galleryViewMode=mode;
+  document.querySelectorAll('.gv-btn').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
+  lastRenderedKeys=[];lastSavedKeys=[];
+  if(currentTab==='explore'){renderGallery();}
 }
 
 // ── LEVER UI ──────────────────────────────────────────────────────────────────
