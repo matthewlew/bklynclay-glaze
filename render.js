@@ -314,16 +314,22 @@ export function activeScoreWeights(){
 
 export function switchContext(ctx){
   activeContext=ctx;
+  let leversChanged=false;
   if(ctx!=='global'){
     const proj=projects.find(p=>p.id===ctx);
-    if(proj&&proj.leverState){levers={...proj.leverState};buildLeversUI();updatePresetName();}
+    if(proj&&proj.leverState){
+      const prev=JSON.stringify(levers);
+      levers={...proj.leverState};
+      leversChanged=JSON.stringify(levers)!==prev;
+      buildLeversUI();updatePresetName();
+    }
   }
   updateProjectBanner();
   renderSidebar();
   renderTopbarTabs();
   renderLeftPanelPairings();
   renderScoreWeighting();
-  if(currentTab==='explore'){palettes=genBatch();renderGallery();renderSavedSection();}
+  if(currentTab==='explore'){if(leversChanged)palettes=genBatch();renderGallery();renderSavedSection();}
 }
 
 export function updateProjectBanner(){
@@ -457,7 +463,7 @@ export function makeProjTab(label, isActive, colorNames, onActivate, onDelete, p
     lbl.addEventListener('dblclick',e=>{
       e.stopPropagation();
       const inp=document.createElement('input');inp.type='text';inp.value=lbl.textContent;
-      inp.style.cssText='font-size:12px;font-weight:600;font-family:inherit;border:none;background:transparent;color:inherit;outline:none;width:100%;';
+      inp.className='proj-tab-input';
       lbl.replaceWith(inp);inp.focus();inp.select();
       let committed=false;
       const commit=()=>{
@@ -671,7 +677,7 @@ export function buildBoardDropdown(p, pinBtn, card, compact) {
       const itemStrip=document.createElement('div');itemStrip.className='bd-item-strip';
       if(projGlazes.length)itemStrip.style.background=glazeCSS(projGlazes.slice(0,4),clayKey);
       const itemName=document.createElement('span');itemName.className='bd-item-name';itemName.textContent=proj.name;
-      const count=document.createElement('span');count.style.cssText='font-size:10px;color:var(--ink3);';count.textContent=likedMeta.filter(x=>x.projectId===proj.id).length+' palettes';
+      const count=document.createElement('span');count.className='bd-item-count';count.textContent=likedMeta.filter(x=>x.projectId===proj.id).length+' palettes';
       if(inP){const ck=document.createElement('span');ck.className='bd-item-check';ck.textContent='✓';item.appendChild(itemStrip);item.appendChild(itemName);item.appendChild(count);item.appendChild(ck);}
       else{item.appendChild(itemStrip);item.appendChild(itemName);item.appendChild(count);}
       item.addEventListener('click',e=>{e.stopPropagation();panel.remove();_dropOpen=null;saveToBoard(proj.id);});
@@ -1310,10 +1316,15 @@ export function renderTopbarTabs(){
     btn.textContent=proj.name;
     btn.title='Double-click to rename';
     btn.addEventListener('click',()=>switchToProjectTab(proj.id));
+    btn.addEventListener('contextmenu',e=>{e.preventDefault();showProjMenu(proj.id,btn);});
+    let _lpt=null;
+    btn.addEventListener('touchstart',e=>{_lpt=setTimeout(()=>{e.preventDefault();showProjMenu(proj.id,btn);},600);},{passive:false});
+    btn.addEventListener('touchend',()=>clearTimeout(_lpt));
+    btn.addEventListener('touchmove',()=>clearTimeout(_lpt));
     btn.addEventListener('dblclick',e=>{
       e.stopPropagation();
       const inp=document.createElement('input');inp.type='text';inp.value=btn.textContent;
-      inp.style.cssText='font-size:13px;font-weight:600;font-family:inherit;border:none;background:transparent;color:inherit;outline:none;width:90px;border-bottom:1.5px solid var(--ink);';
+      inp.className='topbar-tab-input';
       btn.replaceWith(inp);inp.focus();inp.select();
       let committed=false;
       const commit=()=>{
@@ -1378,7 +1389,7 @@ export function renderAnalyticsView(){
   const topPairs=Object.entries(pairCount).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const pairCard=document.createElement('div');pairCard.className='analytics-card';
   pairCard.innerHTML='<div class="analytics-card-title">Common Pairings</div>';
-  if(!topPairs.length){pairCard.innerHTML+='<div style="font-size:11px;color:var(--ink3);padding-top:6px;">No repeated pairings yet.</div>';}
+  if(!topPairs.length){const noPairs=document.createElement('div');noPairs.className='analytics-empty-msg';noPairs.textContent='No repeated pairings yet.';pairCard.appendChild(noPairs);}
   topPairs.forEach(([pair,count])=>{
     const[a,b]=pair.split(' + ');
     const ga=GLAZES.find(g=>g.name===a),gb=GLAZES.find(g=>g.name===b);
@@ -1386,8 +1397,8 @@ export function renderAnalyticsView(){
     const row=document.createElement('div');row.className='analytics-swatch-row';
     const sw=document.createElement('div');sw.className='analytics-swatch';
     if(glazes.length)sw.style.background=glazeCSS(glazes,clayKey);
-    const lbl=document.createElement('div');lbl.style.cssText='flex:1;font-size:11px;color:var(--ink);';lbl.textContent=pair;
-    const cnt=document.createElement('div');cnt.style.cssText='font-size:10px;color:var(--ink3);flex-shrink:0;margin-right:4px;';cnt.textContent=count+'×';
+    const lbl=document.createElement('div');lbl.className='analytics-pair-label';lbl.textContent=pair;
+    const cnt=document.createElement('div');cnt.className='analytics-pair-count';cnt.textContent=count+'×';
     const riffBtn=document.createElement('button');riffBtn.className='btn sm';riffBtn.textContent='Explore';riffBtn.title='Explore this pairing';
     riffBtn.addEventListener('click',()=>{
       if(glazes.length){
