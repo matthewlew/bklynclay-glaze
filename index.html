@@ -1102,7 +1102,8 @@ import {
   switchContext, switchToProjectTab, buildLeversUI, renderTopbarTabs,
   renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, wireMobileImagePicker, initSectionObserver, initHorizontalSwipe,
   moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection, setGalleryViewMode, setControlsSection, setTileDivisions,
-  renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer
+  renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer,
+  closeCompositionModal
 } from './render.js?v=7';
 import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse } from './palette-detail.js';
 
@@ -1149,6 +1150,9 @@ Object.assign(window, {
   
   // Context menu
   closeCtxMenu,
+
+  // Composition canvas
+  closeCompositionModal,
   
   // Label editing
   editLabel: (key, el) => { el.contentEditable = 'true'; el.focus(); },
@@ -1197,6 +1201,7 @@ document.addEventListener('keydown', e => {
       closeShortcutOverlay();
       clearMultiSelect?.();
       closeSheet?.();
+      closeCompositionModal?.();
       break;
     case '?':
       openShortcutOverlay();

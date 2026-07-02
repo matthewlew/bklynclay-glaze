@@ -1936,126 +1936,204 @@ export function _vPlate(ctx,W,H){
   ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.strokeStyle='rgba(0,0,0,0.12)';ctx.lineWidth=1.5;ctx.stroke();
 }
 
-// ── COMPOSITION CANVAS (multi-column combined gradients) ──────────────────────
-// Lets a multi-selected set of palettes be viewed and resized side-by-side as
-// parallel gradient columns, independent of the single-palette editor.
-let _compAllSrcs = [];
-let _compCols = [];
-let _compDrag = null;
+// ── COMPOSITION CANVAS (copy/paste-to-pair + multi-select "Compose columns") ──
+// Composition state tracks palette objects in fixed, pre-allocated slots (not
+// just keys — matches how _resolvePaletteByKey/likedMeta already carry full
+// palette data) so both the right-click copy/paste flow and the multi-select
+// "Compose columns" entry point can share one modal instance.
+const COMP_COUNTS = [4, 8, 12, 16]; // mirrors the gallery's tile-division config (4/8/12/16)
 
-function _compColumnCSS(glazes,ck){
-  ck=ck||clayKey;
-  if(!glazes||!glazes.length)return CLAY[ck];
-  const stops=Array.from({length:9},(_,i)=>{const t=i/8,c=sampleAt(t,glazes,ck);return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${Math.round(t*100)}%`;});
-  return`linear-gradient(to bottom,${stops.join(',')})`;
+let _copiedPaletteKey = null;
+let _copiedPaletteObj = null;
+export let compositionOpen = false;
+let _compCount = COMP_COUNTS[0];
+let _compSlots = new Array(_compCount).fill(null);
+let _compColWidths = [];
+
+export function copyPaletteForComposition(p) {
+  document.querySelectorAll('.comp-copy-badge').forEach(b => b.remove());
+  _copiedPaletteKey = p.key;
+  _copiedPaletteObj = p;
+  const card = document.querySelector(`.card[data-key="${p.key}"]`);
+  if (card) {
+    const badge = document.createElement('span');
+    badge.className = 'comp-copy-badge';
+    badge.textContent = 'Copied';
+    card.appendChild(badge);
+  }
+  showToast('Copied — right-click another palette and choose "Paste as pair here".');
 }
 
-export function openCompositionModal(paletteObjs){
-  _compAllSrcs=paletteObjs.filter(p=>p&&p.glazes&&p.glazes.length);
-  if(_compAllSrcs.length<2)return;
-  const n=Math.min(4,_compAllSrcs.length);
-  _compCols=_compAllSrcs.slice(0,n).map(p=>({label:p.label||'Palette',glazes:p.glazes,weight:1}));
-  const ov=document.getElementById('compositionModal');if(!ov)return;
+export function pasteAsPairComposition(p) {
+  if (!_copiedPaletteObj || _copiedPaletteKey === p.key) return;
+  document.querySelectorAll('.comp-copy-badge').forEach(b => b.remove());
+  const first = _copiedPaletteObj;
+  _copiedPaletteKey = null; _copiedPaletteObj = null;
+  openCompositionModal([first, p]);
+}
+
+// Seeds the pre-allocated slots from an array of full palette objects (used by
+// both "Paste as pair here" and the multi-select "Compose columns" button).
+export function openCompositionModal(paletteObjs) {
+  const srcs = (paletteObjs || []).filter(p => p && p.glazes && p.glazes.length);
+  if (!srcs.length) return;
+  _compCount = COMP_COUNTS.find(n => n >= srcs.length) || COMP_COUNTS[COMP_COUNTS.length - 1];
+  _compSlots = new Array(_compCount).fill(null);
+  srcs.slice(0, _compCount).forEach((p, i) => { _compSlots[i] = p; });
+  _compColWidths = [];
+  compositionOpen = true;
   _renderCompositionModal();
-  ov.classList.add('open');
-  ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('open');},{once:true});
 }
 
-export function closeCompositionModal(){
+export function addToComposition(p) {
+  if (!compositionOpen) return;
+  if (_compSlots.some(s => s && s.key === p.key)) { showToast('Already in this composition'); return; }
+  const idx = _compSlots.findIndex(s => !s);
+  if (idx === -1) { showToast('Composition is full'); return; }
+  _compSlots[idx] = p;
+  _renderCompositionModal();
+}
+
+export function clearComposition() {
+  _compSlots = new Array(_compCount).fill(null);
+  _compColWidths = [];
+  if (compositionOpen) _renderCompositionModal();
+}
+
+export function closeCompositionModal() {
+  compositionOpen = false;
   document.getElementById('compositionModal')?.classList.remove('open');
 }
 
-export function setCompColumnCount(n){
-  n=Math.max(2,Math.min(4,n,_compAllSrcs.length));
-  _compCols=_compAllSrcs.slice(0,n).map(p=>({label:p.label||'Palette',glazes:p.glazes,weight:1}));
-  _renderCompositionModal();
+function _setCompCount(n) {
+  const willDrop = _compSlots.slice(n).filter(Boolean).length;
+  const apply = () => {
+    const kept = _compSlots.slice(0, n);
+    while (kept.length < n) kept.push(null);
+    _compSlots = kept;
+    _compCount = n;
+    _compColWidths = [];
+    _renderCompositionModal();
+  };
+  if (willDrop) confirmSheet(`Reducing to ${n} columns will remove ${willDrop} filled palette${willDrop === 1 ? '' : 's'} from the composition.`, 'Reduce columns', apply);
+  else apply();
 }
 
-function _renderCompositionModal(){
-  const ov=document.getElementById('compositionModal');if(!ov)return;
-  ov.innerHTML='';
-  const modal=document.createElement('div');modal.className='comp-modal';
+function _startDividerDrag(e, i) {
+  e.preventDefault();
+  const cols = document.querySelectorAll('#compositionModal .comp-col');
+  const colA = cols[i], colB = cols[i + 1];
+  if (!colA || !colB) return;
+  const startX = e.clientX;
+  const rectA = colA.getBoundingClientRect(), rectB = colB.getBoundingClientRect();
+  const totalPx = rectA.width + rectB.width;
+  const startA = _compColWidths[i], startB = _compColWidths[i + 1];
+  const totalPct = startA + startB;
+  const onMove = ev => {
+    const dxPct = ((ev.clientX - startX) / totalPx) * totalPct;
+    const a = Math.max(8, Math.min(totalPct - 8, startA + dxPct));
+    const b = totalPct - a;
+    _compColWidths[i] = a; _compColWidths[i + 1] = b;
+    colA.style.flex = `${a} ${a} 0`;
+    colB.style.flex = `${b} ${b} 0`;
+  };
+  const onUp = () => {
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+  };
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+}
 
-  const hdr=document.createElement('div');hdr.className='comp-header';
-  const ttl=document.createElement('div');ttl.className='comp-title';ttl.textContent=`Composition — ${_compCols.length} columns`;
-  const countRow=document.createElement('div');countRow.className='comp-col-count';
-  [2,3,4].forEach(n=>{
-    const b=document.createElement('button');b.className='comp-count-btn'+(n===_compCols.length?' on':'');
-    b.textContent=n;b.disabled=n>_compAllSrcs.length;
-    b.addEventListener('click',()=>setCompColumnCount(n));
-    countRow.appendChild(b);
+function _renderCompositionModal() {
+  const overlay = document.getElementById('compositionModal');
+  if (!overlay) return;
+  overlay.classList.add('open');
+  overlay.innerHTML = '';
+
+  if (_compColWidths.length !== _compCount) _compColWidths = new Array(_compCount).fill(100 / _compCount);
+
+  const modal = document.createElement('div'); modal.className = 'comp-modal';
+
+  const header = document.createElement('div'); header.className = 'comp-header';
+  const title = document.createElement('div'); title.className = 'comp-title';
+  title.textContent = `Composition (${_compSlots.filter(Boolean).length}/${_compCount})`;
+  const countRow = document.createElement('div'); countRow.className = 'comp-col-count';
+  COMP_COUNTS.forEach(n => {
+    const btn = document.createElement('button');
+    btn.className = 'comp-count-btn' + (n === _compCount ? ' on' : '');
+    btn.textContent = String(n);
+    btn.addEventListener('click', () => _setCompCount(n));
+    countRow.appendChild(btn);
   });
-  const xBtn=document.createElement('button');xBtn.className='comp-close';xBtn.textContent='×';xBtn.setAttribute('aria-label','Close');
-  xBtn.onclick=closeCompositionModal;
-  hdr.append(ttl,countRow,xBtn);modal.appendChild(hdr);
+  const closeBtn = document.createElement('button'); closeBtn.className = 'comp-close'; closeBtn.textContent = '✕';
+  closeBtn.addEventListener('click', closeCompositionModal);
+  header.appendChild(title); header.appendChild(countRow); header.appendChild(closeBtn);
 
-  const body=document.createElement('div');body.className='comp-body';
-  const cols=document.createElement('div');cols.className='comp-columns';
-  const totalW=_compCols.reduce((a,c)=>a+c.weight,0);
-  _compCols.forEach((c,i)=>{
-    const col=document.createElement('div');col.className='comp-col';
-    col.style.flex=`${c.weight} ${c.weight} 0`;
-    col.style.background=_compColumnCSS(c.glazes,clayKey);
-    const lbl=document.createElement('div');lbl.className='comp-col-label';lbl.textContent=c.label;
-    col.appendChild(lbl);
-    cols.appendChild(col);
-    if(i<_compCols.length-1){
-      const div=document.createElement('div');div.className='comp-divider';
-      div.dataset.idx=i;
-      div.addEventListener('mousedown',e=>_compDividerStart(e.clientX,i,cols));
-      div.addEventListener('touchstart',e=>_compDividerStart(e.touches[0].clientX,i,cols),{passive:true});
-      cols.appendChild(div);
+  const body = document.createElement('div'); body.className = 'comp-body';
+  const columns = document.createElement('div'); columns.className = 'comp-columns';
+
+  _compSlots.forEach((p, i) => {
+    const col = document.createElement('div');
+    col.className = 'comp-col' + (p ? '' : ' comp-col-empty');
+    col.style.flex = `${_compColWidths[i]} ${_compColWidths[i]} 0`;
+    if (p) {
+      col.appendChild(buildStack(p.glazes, clayKey, TH));
+      const label = document.createElement('div'); label.className = 'comp-col-label';
+      label.textContent = labelStore[p.key] || p.label;
+      col.appendChild(label);
+    } else {
+      const ph = document.createElement('div'); ph.className = 'comp-col-empty-label';
+      ph.textContent = 'Right-click a palette → Add to composition';
+      col.appendChild(ph);
+    }
+    columns.appendChild(col);
+    if (i < _compSlots.length - 1) {
+      const divider = document.createElement('div'); divider.className = 'comp-divider';
+      divider.addEventListener('pointerdown', ev => _startDividerDrag(ev, i));
+      columns.appendChild(divider);
     }
   });
-  body.appendChild(cols);modal.appendChild(body);
 
-  const footer=document.createElement('div');footer.className='comp-footer';
-  const saveBtn=document.createElement('button');saveBtn.className='btn primary';saveBtn.textContent='Save as combined palette';
-  saveBtn.addEventListener('click',_compSaveCombined);
-  footer.appendChild(saveBtn);modal.appendChild(footer);
+  body.appendChild(columns);
 
-  ov.appendChild(modal);
+  const footer = document.createElement('div'); footer.className = 'comp-footer';
+  const clearBtn = document.createElement('button'); clearBtn.className = 'btn danger'; clearBtn.textContent = 'Clear composition';
+  clearBtn.addEventListener('click', () => {
+    if (_compSlots.some(Boolean)) confirmSheet('Remove all palettes from this composition?', 'Clear composition', clearComposition);
+  });
+  const saveBtn = document.createElement('button'); saveBtn.className = 'btn primary'; saveBtn.textContent = 'Save as board';
+  saveBtn.addEventListener('click', saveCompositionAsBoard);
+  footer.appendChild(clearBtn); footer.appendChild(saveBtn);
+
+  modal.appendChild(header); modal.appendChild(body); modal.appendChild(footer);
+  overlay.appendChild(modal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeCompositionModal(); }, { once: true });
 }
 
-function _compDividerStart(startX,idx,colsEl){
-  const rect=colsEl.getBoundingClientRect();
-  _compDrag={idx,startX,rectWidth:rect.width,wA:_compCols[idx].weight,wB:_compCols[idx+1].weight};
-  const move=e=>_compDividerMove(e.touches?e.touches[0].clientX:e.clientX);
-  const up=()=>{
-    document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);
-    document.removeEventListener('touchmove',move);document.removeEventListener('touchend',up);
-    _compDrag=null;
-  };
-  document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
-  document.addEventListener('touchmove',move,{passive:true});document.addEventListener('touchend',up);
-}
-
-function _compDividerMove(clientX){
-  if(!_compDrag)return;
-  const {idx,startX,rectWidth,wA,wB}=_compDrag;
-  const totalW=_compCols.reduce((a,c)=>a+c.weight,0);
-  const pairTotal=wA+wB;
-  const dxFrac=(clientX-startX)/rectWidth*totalW;
-  const minW=pairTotal*0.2;
-  let newA=Math.max(minW,Math.min(pairTotal-minW,wA+dxFrac));
-  _compCols[idx].weight=newA;
-  _compCols[idx+1].weight=pairTotal-newA;
-  const colsEl=document.querySelector('.comp-columns');
-  if(colsEl){
-    colsEl.querySelectorAll('.comp-col').forEach((el,i)=>{el.style.flex=`${_compCols[i].weight} ${_compCols[i].weight} 0`;});
-  }
-}
-
-function _compSaveCombined(){
-  const glazes=_compCols.flatMap(c=>c.glazes).sort((a,b)=>b.lum-a.lum);
-  const label=_compCols.map(c=>c.label).join(' + ');
-  const p=withKey({id:mkid(),label,feeling:'',tag:'Composed',glazes});
-  palettes=[p,...palettes.slice(0,19)];
-  if(currentTab!=='explore')setTab('explore');
-  renderGallery();
-  document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth'});
-  showToast(`Saved combined palette "${label}"`);
-  closeCompositionModal();
+// Reuses the exact board-creation path from createNewProject/buildBoardDropdown
+// (projects.push + likedKeys/likedMeta + saveAll) rather than a new persistence layer.
+export function saveCompositionAsBoard() {
+  const filled = _compSlots.filter(Boolean);
+  if (!filled.length) { showToast('Composition is empty'); return; }
+  promptSheet('Name this board:', 'Composition', 'Save as board', name => {
+    const newId = mkid();
+    const proj = { id: newId, name, leverState: { ...levers }, scorePreset: 'Balanced' };
+    projects.push(proj);
+    filled.forEach(p => {
+      likedKeys.add(p.key);
+      let meta = likedMeta.find(m => m.key === p.key);
+      if (!meta) {
+        meta = { key: p.key, label: labelStore[p.key] || p.label, feeling: '', tag: p.tag, names: p.glazes.map(g => g.name), hexes: p.glazes.map(g => g.hex), projectId: newId };
+        likedMeta.push(meta);
+      } else {
+        meta.projectId = newId;
+      }
+    });
+    saveAll(); renderSidebar(); renderTopbarTabs(); updateCount();
+    showToast(`Saved as board "${name}"`);
+    closeCompositionModal();
+  });
 }
 
 // ── SECTION OBSERVER ──────────────────────────────────────────────────────────
@@ -2370,6 +2448,22 @@ export function openCtxMenu(e, p) {
     const text = p.glazes.map(g => g.name).join(', ');
     navigator.clipboard?.writeText(text).then(() => showToast('Copied!')).catch(() => showToast('Copy failed'));
   });
+
+  addDivider();
+
+  addItem('Copy palette', () => copyPaletteForComposition(p));
+
+  const pasteItem = addItem('Paste as pair here', () => pasteAsPairComposition(p));
+  if (!_copiedPaletteKey || _copiedPaletteKey === p.key) pasteItem.classList.add('disabled');
+
+  const addToCompItem = addItem('Add to composition', () => addToComposition(p));
+  if (!compositionOpen || _compSlots.some(s => s && s.key === p.key) || !_compSlots.some(s => !s))
+    addToCompItem.classList.add('disabled');
+
+  const clearCompItem = addItem('Clear composition', () => {
+    if (_compSlots.some(Boolean)) confirmSheet('Remove all palettes from this composition?', 'Clear composition', clearComposition);
+  }, true);
+  if (!_compSlots.some(Boolean)) clearCompItem.classList.add('disabled');
 
   addDivider();
 
