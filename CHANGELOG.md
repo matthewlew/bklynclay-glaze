@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.2.0] — 2026-07-02
+
+### Added
+- **Appearance themes** — Light, Dark, Stoneware, and Brooklyn Red themes via theme selector. Each theme remaps CSS tokens (`--bg`, `--surf`, `--text`, etc.) at the `:root` level and persists to localStorage.
+- **Right-click copy/paste composition** — right-click any palette card to "Copy for composition", then right-click another to "Paste as pair here". Opens the composition modal pre-seeded with both palettes.
+- **Composition modal: pre-allocated slots** — composition canvas now uses fixed slots (4/8/12/16, matching gallery tile divisions) with empty-state placeholders. "Add to composition" context menu item fills open slots; reducing column count warns before dropping filled palettes.
+- **Composition drag dividers** — column width resizing uses `pointerdown`/`pointermove` instead of separate mouse + touch handlers; dragging is smoother and works on touch devices.
+- **Detail view reverse** — pressing the active mode button again (Linear, Radial, Conic, Turrell, Stripes) reverses the stop order. Flip button always visible in the mode bar.
+
+### Changed
+- **Detail view blur/filter fixes** — Linear and Stripes modes now use `filter: none` explicitly to override the `.pd-gradient-bg` CSS default (`blur(60px)`). Stripes uses a mirrored `linear-gradient` (forward 0–50%, backward 50–100%) for a smooth seam, no `background-size` trick.
+- **Conic aperture circle** — moved outside `#pdGradient` (sibling div `#pdConicAperture`) so it renders sharp regardless of the blur applied to the gradient element. Hidden via `classList.toggle('hidden')` to avoid `.hidden { display:none }` CSS conflict.
+- **Turrell centering** — `right: 280px` applied to `#pdGradient` on desktop so SVG rects (percentage-based) center in the visible canvas area, not behind the stops panel.
+- **Tile Divisions control** — hidden when gallery mode is not "Tiles" (irrelevant for Linear/Radial/Conic views).
+- **Composition modal close** — Escape key and `closeCompositionModal()` wired through the global keyboard handler.
+
+### Fixed
+- Conic aperture not showing after mode switch — `apEl.style.display = ''` was overridden by `.hidden` CSS class; now uses `classList.toggle`.
+- Radial gradient not centered on desktop — removed duplicate `right: 280px` from radial path (center already handled by `calc(50% - 140px)` inside `_radialCss`).
+
 ## [1.1.0] — 2026-07-01
 
 ### Added
