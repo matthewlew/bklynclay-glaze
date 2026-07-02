@@ -124,7 +124,12 @@ export function galleryGradientCSS(glazes,ck,mode){
   ck=ck||clayKey;
   if(!glazes||!glazes.length)return CLAY[ck];
   if(mode==='radial')return`radial-gradient(circle,${_galleryEqualStops(glazes,ck)})`;
-  if(mode==='conic')return`conic-gradient(from 0deg,${_galleryEqualStops(glazes,ck)})`;
+  if(mode==='conic'){
+    const stops=glazes.map((g,i)=>{const c=applyGlaze(g,ck);const n=glazes.length;const pct=n>1?(i/(n))*100:0;return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${pct.toFixed(1)}%`;});
+    const first=glazes[0],fc=applyGlaze(first,ck);
+    stops.push(`rgb(${Math.round(fc.r)},${Math.round(fc.gr)},${Math.round(fc.b)}) 100%`);
+    return`conic-gradient(from 0deg,${stops.join(',')})`;
+  }
   // Vertical, matching the top-to-bottom stacking of the tile view (glazeCSS runs left-to-right).
   const stops=Array.from({length:9},(_,i)=>{const t=i/8,c=sampleAt(t,glazes,ck);return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${Math.round(t*100)}%`;});
   return`linear-gradient(to bottom,${stops.join(',')})`;
@@ -136,6 +141,11 @@ export function buildStack(glazes,ck,tH){
     const wrap=document.createElement('div');wrap.className='tile-col tile-gradient';
     wrap.style.height=_stackTotalHeight(tH)+'px';
     wrap.style.background=galleryGradientCSS(glazes,ck||clayKey,galleryViewMode);
+    if(galleryViewMode==='conic'){
+      const ap=document.createElement('div');ap.className='conic-aperture';
+      ap.style.background=CLAY[ck||clayKey];
+      wrap.appendChild(ap);
+    }
     return wrap;
   }
   const col=document.createElement('div');col.className='tile-col';
@@ -147,6 +157,11 @@ export function refreshStack(col,glazes,ck,tH){
   tH=tH||TH;
   if(col.classList.contains('tile-gradient')){
     col.style.background=galleryGradientCSS(glazes,ck||clayKey,galleryViewMode);
+    let ap=col.querySelector('.conic-aperture');
+    if(galleryViewMode==='conic'){
+      if(!ap){ap=document.createElement('div');ap.className='conic-aperture';col.appendChild(ap);}
+      ap.style.background=CLAY[ck||clayKey];
+    } else if(ap){ ap.remove(); }
     return;
   }
   col.querySelectorAll('.tile-wrap').forEach((w,ti)=>{w.innerHTML=tileSVG(ti,glazes,ck||clayKey,tH);});
