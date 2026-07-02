@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **Detail-view pin shortcut** — press `.` inside the palette detail view to pin/unpin the open palette; shares state mutation with the gallery-card pin via new `togglePinState()` in `render.js`. Chip badge next to the pin status shows the bound key; new row added to the `?` shortcut overlay.
+- **Per-project glaze affinity map** — `buildGlazeAffinity()` in `scoring.js` derives a per-glaze preference multiplier (capped 0.5x–2x, normalized to mean 1) from a project's completed palette ranking. Recomputed whenever ranking finishes, stored on `proj.glazeAffinity`, and applied as a weight multiplier in `generatePalette`/`generateBandingPalette` so shuffled palettes lean toward glazes the user ranked highly.
+
 ## [1.2.0] — 2026-07-02
 
 ### Added

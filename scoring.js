@@ -117,6 +117,38 @@ export function scoreGlaze(g, lv) {
   return Math.max(0.05, s);
 }
 
+// Builds a per-glaze preference multiplier from a ranked list of pinned
+// palettes (most-preferred first, as produced by the ranking flow). Glazes
+// that skew toward the top of the ranking get a multiplier above 1, glazes
+// that skew toward the bottom get one below 1. Capped at 2x/0.5x and
+// normalized to a mean of 1 so it nudges generation rather than dominating it.
+export function buildGlazeAffinity(rankedMeta) {
+  const affinity = {};
+  if (!rankedMeta || rankedMeta.length < 2) return affinity;
+  const n = rankedMeta.length;
+  const scoreSum = {}, count = {};
+  rankedMeta.forEach((m, i) => {
+    const rankWeight = 1 - i / (n - 1); // 1 at top, 0 at bottom
+    (m.names || []).forEach(name => {
+      scoreSum[name] = (scoreSum[name] || 0) + rankWeight;
+      count[name] = (count[name] || 0) + 1;
+    });
+  });
+  const names = Object.keys(scoreSum);
+  if (!names.length) return affinity;
+  const avgByName = {};
+  names.forEach(name => { avgByName[name] = scoreSum[name] / count[name]; });
+  const mean = names.reduce((a, name) => a + avgByName[name], 0) / names.length;
+  names.forEach(name => {
+    const raw = mean > 0 ? 1 + (avgByName[name] - mean) / mean : 1;
+    affinity[name] = Math.max(0.5, Math.min(2, raw));
+  });
+  // Re-normalize so the mean multiplier is 1 (caps above can skew the mean up/down).
+  const appliedMean = names.reduce((a, name) => a + affinity[name], 0) / names.length;
+  if (appliedMean > 0) names.forEach(name => { affinity[name] = Math.max(0.5, Math.min(2, affinity[name] / appliedMean)); });
+  return affinity;
+}
+
 export function pairingScore(a, b) {
   let s = 0;
   const hd_ = hd(a.hue, b.hue);

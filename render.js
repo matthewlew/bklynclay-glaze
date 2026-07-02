@@ -1,5 +1,5 @@
 import { CLAY, GLAZES, NL, LEVERS, PRESETS } from './glazes-data.js';
-import { hd, circularSpan, cardTemperature, cardDepth, harmonyScore, scoreAesthetic, scoreGlaze, pairingScore, SCORE_PRESETS, DEFAULT_SCORE_WEIGHTS } from './scoring.js';
+import { hd, circularSpan, cardTemperature, cardDepth, harmonyScore, scoreAesthetic, scoreGlaze, pairingScore, buildGlazeAffinity, SCORE_PRESETS, DEFAULT_SCORE_WEIGHTS } from './scoring.js';
 import { state } from './state.js';
 import { saveAll, exportSession } from './persistence.js';
 
@@ -290,8 +290,25 @@ export function weightedPick(pool,scores,n){
   return out;
 }
 
+// ── GLAZE AFFINITY ────────────────────────────────────────────────────────────
+// Per-project multiplier map derived from that project's ranked pinned palettes,
+// nudging generation toward glazes that appear in higher-ranked palettes.
+export function getGlazeAffinity(name){
+  if(activeContext==='global')return 1;
+  const proj=projects.find(p=>p.id===activeContext);
+  return (proj?.glazeAffinity?.[name])||1;
+}
+
+export function recomputeGlazeAffinity(){
+  if(activeContext==='global')return;
+  const proj=projects.find(p=>p.id===activeContext);if(!proj)return;
+  const projRanked=rankSorted.filter(m=>m.projectId===activeContext);
+  proj.glazeAffinity=buildGlazeAffinity(projRanked);
+  saveAll();
+}
+
 export function generateBandingPalette(lv){
-  const pool=getPool(),scores=pool.map(g=>scoreGlaze(g,lv));
+  const pool=getPool(),scores=pool.map(g=>scoreGlaze(g,lv)*getGlazeAffinity(g.name));
   const nBase=Math.random()<0.3?3:2;
   const base=weightedPick(pool,scores,nBase);
   if(base.length<2)return base;
@@ -302,7 +319,7 @@ export function generateBandingPalette(lv){
 }
 
 export function generatePalette(lv){
-  const pool=getPool(),scores=pool.map(g=>scoreGlaze(g,lv)),n=Math.min(3+Math.floor(Math.random()*2),pool.length);
+  const pool=getPool(),scores=pool.map(g=>scoreGlaze(g,lv)*getGlazeAffinity(g.name)),n=Math.min(3+Math.floor(Math.random()*2),pool.length);
   let picked=weightedPick(pool,scores,n);
   if(lv.depth>70){const dark=pool.filter(g=>g.lum<.22);if(!picked.some(g=>g.lum<.22)&&dark.length)picked[picked.length-1]=dark[Math.floor(Math.random()*dark.length)];}
   if(lv.depth<30){const light=pool.filter(g=>g.lum>.65);if(!picked.some(g=>g.lum>.65)&&light.length)picked[0]=light[Math.floor(Math.random()*light.length)];}
@@ -1372,13 +1389,31 @@ export function renderScoreWeighting(){
 }
 
 // ── PIN TOGGLE ────────────────────────────────────────────────────────────────
-export function togglePin(p,btn,card,compact){
-  if('vibrate' in navigator) navigator.vibrate(15);
+// Pure state mutation shared by every pin surface (gallery card, detail view, …).
+// Callers own their own DOM updates + undo toast wiring.
+export function togglePinState(p){
   if(likedKeys.has(p.key)){
     const snapData=likedMeta.find(m=>m.key===p.key)?{...likedMeta.find(m=>m.key===p.key)}:null;
     likedKeys.delete(p.key);likedMeta=likedMeta.filter(m=>m.key!==p.key);
+    saveAll();
+    return {pinned:false,snapData};
+  }else{
+    likedKeys.add(p.key);
+    if(!likedMeta.find(m=>m.key===p.key)){
+      const pid=activeContext!=='global'?activeContext:undefined;
+      likedMeta.push({key:p.key,label:labelStore[p.key]||p.label,feeling:'',tag:p.tag,names:p.glazes.map(g=>g.name),hexes:p.glazes.map(g=>g.hex),projectId:pid});
+    }
+    saveAll();
+    return {pinned:true};
+  }
+}
+
+export function togglePin(p,btn,card,compact){
+  if('vibrate' in navigator) navigator.vibrate(15);
+  const {pinned,snapData}=togglePinState(p);
+  if(!pinned){
     btn.className='btn';btn.textContent='Pin';if(!compact)card.className='card';
-    saveAll();renderSidebar();updateCount();
+    renderSidebar();updateCount();
     showToast('Unpinned',()=>{
       likedKeys.add(p.key);
       if(!likedMeta.find(m=>m.key===p.key)&&snapData)likedMeta.push(snapData);
@@ -1386,13 +1421,8 @@ export function togglePin(p,btn,card,compact){
       if(compact){btn.className='btn remove-subtle';btn.textContent='Remove';}else{btn.className='btn pin-on';btn.textContent='Pinned';card.className='card liked';}
     });
   }else{
-    likedKeys.add(p.key);
-    if(!likedMeta.find(m=>m.key===p.key)){
-      const pid=activeContext!=='global'?activeContext:undefined;
-      likedMeta.push({key:p.key,label:labelStore[p.key]||p.label,feeling:'',tag:p.tag,names:p.glazes.map(g=>g.name),hexes:p.glazes.map(g=>g.hex),projectId:pid});
-    }
     btn.className='btn pin-on';btn.textContent='Pinned';if(!compact)card.className='card liked';
-    saveAll();renderSidebar();updateCount();
+    renderSidebar();updateCount();
     showToast('Pinned');
   }
 }
@@ -1633,7 +1663,7 @@ export function renderQuickRate(container){
   container.innerHTML='';
   if(!rateQueue.length){
     rankSorted=[...likedMeta].sort((a,b)=>(rateScores[b.key]||0)-(rateScores[a.key]||0));
-    rankMode='done';saveAll();renderRankInContainer(container);return;
+    rankMode='done';recomputeGlazeAffinity();saveAll();renderRankInContainer(container);return;
   }
   const m=rateQueue[0];
   const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
@@ -1684,7 +1714,7 @@ export function rankChoose(which){
   if(rankLow>rankHigh){
     rankSorted.splice(rankLow,0,rankCurrentItem);
     if(rankQueue.length>0){rankCurrentItem=rankQueue.shift();rankLow=0;rankHigh=rankSorted.length-1;}
-    else{rankMode='done';saveAll();}
+    else{rankMode='done';recomputeGlazeAffinity();saveAll();}
   }
 }
 
@@ -1693,7 +1723,7 @@ export function rankSkip(){
   rankSorted.splice(mid+1,0,rankCurrentItem);
   rankDoneComparisons++;
   if(rankQueue.length>0){rankCurrentItem=rankQueue.shift();rankLow=0;rankHigh=rankSorted.length-1;}
-  else{rankMode='done';saveAll();}
+  else{rankMode='done';recomputeGlazeAffinity();saveAll();}
 }
 
 export function buildRankCard(m,label){

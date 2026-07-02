@@ -4,12 +4,10 @@
 
 ## Engineering Architecture (from /plan-eng-review · 2026-06-30)
 
-### T6 — Wire pairwise rankings into glaze affinity map (P2)
-Feed `rankSorted` results into a per-project glaze affinity map. Cap each glaze's multiplier at 2× and normalize after each update so accumulated rankings don't overwhelm the base algorithm.
-**Files:** `scoring.js` + `state.js` (after T1) or `index.html` lines 2092-2172
-**Depends on:** T1 (ideally).
-
 ---
+
+### T6 — Wire pairwise rankings into glaze affinity map (P2)
+**Completed:** 2026-07-02 (`buildGlazeAffinity()` in `scoring.js`; per-project `proj.glazeAffinity` recomputed on rank completion, applied as a multiplier in `generatePalette`/`generateBandingPalette` via `getGlazeAffinity()`)
 
 ---
 

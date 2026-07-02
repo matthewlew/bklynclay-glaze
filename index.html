@@ -1044,6 +1044,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     <table class="shortcut-table">
       <tr><td><span class="shortcut-key">Space</span> <span class="shortcut-key">R</span></td><td>Shuffle — generate new palettes</td></tr>
       <tr><td><span class="shortcut-key">S</span></td><td>Save / pin the focused palette</td></tr>
+      <tr><td><span class="shortcut-key">.</span></td><td>Pin / unpin the open palette (detail view)</td></tr>
       <tr><td><span class="shortcut-key">↑ ↓ ← →</span></td><td>Navigate palettes</td></tr>
       <tr><td><span class="shortcut-key">1</span>–<span class="shortcut-key">8</span></td><td>Apply style preset (Turrell → Wada)</td></tr>
       <tr><td><span class="shortcut-key">Esc</span></td><td>Close overlay / clear selection</td></tr>
@@ -1266,6 +1267,7 @@ loadAll().then(() => {
     <button id="pdPrevBtn" class="pd-nav-btn" onclick="pdPrev()" title="Previous palette">‹</button>
     <input id="pdTitle" class="pd-title" type="text" autocomplete="off" placeholder="Palette name">
     <span id="pdPinBadge" class="pd-pin-badge" title="Palette save status">♥ Saved</span>
+    <span class="shortcut-key" title="Press . to pin/unpin this palette">.</span>
     <span id="pdNavCounter" class="pd-nav-counter"></span>
     <button id="pdNextBtn" class="pd-nav-btn" onclick="pdNext()" title="Next palette">›</button>
     <button id="pdCopyBtn" class="btn sm" onclick="pdCopyNames()">Copy names</button>

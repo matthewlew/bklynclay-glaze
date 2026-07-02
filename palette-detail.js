@@ -1,10 +1,11 @@
 // ── PALETTE DETAIL PAGE ────────────────────────────────────────────────────────
 import { GLAZES, CLAY } from './glazes-data.js';
 import { saveAll } from './persistence.js';
-import { glazeCSS } from './render.js';
+import { glazeCSS, togglePinState } from './render.js';
 
 // ── Module state ───────────────────────────────────────────────────────────────
 let _key        = null;
+let _fallback   = null;
 let _stops      = [];
 let _drag       = null;
 let _nid        = 0;
@@ -257,11 +258,24 @@ function updatePinBadge() {
   badge.classList.toggle('is-saved', !!m);
 }
 
+// ── Pin toggle (shared state mutation, detail-view DOM update) ────────────────
+export function togglePinFromDetail() {
+  if (!_key) return;
+  const m = likedMeta.find(x => x.key === _key);
+  const p = m
+    ? { key: _key, label: m.label, tag: m.tag, glazes: (m.names || []).map((name, i) => ({ name, hex: m.hexes[i] })) }
+    : { key: _key, label: (_fallback && _fallback.label) || 'Palette', tag: _fallback && _fallback.tag, glazes: (_fallback && _fallback.glazes) || [] };
+  const { pinned } = togglePinState(p);
+  updatePinBadge();
+  showToast(pinned ? 'Pinned' : 'Unpinned');
+}
+
 // ── Load data ──────────────────────────────────────────────────────────────────
 // `fallback` is the in-memory palette object (p.glazes/p.label) used when the
 // palette hasn't been pinned yet, so likedMeta has no entry for its key.
 function _loadKeyData(key, fallback) {
   _key = key;
+  _fallback = fallback || null;
   const m = likedMeta.find(x => x.key === key);
   _stops = [];
   const names = m ? (m.names || []) : (fallback?.glazes || []).map(g => g.name);
@@ -324,9 +338,11 @@ export function pdToggleNoise() {
 
 // ── Keyboard / swipe ───────────────────────────────────────────────────────────
 function _onKeyDown(e) {
+  if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); pdNext(); }
   if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { e.preventDefault(); pdPrev(); }
   if (e.key === 'Escape') closePaletteDetail();
+  if (e.key === '.') { e.preventDefault(); togglePinFromDetail(); }
 }
 function _onSwipeStart(e) { _swipeStartX = e.touches[0].clientX; _swipeStartY = e.touches[0].clientY; }
 function _onSwipeEnd(e) {
