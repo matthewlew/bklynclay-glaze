@@ -601,6 +601,24 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .vm-export-btn{align-self:flex-start;margin-top:2px;}
 .vessel-btn{font-size:11px;}
 
+/* ── COMPOSITION CANVAS (multi-column combined gradients) ── */
+.comp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:500;}
+.comp-overlay.open{display:flex;}
+.comp-modal{background:var(--card);border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.22);width:min(960px,96vw);height:min(640px,90vh);display:flex;flex-direction:column;overflow:hidden;}
+.comp-header{display:flex;align-items:center;padding:13px 18px;border-bottom:1px solid var(--border);gap:10px;flex-shrink:0;}
+.comp-title{font-size:14px;font-weight:700;color:var(--ink);flex:1;}
+.comp-close{background:none;border:none;font-size:14px;cursor:pointer;color:var(--ink3);line-height:1;padding:0 4px;}
+.comp-col-count{display:flex;gap:5px;}
+.comp-count-btn{padding:5px 11px;font-size:11px;font-weight:600;border:1.5px solid var(--border);border-radius:var(--r);background:var(--card);color:var(--ink2);cursor:pointer;font-family:var(--font);transition:all .12s;line-height:1;}
+.comp-count-btn.on{background:var(--ink);color:var(--white);border-color:var(--ink);}
+.comp-body{display:flex;flex:1;min-height:0;overflow:hidden;background:var(--surf);}
+.comp-columns{display:flex;flex:1;min-width:0;}
+.comp-col{position:relative;min-width:0;overflow:hidden;}
+.comp-col-label{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.9);text-shadow:0 1px 4px rgba(0,0,0,.5);background:linear-gradient(to top,rgba(0,0,0,.35),transparent);}
+.comp-divider{flex-shrink:0;width:20px;margin:0 -10px;position:relative;z-index:3;cursor:col-resize;touch-action:none;}
+.comp-divider::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:2px;transform:translateX(-50%);background:rgba(255,255,255,.6);}
+.comp-footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0;}
+
 /* ── INLINE EDIT INPUTS ── */
 .proj-tab-input{font-size:12px;font-weight:600;font-family:inherit;border:none;background:transparent;color:inherit;outline:none;width:100%;}
 .topbar-tab-input{font-size:13px;font-weight:600;font-family:inherit;border:none;background:transparent;color:inherit;outline:none;width:90px;border-bottom:1.5px solid var(--ink);}
@@ -947,6 +965,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   </div>
 </div>
 <div class="vm-overlay" id="vesselModal" role="dialog" aria-modal="true"></div>
+<div class="comp-overlay" id="compositionModal" role="dialog" aria-modal="true"></div>
 <div class="toast" id="toast"></div>
 <div class="shortcut-overlay" id="shortcutOverlay" onclick="if(event.target===this)closeShortcutOverlay()">
   <div class="shortcut-modal">

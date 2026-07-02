@@ -1,6 +1,23 @@
 import { state } from './state.js';
 import { NL } from './glazes-data.js';
 
+// ── DIRTY-STATE TRACKING (for update-banner.js's multi-tab reload guard) ──────
+// Two sources of "unsaved work in this tab": a focused text input/textarea
+// (typing a name/edit that hasn't blurred/saved yet) and an in-flight
+// saveAll() write. Kept intentionally simple — a coarse guard is enough to
+// stop an unprompted reload from clobbering something the user is mid-typing.
+let _dirty = false;
+export function isDirty() { return _dirty; }
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('focusin', e => {
+    if (e.target?.matches?.('input, textarea, [contenteditable="true"]')) _dirty = true;
+  });
+  document.addEventListener('focusout', e => {
+    if (e.target?.matches?.('input, textarea, [contenteditable="true"]')) _dirty = false;
+  });
+}
+
 // ── PARSER ────────────────────────────────────────────────────────────────────
 export function tokenize(raw) {
   return raw.replace(/\band\b/gi,',').split(/[\n,+&]+/).map(t=>t.trim()).filter(t=>t.length>0&&!t.startsWith('#'));
@@ -63,6 +80,7 @@ function openDB() {
 }
 
 export async function saveAll() {
+  _dirty = true;
   const rankState = state.rankMode === 'done' ? { sorted: state.rankSorted.map(m => m.key), mode: 'done' } : null;
   const data = {
     keys: [...state.likedKeys],
@@ -125,6 +143,7 @@ export async function saveAll() {
     setTimeout(() => f.style.display = 'none', 1100);
   }
   window.updateCount?.();
+  _dirty = false;
 }
 
 export async function loadAll() {
