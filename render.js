@@ -177,6 +177,7 @@ export function setGalleryViewMode(mode){
   if(tdLabel&&tdLabel.classList.contains('plabel')){tdLabel.style.display=mode==='tiles'?'':'none';}
   lastRenderedKeys=[];lastSavedKeys=[];
   if(currentTab==='explore'){renderGallery();}
+  renderSidebar();
 }
 
 export function setTileDivisions(n){
@@ -452,6 +453,7 @@ export function createNewProject(){
   const newId=mkid();
   const proj={id:newId,name:'New Board',leverState:{...levers},scorePreset:'Balanced'};
   projects.push(proj);
+  _stampProjectOrder();
   saveAll();
   renderTopbarTabs();
   switchToProjectTab(newId);
@@ -583,6 +585,109 @@ export function renderBoardSwitcher(){
   });
 }
 
+// IndexedDB's `projects` object store returns getAll() results in key order,
+// not custom order, so drag-reordering needs an explicit stamp to survive reload.
+function _stampProjectOrder(){ projects.forEach((p,i)=>{p.order=i;}); }
+
+// ── MOBILE PROJECTS SCREEN (full-screen list, replaces the Boards half-sheet) ──
+export function openProjectsView(){
+  const view=document.getElementById('projectsView');if(!view)return;
+  renderProjectsView();
+  view.style.display='flex';
+  document.body.style.overflow='hidden';
+  requestAnimationFrame(()=>view.classList.add('open'));
+}
+
+export function closeProjectsView(){
+  const view=document.getElementById('projectsView');if(!view)return;
+  view.classList.remove('open');
+  setTimeout(()=>{view.style.display='none';},180);
+  document.body.style.overflow='';
+}
+
+export function renderProjectsView(){
+  const list=document.getElementById('pvList');if(!list)return;
+  list.innerHTML='';
+
+  const allRow=document.createElement('div');
+  allRow.className='pv-row pv-row-all'+(activeContext==='global'?' active':'');
+  allRow.innerHTML=`<div class="pv-strip"><div class="proj-tab-all-icon"></div></div><span class="pv-name">All Palettes</span><span class="pv-count">${likedMeta.filter(m=>!m.projectId).length||''}</span>`;
+  allRow.addEventListener('click',()=>{switchToProjectTab('global');closeProjectsView();});
+  list.appendChild(allRow);
+
+  projects.forEach(proj=>{
+    const row=document.createElement('div');
+    row.className='pv-row'+(activeContext===proj.id?' active':'');
+    row.dataset.projId=proj.id;
+
+    const strip=document.createElement('div');strip.className='pv-strip';
+    const meta=likedMeta.filter(m=>m.projectId===proj.id);
+    const names=[...new Set(meta.flatMap(m=>m.names||[]))].slice(0,4);
+    names.forEach(n=>{
+      const g=GLAZES.find(x=>x.name===n);
+      if(g){const c=applyGlaze(g,clayKey);const d=document.createElement('div');d.className='proj-color-dot';d.style.background=`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})`;strip.appendChild(d);}
+    });
+    row.appendChild(strip);
+
+    const name=document.createElement('span');name.className='pv-name';name.textContent=proj.name;
+    row.appendChild(name);
+
+    const count=document.createElement('span');count.className='pv-count';count.textContent=meta.length||'';
+    row.appendChild(count);
+
+    const menu=document.createElement('button');menu.className='pv-menu-btn';menu.textContent='⋯';menu.title='Board options';
+    menu.addEventListener('click',e=>{e.stopPropagation();showProjMenu(proj.id,menu);});
+    row.appendChild(menu);
+
+    const handle=document.createElement('div');handle.className='pv-handle';handle.textContent='⠿';
+    row.appendChild(handle);
+
+    row.addEventListener('click',e=>{
+      if(e.target.closest('.pv-menu-btn,.pv-handle'))return;
+      switchToProjectTab(proj.id);closeProjectsView();
+    });
+
+    _wirePvRowDrag(handle,row,list);
+    list.appendChild(row);
+  });
+}
+
+function _wirePvRowDrag(handle,row,list){
+  let startY=0,dragging=false;
+  const onStart=e=>{
+    startY=e.touches[0].clientY;dragging=true;
+    row.classList.add('pv-dragging');
+  };
+  const onMove=e=>{
+    if(!dragging)return;
+    const y=e.touches[0].clientY;
+    const rows=[...list.querySelectorAll('.pv-row:not(.pv-row-all)')];
+    const target=rows.find(r=>{
+      if(r===row)return false;
+      const rect=r.getBoundingClientRect();
+      return y>=rect.top&&y<=rect.bottom;
+    });
+    if(target){
+      const rect=target.getBoundingClientRect();
+      if(y<rect.top+rect.height/2)list.insertBefore(row,target);
+      else list.insertBefore(row,target.nextSibling);
+    }
+    startY=y;
+  };
+  const onEnd=()=>{
+    if(!dragging)return;
+    dragging=false;
+    row.classList.remove('pv-dragging');
+    const orderedIds=[...list.querySelectorAll('.pv-row:not(.pv-row-all)')].map(r=>r.dataset.projId);
+    projects=orderedIds.map(id=>projects.find(p=>p.id===id)).filter(Boolean);
+    _stampProjectOrder();
+    saveAll();renderTopbarTabs();
+  };
+  handle.addEventListener('touchstart',onStart,{passive:true});
+  handle.addEventListener('touchmove',onMove,{passive:true});
+  handle.addEventListener('touchend',onEnd,{passive:true});
+}
+
 export function renderSidebar(){
   if(typeof _activeSheet!=='undefined' && _activeSheet && _activeSheet.id==='sheetBoards') closeSheet();
   const scroll=document.getElementById('sbScroll');if(!scroll)return;
@@ -602,7 +707,9 @@ export function renderSidebar(){
     const ctxLbl=document.createElement('div');ctxLbl.className='sb-context-label';
     ctxLbl.textContent=activeContext==='global'?'Pinned':`Saved`;
     scroll.appendChild(ctxLbl);
-    contextMeta.forEach(m=>scroll.appendChild(buildSidebarChip(m,activeContext!=='global')));
+    const grid=document.createElement('div');grid.className='lchip-grid';
+    contextMeta.forEach(m=>grid.appendChild(buildSidebarChip(m,activeContext!=='global')));
+    scroll.appendChild(grid);
   } else {
     const em=document.createElement('div');em.className='empty-sb';
     em.innerHTML=activeContext==='global'
@@ -614,15 +721,16 @@ export function renderSidebar(){
 
 export function buildSidebarChip(m,inProject){
   const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+  const label=labelStore[m.key]||m.label;
   const chip=document.createElement('div');chip.className='lchip';chip.tabIndex=0;chip.dataset.key=m.key;
+  chip.title=`${label}\n${(m.names||[]).join(', ')}`;
   chip.draggable=true;
   chip.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',m.key);chip.classList.add('dragging');});
   chip.addEventListener('dragend',()=>chip.classList.remove('dragging'));
-  const strip=document.createElement('div');strip.className='lchip-strip';strip.style.background=glazeCSS(glazes);chip.appendChild(strip);
-  const info=document.createElement('div');info.className='lchip-info';
-  const nm=document.createElement('div');nm.className='lchip-name';nm.textContent=labelStore[m.key]||m.label;info.appendChild(nm);
-  const gn=document.createElement('div');gn.className='lchip-glazes';gn.textContent=(m.names||[]).join(', ');info.appendChild(gn);
-  chip.appendChild(info);
+  const strip=document.createElement('div');strip.className='lchip-strip';strip.style.background=galleryGradientCSS(glazes,clayKey,galleryViewMode);chip.appendChild(strip);
+  if(galleryViewMode==='conic'){
+    const ap=document.createElement('div');ap.className='lchip-aperture';ap.style.background=CLAY[clayKey];strip.appendChild(ap);
+  }
   const rm=document.createElement('button');rm.className='lchip-rm';rm.textContent='×';rm.title='Remove from pinned';
   rm.addEventListener('click',e=>{
     e.stopPropagation();
@@ -723,7 +831,7 @@ export function buildBoardDropdown(p, pinBtn, card, compact) {
   const wrap=document.createElement('div');wrap.className='board-dropdown';
   const btn=document.createElement('button');btn.className='board-dropdown-btn';
   const strip=document.createElement('div');strip.className='bd-strip';
-  const btnLabel=document.createElement('span');btnLabel.textContent='Save to board...';
+  const btnLabel=document.createElement('span');btnLabel.textContent='Save...';
   const caret=document.createElement('span');caret.textContent='▾';caret.style.marginLeft='auto';
   btn.appendChild(strip);btn.appendChild(btnLabel);btn.appendChild(caret);
   const saveToBoard=(projId)=>{
@@ -807,10 +915,7 @@ export function buildCard(p,isLiked,compact){
       clearTimeout(_lpTimer);
       const dx = e.changedTouches[0].clientX - _swipeStartX;
       const dy = Math.abs(e.changedTouches[0].clientY - _swipeStartY);
-      if (Math.abs(dx) < 60 || dy > 40) {
-        if (Math.abs(dx) < 60) card.classList.toggle('card-open');
-        return;
-      }
+      if (Math.abs(dx) < 60 || dy > 40) return;
       if (dx > 0) {
         if (!likedKeys.has(p.key)) {
           likedKeys.add(p.key);
@@ -838,58 +943,12 @@ export function buildCard(p,isLiked,compact){
   if(compact){
     card.appendChild(buildDragHandlers(card, p));
   }
-  const footer=document.createElement('div');footer.className='card-footer';
-  const lbl=document.createElement('div');lbl.className='card-label';lbl.contentEditable='true';lbl.spellcheck=false;
-  lbl.textContent=labelStore[p.key]||p.label;
-  lbl.addEventListener('blur',()=>{
-    const newLabel=lbl.textContent.trim()||p.label;p.label=newLabel;labelStore[p.key]=newLabel;
-    document.querySelectorAll(`[data-key="${p.key}"] .card-label`).forEach(el=>{if(el!==lbl)el.textContent=newLabel;});
-    document.querySelectorAll(`.lchip[data-key="${p.key}"] .lchip-name`).forEach(el=>el.textContent=newLabel);
-    const meta=likedMeta.find(m=>m.key===p.key);if(meta){meta.label=newLabel;saveAll();}
-  });
-  lbl.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lbl.blur();}});
-  footer.appendChild(lbl);
-  if(compact){
-    const gn=document.createElement('div');gn.className='card-glaze-names';
-    gn.textContent=p.glazes.map(g=>g.name).join(' · ');footer.appendChild(gn);
-  }
   if(!compact){
-    const tagRow=document.createElement('div');tagRow.className='card-tag-row';
-    const isBanding=new Set(p.glazes.map(g=>g.name)).size<p.glazes.length;
-    const tag=document.createElement('div');tag.className='card-tag';tag.textContent=(isBanding?'≋ ':'')+p.tag;
     const sc=scoreAesthetic(p.glazes,activeScoreWeights());
-    const badge=document.createElement('span');
-    badge.className='score-badge'+(sc>=SCORE_HI?' score-hi':sc>=SCORE_MID?' score-mid':' score-lo');
-    badge.title='Aesthetic score: contrast, harmony, distinctness, material variety';
-    badge.textContent='★ '+sc;
-    tagRow.appendChild(tag);tagRow.appendChild(badge);footer.appendChild(tagRow);
     const peekScore = document.createElement('div');
     peekScore.className = 'card-score-peek';
     peekScore.textContent = '★ ' + sc;
     card.appendChild(peekScore);
-    footer.appendChild(buildGlazeChips(p, stack, card));
-  }
-  const btns=document.createElement('div');btns.className='card-btns';
-  const pinBtn=buildPinButton(p, isLiked, card, compact);
-  const riffBtn=document.createElement('button');riffBtn.className='btn';riffBtn.textContent='Riff';
-  riffBtn.addEventListener('click',()=>{palettes=doRiff(p);if(currentTab!=='explore')setTab('explore');renderGallery();document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth'});});
-  btns.appendChild(pinBtn);btns.appendChild(riffBtn);
-  if(!compact){
-    const vesBtn=document.createElement('button');vesBtn.className='btn vessel-btn';vesBtn.textContent='View';vesBtn.title='Preview on vessel';
-    vesBtn.addEventListener('click',e=>{e.stopPropagation();openVesselModal(p.glazes,clayKey,labelStore[p.key]||p.label);});
-    btns.appendChild(vesBtn);
-  }
-  footer.appendChild(btns);
-  if(projects.length&&(!compact||activeContext==='global')){
-    const row2=document.createElement('div');row2.className='card-btns-row2';
-    row2.appendChild(buildBoardDropdown(p, pinBtn, card, compact));
-    footer.appendChild(row2);
-  }
-  card.appendChild(footer);
-  // Smart footer foreground: dark palette bottoms → white text
-  const bottomGlaze = p.glazes[p.glazes.length - 1];
-  if (bottomGlaze && bottomGlaze.lum < 0.38) footer.classList.add('dark-foot');
-  if(!compact){
     card.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('glaze')){e.preventDefault();card.classList.add('drag-over-glaze');}});
     card.addEventListener('dragleave',()=>card.classList.remove('drag-over-glaze'));
     card.addEventListener('drop',e=>{
@@ -900,13 +959,10 @@ export function buildCard(p,isLiked,compact){
         p.glazes.push(g);p.glazes.sort((a,b)=>b.lum-a.lum);
         p.key=p.glazes.map(g=>g.name).join('|');card.dataset.key=p.key;
         refreshStack(stack,p.glazes,clayKey,TH);
-        const ta=footer.querySelector('.inline-names');
-        if(ta){ta.value=p.glazes.map(g=>g.name).join('\n');ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}
         showToast(`Added ${glazeName}`);
       }
     });
   }
-  if(!compact)requestAnimationFrame(()=>{const ta=footer.querySelector('.inline-names');if(ta){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}});
   return card;
 }
 
@@ -1496,14 +1552,31 @@ export function renderTopbarTabs(){
     const btn=document.createElement('button');
     btn.className='ttab'+(activeContext===proj.id?' on':'');
     btn.dataset.projId=proj.id;
+    btn.draggable=true;
     btn.textContent=proj.name;
-    btn.title='Double-click to rename';
+    btn.title='Double-click to rename · Drag to reorder';
     btn.addEventListener('click',()=>switchToProjectTab(proj.id));
     btn.addEventListener('contextmenu',e=>{e.preventDefault();showProjMenu(proj.id,btn);});
     let _lpt=null;
     btn.addEventListener('touchstart',e=>{_lpt=setTimeout(()=>{e.preventDefault();showProjMenu(proj.id,btn);},600);},{passive:false});
     btn.addEventListener('touchend',()=>clearTimeout(_lpt));
     btn.addEventListener('touchmove',()=>clearTimeout(_lpt));
+    btn.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain','proj-reorder:'+proj.id);e.dataTransfer.effectAllowed='move';});
+    btn.addEventListener('dragover',e=>{e.preventDefault();btn.classList.add('drag-over');});
+    btn.addEventListener('dragleave',()=>btn.classList.remove('drag-over'));
+    btn.addEventListener('drop',e=>{
+      e.preventDefault();btn.classList.remove('drag-over');
+      const data=e.dataTransfer.getData('text/plain');
+      if(!data||!data.startsWith('proj-reorder:'))return;
+      const srcId=data.slice('proj-reorder:'.length);
+      if(srcId===proj.id)return;
+      const srcIdx=projects.findIndex(p=>p.id===srcId),dstIdx=projects.findIndex(p=>p.id===proj.id);
+      if(srcIdx===-1||dstIdx===-1)return;
+      const [moved]=projects.splice(srcIdx,1);
+      projects.splice(projects.indexOf(proj),0,moved);
+      _stampProjectOrder();
+      saveAll();renderTopbarTabs();renderSidebar();
+    });
     btn.addEventListener('dblclick',e=>{
       e.stopPropagation();
       const inp=document.createElement('input');inp.type='text';inp.value=btn.textContent;
@@ -2370,7 +2443,9 @@ function _dialogSheet(html, onMount) {
   backdrop.style.zIndex = '310';
   const sheet = document.createElement('div');
   sheet.className = 'bottom-sheet open dialog-sheet';
-  sheet.style.cssText = 'top:auto;max-height:50vh;z-index:320;';
+  sheet.style.cssText = window.innerWidth > 700
+    ? 'top:50%;left:50%;bottom:auto;right:auto;transform:translate(-50%,-50%);width:380px;max-width:90vw;max-height:none;border-radius:var(--r);z-index:320;'
+    : 'top:auto;max-height:50vh;z-index:320;';
   sheet.innerHTML = `<div class="sheet-handle"></div>${html}`;
   const dismiss = () => { backdrop.remove(); sheet.remove(); };
   backdrop.addEventListener('click', dismiss);
