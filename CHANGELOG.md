@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-07-03
+
+### Added
+- **Rate Views card-sort tool** — new "Rate Views" mode in the Analytics tab (`view-rating.js`) lets you rank all 10 gradient-mode/direction combinations (linear, radial, conic, stripes, turrell × forward/reverse) for each pinned palette by clicking cards into rank order. Results summarize average rank per combo across rated palettes.
+- **Pull-to-shuffle gesture** — pull down past 60px at the top of the gallery to trigger shuffle, with a spring-back indicator that fades and rotates with drag distance. Only active at scroll position 0.
+
+### Fixed
+- **Analytics tab never actually showed its content.**
+- **Rate Views "Done" button required ranking all 10 cards with no visual cue** that ranking was incomplete.
+
 ## [1.2.2] — 2026-07-02
 
 ### Changed
