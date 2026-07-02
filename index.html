@@ -165,7 +165,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .shuffle-btn:hover{background:var(--ink-hover);}
 
 /* ── MAIN ── */
-.main-content{flex:1;min-width:0;overflow-y:auto;height:calc(100vh - 50px);}
+.main-content{flex:1;min-width:0;overflow-y:auto;height:calc(100vh - 50px);position:relative;}
 
 /* ── PROJECT BANNER (inside explore when in project mode) ── */
 .project-banner{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--surf);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink2);}
@@ -345,6 +345,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .mobile-bar-btn .mbb-label{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;}
 .mobile-shuffle-fab{display:none;position:fixed;right:16px;bottom:72px;width:56px;height:56px;border-radius:50%;background:var(--ink);color:var(--white);border:none;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28);z-index:210;}
 .mobile-shuffle-fab:active{background:var(--ink-hover);}
+.pull-shuffle-indicator{position:absolute;top:0;left:50%;transform:translate(-50%,0);opacity:0;width:32px;height:32px;border-radius:50%;background:var(--ink);color:var(--white);display:flex;align-items:center;justify-content:center;font-size:16px;pointer-events:none;z-index:5;}
 /* ── BOTTOM SHEET ── */
 .sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:210;display:none;}
 .sheet-backdrop.open{display:block;}
@@ -1149,7 +1150,7 @@ import {
   openVesselModal, setGlazeFilter, clearGlazeSelection, closeCtxMenu,
   switchContext, switchToProjectTab, buildLeversUI, renderTopbarTabs,
   openProjectsView, closeProjectsView, renderProjectsView,
-  renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, wireMobileImagePicker, initSectionObserver, initHorizontalSwipe,
+  renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, wireMobileImagePicker, initSectionObserver, initHorizontalSwipe, initPullToShuffle,
   moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection, setGalleryViewMode, setControlsSection, setTileDivisions,
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer,
   closeCompositionModal
@@ -1308,6 +1309,7 @@ loadAll().then(() => {
   wireMobileImagePicker();
   initSectionObserver();
   initHorizontalSwipe();
+  initPullToShuffle();
 });
 </script>
 

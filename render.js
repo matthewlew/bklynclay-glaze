@@ -2298,6 +2298,45 @@ export function initHorizontalSwipe(){
   },{passive:true});
 }
 
+const PULL_THRESHOLD = 60;
+
+export function initPullToShuffle(){
+  const mainEl=document.getElementById('mainContent');
+  if(!mainEl)return;
+  const indicator=document.createElement('div');
+  indicator.className='pull-shuffle-indicator';
+  indicator.textContent='↺';
+  mainEl.prepend(indicator);
+
+  let startY=0,pulling=false,dy=0;
+
+  mainEl.addEventListener('touchstart',e=>{
+    if(mainEl.scrollTop>0)return;
+    startY=e.touches[0].clientY;
+    pulling=true;dy=0;
+  },{passive:true});
+
+  mainEl.addEventListener('touchmove',e=>{
+    if(!pulling)return;
+    dy=e.touches[0].clientY-startY;
+    if(dy<=0||mainEl.scrollTop>0){pulling=false;indicator.style.opacity='0';indicator.style.transform='';return;}
+    const pull=Math.min(dy*0.5,90);
+    indicator.style.opacity=Math.min(pull/PULL_THRESHOLD,1);
+    indicator.style.transform=`translate(-50%,${pull}px) rotate(${pull*3}deg)`;
+  },{passive:true});
+
+  mainEl.addEventListener('touchend',()=>{
+    if(!pulling)return;
+    pulling=false;
+    const pull=Math.min(dy*0.5,90);
+    indicator.style.transition='opacity .2s, transform .2s';
+    indicator.style.opacity='0';
+    indicator.style.transform='';
+    setTimeout(()=>{indicator.style.transition='';},200);
+    if(pull>=PULL_THRESHOLD)shuffle();
+  },{passive:true});
+}
+
 // ── KEYBOARD NAVIGATION & SHEETS ──────────────────────────────────────────────
 export function moveFocusToCard(dir) {
   const cards = [...document.querySelectorAll('#gallery .card')];

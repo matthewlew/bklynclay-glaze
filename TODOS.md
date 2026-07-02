@@ -51,10 +51,8 @@
 ### M4 — Replace `confirm()` / `prompt()` with mobile bottom sheets (P2) ✓
 **Completed:** 2026-07-01 — `confirmSheet()` and `promptSheet()` reusable helpers in render.js; replaced both native dialog call sites in `showProjMenu()`.
 
-### M5 — Pull-to-shuffle gesture (P3)
-Pull down past 60px at the top of `#mainContent` to trigger shuffle, with spring-back animation and rotating shuffle icon. Only fires when already at scroll position 0.
-**Files:** `render.js` — touch handlers on `#mainContent`; calls `shuffle()`
-**Effort:** ~40 lines
+### M5 — Pull-to-shuffle gesture (P3) ✓
+**Completed:** 2026-07-02 — `initPullToShuffle()` in render.js; pull indicator fades in and rotates with drag distance, springs back on release, triggers `shuffle()` past 60px. Only active at scroll position 0.
 
 ---
 
