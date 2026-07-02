@@ -376,6 +376,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   .topbar{display:none;}
   .section-jump-nav,.gallery-toolbar,.view-section-head,.project-banner{display:none!important;}
   .left-panel,.right-sidebar{display:none;}
+  .gv-desktop-only{display:none!important;}
   /* Full-height layout */
   .main-content{height:100svh;height:100vh;}
   .app-body{padding-bottom:56px;}
@@ -941,15 +942,15 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     </div>
 
     <div class="ps" data-sec="view">
-      <div class="plabel">Gallery View</div>
-      <div class="gallery-view-toggle" id="galleryViewToggle">
+      <div class="plabel gv-desktop-only" id="galleryViewLabel">Gallery View</div>
+      <div class="gallery-view-toggle gv-desktop-only" id="galleryViewToggle">
         <button class="gv-btn on" data-mode="tiles" onclick="setGalleryViewMode('tiles')">Tiles</button>
         <button class="gv-btn" data-mode="linear" onclick="setGalleryViewMode('linear')">Linear</button>
         <button class="gv-btn" data-mode="radial" onclick="setGalleryViewMode('radial')">Radial</button>
         <button class="gv-btn" data-mode="conic" onclick="setGalleryViewMode('conic')">Conic</button>
       </div>
-      <div class="plabel" style="margin-top:12px;">Tile Divisions</div>
-      <div class="gallery-view-toggle" id="tileDivisionToggle">
+      <div class="plabel gv-desktop-only" id="tileDivisionLabel" style="margin-top:12px;">Tile Divisions</div>
+      <div class="gallery-view-toggle gv-desktop-only" id="tileDivisionToggle">
         <button class="td-btn on" data-n="4" onclick="setTileDivisions(4)">4</button>
         <button class="td-btn" data-n="8" onclick="setTileDivisions(8)">8</button>
         <button class="td-btn" data-n="12" onclick="setTileDivisions(12)">12</button>
@@ -1278,6 +1279,7 @@ document.addEventListener('scroll', () => closeCtxMenu(), true);
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 setTheme(localStorage.getItem('bklyn_theme') || 'light');
+if (window.innerWidth <= 700) setGalleryViewMode('linear');
 loadAll().then(() => {
   buildLeversUI();
   applyPreset('turrell');

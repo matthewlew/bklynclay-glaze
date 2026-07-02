@@ -39,21 +39,23 @@ test('creating a board adds a topbar tab and switches context', async ({ page })
   await expect(projTab).toHaveClass(/on/);
 });
 
-test('score weight select (T5) is enabled for active board and updates hint on change', async ({ page }) => {
+test('score weight buttons (T5) are enabled for active board and update hint on click', async ({ page }) => {
   await page.goto('/');
-  // Without a board, the select should be disabled
-  const sel = page.locator('#scoreWeightSelect');
-  await expect(sel).toBeVisible();
-  await expect(sel).toBeDisabled();
+  // Without a board, the buttons should be disabled
+  const wrap = page.locator('#scoreWeightSelect');
+  await expect(wrap).toBeVisible();
+  const balancedBtn = wrap.locator('button', { hasText: 'Balanced' });
+  const contrastBtn = wrap.locator('button', { hasText: 'Contrast' });
+  await expect(balancedBtn).toBeDisabled();
   // Create a board and switch to it
   await page.locator('.sb-new-proj-btn').click();
   await expect(page.locator('.ttab[data-proj-id].on')).toBeVisible({ timeout: 3000 });
-  // Now the select should be enabled and show Balanced by default
-  await expect(sel).toBeEnabled();
-  await expect(sel).toHaveValue('Balanced');
-  // Changing to Contrast updates the hint text
+  // Now the buttons should be enabled and Balanced shown as active by default
+  await expect(balancedBtn).toBeEnabled();
+  await expect(balancedBtn).toHaveClass(/on/);
+  // Clicking Contrast updates the hint text
   const hint = page.locator('#scoreWeightHint');
-  await sel.selectOption('Contrast');
+  await contrastBtn.click();
   await expect(hint).toContainText('color pop');
 });
 

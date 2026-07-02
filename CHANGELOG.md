@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.2.2] — 2026-07-02
+
+### Changed
+- **Mobile gallery cards always render as a single linear gradient** — the Tiles/Radial/Conic view modes and 4/8/12/16 tile-division picker are desktop-only now; mobile forces `linear` gradient rendering and hides those controls in the Controls sheet for a simpler, more consistent card look.
+- **Aesthetic Score Weighting is now button selectors** — replaced the `<select>` dropdown with an `.achip` button grid matching the Style Presets buttons, on both desktop sidebar and mobile Controls sheet.
+- **Mobile Controls tab order** — reordered to Adjust, View, Score, Style, Photo, Clay (previously Clay, View, Score, Style, Adjust, Photo); Adjust is now the default tab shown when the sheet opens.
+
 ## [1.2.1] — 2026-07-02
 
 ### Added
