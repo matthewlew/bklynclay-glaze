@@ -536,6 +536,12 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .glaze-chip-rm{background:none;border:none;color:inherit;opacity:.4;cursor:pointer;font-size:13px;padding:0 2px;line-height:1;flex-shrink:0;}
 .glaze-chip-rm:hover{opacity:1;color:var(--danger);}
 .card.drag-over-glaze{border-color:var(--acc)!important;box-shadow:0 0 0 2px rgba(var(--acc-rgb),.22);}
+.glaze-chip.flip-move{transition:transform .22s cubic-bezier(.2,.7,.3,1);}
+.glaze-chip.flip-dragging{transition:none;z-index:2;position:relative;}
+@keyframes glaze-tile-in{from{opacity:0;}to{opacity:1;}}
+.glaze-card.tile-in{animation:glaze-tile-in .28s cubic-bezier(.2,.7,.3,1) both;}
+@keyframes card-tile-in{from{opacity:0;}to{opacity:1;}}
+.card.tile-in{animation:card-tile-in .32s cubic-bezier(.2,.7,.3,1) both;}
 .card.card-highlight{border-color:var(--acc)!important;box-shadow:0 0 0 3px rgba(var(--acc-rgb),.28)!important;transition:box-shadow .15s,border-color .15s;}
 .card.card-kb-focus{outline:2px solid var(--ink);outline-offset:2px;}
 /* ── SHORTCUT OVERLAY ── */

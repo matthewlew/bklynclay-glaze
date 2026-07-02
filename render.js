@@ -663,15 +663,16 @@ export function buildDragHandlers(card, p) {
 export function buildGlazeChips(p, stack, card) {
   const chipsWrap=document.createElement('div');chipsWrap.className='glaze-chips';
   let dragSrcIdx=null;
-  const rebuildChips=()=>{
+  const rebuildChips=(animate)=>{
+    const prevRects=animate?new Map(Array.from(chipsWrap.children).map(c=>[c.dataset.name,c.getBoundingClientRect()])):null;
     chipsWrap.innerHTML='';
     p.glazes.forEach((g,idx)=>{
-      const chip=document.createElement('div');chip.className='glaze-chip';chip.draggable=true;chip.dataset.idx=idx;
+      const chip=document.createElement('div');chip.className='glaze-chip';chip.draggable=true;chip.dataset.idx=idx;chip.dataset.name=g.name;
       const c=applyGlaze(g,clayKey);
       const sw=document.createElement('div');sw.className='glaze-chip-swatch';sw.style.background=`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})`;
       const nm=document.createElement('span');nm.className='glaze-chip-name';nm.textContent=g.name;
       const rm=document.createElement('button');rm.className='glaze-chip-rm';rm.textContent='×';rm.title='Remove glaze';
-      rm.addEventListener('click',e=>{e.stopPropagation();if(p.glazes.length<=2)return;p.glazes.splice(idx,1);p.key=p.glazes.map(g=>g.name).join('|');card.dataset.key=p.key;refreshStack(stack,p.glazes,clayKey,TH);rebuildChips();});
+      rm.addEventListener('click',e=>{e.stopPropagation();if(p.glazes.length<=2)return;p.glazes.splice(idx,1);p.key=p.glazes.map(g=>g.name).join('|');card.dataset.key=p.key;refreshStack(stack,p.glazes,clayKey,TH);rebuildChips(true);});
       chip.appendChild(sw);chip.appendChild(nm);chip.appendChild(rm);
       chip.addEventListener('dragstart',e=>{dragSrcIdx=idx;e.dataTransfer.effectAllowed='move';chip.style.opacity='.4';});
       chip.addEventListener('dragend',()=>{chip.style.opacity='';chipsWrap.querySelectorAll('.glaze-chip').forEach(c=>c.classList.remove('drag-over-chip'));});
@@ -682,13 +683,28 @@ export function buildGlazeChips(p, stack, card) {
         if(dragSrcIdx===null||dragSrcIdx===idx)return;
         const moved=p.glazes.splice(dragSrcIdx,1)[0];p.glazes.splice(idx,0,moved);
         p.key=p.glazes.map(g=>g.name).join('|');card.dataset.key=p.key;
-        refreshStack(stack,p.glazes,clayKey,TH);rebuildChips();
+        refreshStack(stack,p.glazes,clayKey,TH);rebuildChips(true);
         const meta=likedMeta.find(m=>m.key===p.key);if(meta){meta.names=p.glazes.map(g=>g.name);saveAll();}
       });
       chipsWrap.appendChild(chip);
     });
+    if(prevRects){
+      Array.from(chipsWrap.children).forEach(c=>{
+        const prev=prevRects.get(c.dataset.name);if(!prev)return;
+        const next=c.getBoundingClientRect();
+        const dy=prev.top-next.top;
+        if(!dy)return;
+        c.style.transform=`translateY(${dy}px)`;
+        c.classList.add('flip-dragging');
+        requestAnimationFrame(()=>{
+          c.classList.remove('flip-dragging');c.classList.add('flip-move');
+          c.style.transform='';
+          c.addEventListener('transitionend',()=>c.classList.remove('flip-move'),{once:true});
+        });
+      });
+    }
   };
-  rebuildChips();
+  rebuildChips(false);
   return chipsWrap;
 }
 
@@ -924,7 +940,11 @@ export function renderGallery(){
     });
   } else {
     gal.innerHTML='';
-    toRender.forEach(p=>gal.appendChild(buildCard(p,likedKeys.has(p.key),false)));
+    toRender.forEach((p,idx)=>{
+      const card=buildCard(p,likedKeys.has(p.key),false);
+      card.classList.add('tile-in');card.style.animationDelay=Math.min(idx*18,360)+'ms';
+      gal.appendChild(card);
+    });
     lastRenderedKeys = currentKeys;
   }
   renderSavedSection();
@@ -1232,7 +1252,7 @@ export function renderGlazeTiles(){
     if(!list.length)return;
     const head=document.createElement('div');head.className='glaze-section-head';head.textContent=label;content.appendChild(head);
     const grid=document.createElement('div');grid.className='glaze-grid';
-    list.forEach(g=>{
+    list.forEach((g,idx)=>{
       const card=document.createElement('div');card.className='glaze-card'+(selectedGlaze===g?' selected':'');
       const sw=document.createElement('div');sw.className='glaze-swatches';
       ['white','red'].forEach(ck=>{const w=document.createElement('div');w.innerHTML=swatchSVG(g,ck,44);sw.appendChild(w);});
@@ -1243,6 +1263,7 @@ export function renderGlazeTiles(){
       const{cls,label:bl}=finBadge(g.fin);const badge=document.createElement('span');badge.className=`finish-badge ${cls}`;badge.textContent=bl;info.appendChild(badge);
       card.appendChild(info);
       card.addEventListener('click',()=>{const was=(selectedGlaze===g);selectedGlaze=was?null:g;document.querySelectorAll('.glaze-card').forEach(c=>c.classList.remove('selected'));if(!was){card.classList.add('selected');if(bar)bar.classList.add('visible');const lbl=document.getElementById('glazeActionLabel');if(lbl)lbl.innerHTML=`Selected: <strong>${g.name}</strong>`;}else{if(bar)bar.classList.remove('visible');}});
+      card.classList.add('tile-in');card.style.animationDelay=(idx*14)+'ms';
       grid.appendChild(card);
     });
     content.appendChild(grid);
