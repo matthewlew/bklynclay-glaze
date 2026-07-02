@@ -91,6 +91,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .ttab.drag-over{background:var(--drag-green-bg) !important;outline:2px dashed var(--drag-green-outline);outline-offset:-2px;}
 .topbar-right{display:flex;align-items:center;gap:8px;margin-left:auto;}
 .btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 13px;font-size:12px;font-weight:500;border:1.5px solid var(--border);background:var(--card);border-radius:var(--r);cursor:pointer;color:var(--ink2);white-space:nowrap;font-family:var(--font);transition:background .12s,color .12s,border-color .12s;line-height:1;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
 .btn:hover{background:var(--surf);border-color:var(--border2);color:var(--ink);}
 .btn.primary{background:var(--ink);color:var(--white);border-color:var(--ink);}
 .btn.primary:hover{background:var(--ink-hover);}

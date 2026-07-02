@@ -1699,7 +1699,7 @@ export function renderViewRating(container){
   const m=vrQueue[0];
   vrCurrentKey=m.key;vrOrder=[];
   const prog=document.createElement('div');prog.style.cssText='font-size:10px;color:var(--ink3);margin-bottom:8px;';
-  prog.textContent=`Palette ${likedMeta.length-vrQueue.length+1} of ${likedMeta.length} — click cards in your preferred order`;
+  prog.textContent=`Palette ${likedMeta.length-vrQueue.length+1} of ${likedMeta.length} — click cards in your preferred order, best first (at least one, no need to rank all 10)`;
   container.appendChild(prog);
 
   const name=document.createElement('div');name.style.cssText='font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px;';
@@ -1728,7 +1728,7 @@ export function renderViewRating(container){
         b.textContent=rank>=0?String(rank+1):'';
         c.classList.toggle('ranked',rank>=0);
       });
-      doneBtn.disabled=vrOrder.length<allCombos().length;
+      doneBtn.disabled=vrOrder.length<1;
     });
     card.dataset.comboKey=comboKey(combo);
     grid.appendChild(card);
@@ -1737,7 +1737,12 @@ export function renderViewRating(container){
 
   const doneBtn=document.createElement('button');doneBtn.className='btn';doneBtn.textContent='Done — save & next palette';doneBtn.style.marginTop='12px';doneBtn.disabled=true;
   doneBtn.addEventListener('click',()=>{
-    const order=vrOrder.map(k=>{const [mode,rev]=k.split(':');return{mode,reverse:rev==='rev'};});
+    if(doneBtn.disabled)return;
+    // Ranked combos first (best first), then any left unranked appended in
+    // their default display order — keeps the log complete without forcing
+    // the user to rank all 10 before they can move on.
+    const unranked=allCombos().map(comboKey).filter(k=>!vrOrder.includes(k));
+    const order=[...vrOrder,...unranked].map(k=>{const [mode,rev]=k.split(':');return{mode,reverse:rev==='rev'};});
     viewPrefs[m.key]=order[0];
     viewRatingLog.push({key:m.key,order});
     saveAll();
