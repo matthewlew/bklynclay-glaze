@@ -1,7 +1,10 @@
 import { CLAY, GLAZES, NL, LEVERS, PRESETS } from './glazes-data.js';
-import { hd, circularSpan, cardTemperature, cardDepth, harmonyScore, scoreAesthetic, scoreGlaze, pairingScore, SCORE_PRESETS, DEFAULT_SCORE_WEIGHTS } from './scoring.js';
+import { hd, circularSpan, cardTemperature, cardDepth, harmonyScore, featureVector, scoreAesthetic as _scoreAesthetic, scoreGlaze, pairingScore, SCORE_PRESETS, DEFAULT_SCORE_WEIGHTS } from './scoring.js';
 import { state } from './state.js';
 import { saveAll, exportSession } from './persistence.js';
+
+// Wrap scoreAesthetic to inject learnedWeights when available
+function scoreAesthetic(glazes){ return _scoreAesthetic(glazes, state.learnedWeights); }
 
 // Constants for SVG
 const TH = 78;
@@ -827,7 +830,7 @@ export function buildCard(p,isLiked,compact){
     const sc=scoreAesthetic(p.glazes,activeScoreWeights());
     const badge=document.createElement('span');
     badge.className='score-badge'+(sc>=SCORE_HI?' score-hi':sc>=SCORE_MID?' score-mid':' score-lo');
-    badge.title='Aesthetic score: contrast, harmony, distinctness, material variety';
+    badge.title=state.learnedWeights?'Personalized score (calibrated to your preferences)':'Aesthetic score: contrast, harmony, distinctness, material variety';
     badge.textContent='★ '+sc;
     tagRow.appendChild(tag);tagRow.appendChild(badge);footer.appendChild(tagRow);
     const peekScore = document.createElement('div');
@@ -2481,4 +2484,174 @@ export function openCtxMenu(e, p) {
     menu.style.left = x + 'px';
     menu.style.top = y + 'px';
   });
+}
+
+// ── PREFERENCE CALIBRATION (Phase 2) ───────────────────────────────────────────
+export function updateCalibrateBtn(){
+  const btn=document.getElementById('calibrateBtn');if(!btn)return;
+  const existing=btn.querySelector('.calibrate-badge');
+  if(state.learnedWeights){
+    if(!existing){const b=document.createElement('span');b.className='calibrate-badge';b.textContent='✓';btn.appendChild(b);}
+  } else {
+    if(existing)existing.remove();
+  }
+}
+
+export function openCalibrate(){
+  const candidates=state.likedMeta.filter(m=>(m.names||[]).length>=2);
+  if(candidates.length<2){showToast('Pin at least 2 palettes to calibrate.');return;}
+  document.getElementById('compareOverlay').style.display='flex';
+  renderComparePair(candidates);
+}
+
+export function closeCalibrate(){
+  document.getElementById('compareOverlay').style.display='none';
+}
+
+export function renderComparePair(candidates){
+  const box=document.getElementById('compareBox');
+  const total=Math.min(30,candidates.length*(candidates.length-1)/2);
+  const done=state.compPairs.filter(p=>p.winner!=='skip').length;
+
+  if(done>=25){
+    fitWeights();
+    const rho=spearmanRho();
+    box.innerHTML=`<div class="compare-done-msg">
+      <h3>Calibration complete</h3>
+      <p>Based on ${done} comparisons.<br>Rank agreement (ρ): <strong>${rho.toFixed(2)}</strong>${rho>=0.65?' 🎉':''}</p>
+      <button class="btn" onclick="closeCalibrate();renderGallery();">Apply personalized scores</button>
+      <button class="btn" style="margin-left:8px" onclick="resetLearnedWeights()">Reset to default</button>
+    </div>`;
+    updateCalibrateBtn();
+    return;
+  }
+
+  const alreadyPaired=new Set(state.compPairs.map(p=>p.a+'|'+p.b).concat(state.compPairs.map(p=>p.b+'|'+p.a)));
+  const scored=candidates.map(m=>{
+    const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+    return{m,score:scoreAesthetic(glazes),glazes};
+  }).filter(x=>x.glazes.length>=2);
+  scored.sort((a,b)=>a.score-b.score);
+
+  let pA=null,pB=null;
+  outer: for(let i=0;i<scored.length-1;i++){
+    for(let j=i+1;j<scored.length;j++){
+      const key=scored[i].m.key+'|'+scored[j].m.key;
+      if(!alreadyPaired.has(key)){pA=scored[i];pB=scored[j];break outer;}
+    }
+  }
+  if(!pA){showToast('All pairs compared!');fitWeights();closeCalibrate();renderGallery();return;}
+
+  const makeCard=(side)=>{
+    const glazes=side.glazes;
+    const swatch=document.createElement('div');swatch.className='compare-swatch';swatch.style.background=glazeCSS(glazes);
+    const label=document.createElement('div');label.className='compare-label';
+    label.textContent=state.labelStore[side.m.key]||side.m.label||'Palette';
+    const glazeNames=document.createElement('div');glazeNames.className='compare-glazes';
+    glazeNames.textContent=(side.m.names||[]).join(' · ');
+    const card=document.createElement('div');card.className='compare-card';
+    card.appendChild(swatch);card.appendChild(label);card.appendChild(glazeNames);
+    return card;
+  };
+
+  box.innerHTML='';
+  const header=document.createElement('div');header.className='compare-header';
+  header.textContent='Which palette do you prefer for your pottery?';
+  const progress=document.createElement('div');progress.className='compare-progress';
+  progress.textContent=`Comparison ${done+1} of ~${Math.min(30,total)}`;
+
+  const pair=document.createElement('div');pair.className='compare-pair';
+  const cardA=makeCard(pA);const cardB=makeCard(pB);
+
+  cardA.addEventListener('click',()=>recordPair(pA.m.key,pB.m.key,'a',candidates));
+  cardB.addEventListener('click',()=>recordPair(pA.m.key,pB.m.key,'b',candidates));
+
+  pair.appendChild(cardA);pair.appendChild(cardB);
+
+  const skip=document.createElement('button');skip.className='compare-skip';
+  skip.textContent='Skip this pair';
+  skip.addEventListener('click',()=>{
+    state.compPairs.push({a:pA.m.key,b:pB.m.key,winner:'skip',ts:Date.now()});
+    saveAll();renderComparePair(candidates);
+  });
+
+  box.appendChild(header);box.appendChild(progress);box.appendChild(pair);box.appendChild(skip);
+}
+
+export function recordPair(keyA,keyB,winner,candidates){
+  state.compPairs.push({a:keyA,b:keyB,winner,ts:Date.now()});
+  saveAll();
+  renderComparePair(candidates);
+}
+
+export function fitWeights(){
+  const pairs=state.compPairs.filter(p=>p.winner!=='skip');
+  if(pairs.length<5){showToast('Need at least 5 comparisons to fit weights.');return;}
+  const X=[],y=[];
+  for(const pair of pairs){
+    const mA=state.likedMeta.find(m=>m.key===pair.a);
+    const mB=state.likedMeta.find(m=>m.key===pair.b);
+    if(!mA||!mB)continue;
+    const glazesA=(mA.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+    const glazesB=(mB.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+    if(glazesA.length<2||glazesB.length<2)continue;
+    const fvA=featureVector(glazesA);
+    const fvB=featureVector(glazesB);
+    const diff=fvA.map((v,i)=>v-fvB[i]);
+    X.push(diff);
+    y.push(pair.winner==='a'?1:0);
+  }
+  if(X.length<5){showToast('Not enough valid pairs after filtering.');return;}
+  const D=7;
+  let w=new Array(D).fill(1/D);
+  const sigmoid=z=>1/(1+Math.exp(-z));
+  const lr=0.05;
+  const epochs=200;
+  for(let e=0;e<epochs;e++){
+    const grad=new Array(D).fill(0);
+    for(let i=0;i<X.length;i++){
+      const z=X[i].reduce((s,v,j)=>s+v*w[j],0);
+      const pred=sigmoid(z);
+      const err=pred-y[i];
+      for(let j=0;j<D;j++)grad[j]+=err*X[i][j];
+    }
+    for(let j=0;j<D;j++)w[j]-=lr*grad[j]/X.length;
+  }
+  const minW=Math.min(...w);
+  if(minW<0)w=w.map(v=>v-minW+0.02);
+  const sumW=w.reduce((a,b)=>a+b,0);
+  w=w.map(v=>v/sumW);
+  state.learnedWeights=w;
+  saveAll();
+}
+
+export function spearmanRho(){
+  if(!state.learnedWeights)return 0;
+  if(!state.rankSorted||state.rankSorted.length<4)return 0;
+  const ranked=state.rankSorted.filter(m=>{
+    const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+    return glazes.length>=2;
+  });
+  if(ranked.length<4)return 0;
+  const n=ranked.length;
+  const scores=ranked.map(m=>{
+    const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+    return scoreAesthetic(glazes);
+  });
+  const scoreRanks=scores.map((_,i)=>i).sort((a,b)=>scores[b]-scores[a]);
+  const scoreRankOf=new Array(n);
+  scoreRanks.forEach((idx,rank)=>{scoreRankOf[idx]=rank;});
+  let d2=0;
+  for(let i=0;i<n;i++)d2+=(i-scoreRankOf[i])**2;
+  return 1-(6*d2)/(n*(n*n-1));
+}
+
+export function resetLearnedWeights(){
+  state.learnedWeights=null;
+  state.compPairs=[];
+  saveAll();
+  updateCalibrateBtn();
+  renderGallery();
+  closeCalibrate();
+  showToast('Scores reset to default weights.');
 }

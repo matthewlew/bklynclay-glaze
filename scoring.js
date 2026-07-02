@@ -62,11 +62,9 @@ export const SCORE_PRESETS = {
 
 export const DEFAULT_SCORE_WEIGHTS = SCORE_PRESETS.Balanced.weights;
 
-// F1-F7 weighted aesthetic score (0-100). `weights` is an optional [f1..f7]
-// array (see SCORE_PRESETS); defaults to the Balanced preset.
-export function scoreAesthetic(glazes, weights) {
-  if (!glazes || glazes.length < 2) return 0;
-  const w = weights || DEFAULT_SCORE_WEIGHTS;
+// Raw [f1..f7] feature values (0-1 each) — used by scoreAesthetic and fitWeights.
+export function featureVector(glazes) {
+  if (!glazes || glazes.length < 2) return [0, 0, 0, 0, 0, 0, 0];
   const n = glazes.length;
   const lums = glazes.map(g => g.lum);
   const sats = glazes.map(g => g.sat);
@@ -102,6 +100,13 @@ export function scoreAesthetic(glazes, weights) {
   const achromaticCount = glazes.filter(g => g.sat < 0.10).length;
   const f7 = achromaticCount <= 1 ? 1.0 : Math.max(0.3, 1 - (achromaticCount - 1) * 0.35);
 
+  return [f1, f2, f3, f4, f5, f6, f7];
+}
+
+export function scoreAesthetic(glazes, weights) {
+  if (!glazes || glazes.length < 2) return 0;
+  const [f1, f2, f3, f4, f5, f6, f7] = featureVector(glazes);
+  const w = weights || DEFAULT_SCORE_WEIGHTS;
   return Math.round((f1 * w[0] + f2 * w[1] + f3 * w[2] + f4 * w[3] + f5 * w[4] + f6 * w[5] + f7 * w[6]) * 100);
 }
 

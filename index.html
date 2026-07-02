@@ -631,7 +631,6 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .proj-context-bar{display:none;align-items:center;gap:8px;padding:5px 14px;background:var(--surf);border-bottom:1px solid var(--border);font-size:11px;color:var(--ink3);}
 .proj-context-bar.visible{display:flex;}
 .proj-context-name{font-weight:700;color:var(--ink);margin:0 2px;}
-
 /* ── VESSEL PREVIEW MODAL ────────────────────────────────────────────────── */
 .vm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:500;}
 .vm-overlay.open{display:flex;}
@@ -658,6 +657,22 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .vm-stop-handle:active{cursor:grabbing;}
 .vm-export-btn{align-self:flex-start;margin-top:2px;}
 .vessel-btn{font-size:11px;}
+/* ── COMPARISON MODAL ─────────────────────────────── */
+#compareOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;display:flex;align-items:center;justify-content:center;padding:16px;}
+.compare-box{background:var(--bg);border-radius:12px;padding:24px;width:min(720px,96vw);box-shadow:0 8px 40px rgba(0,0,0,.35);}
+.compare-header{font-size:13px;font-weight:700;text-align:center;color:var(--ink2);margin-bottom:18px;}
+.compare-progress{font-size:11px;color:var(--ink3);text-align:center;margin-top:-10px;margin-bottom:16px;}
+.compare-pair{display:flex;gap:16px;justify-content:center;}
+.compare-card{flex:1;max-width:280px;cursor:pointer;border:2px solid transparent;border-radius:10px;overflow:hidden;transition:border-color .15s,transform .1s;}
+.compare-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+.compare-card .compare-swatch{height:120px;border-radius:8px 8px 0 0;}
+.compare-card .compare-label{padding:10px 12px;font-size:12px;font-weight:600;color:var(--ink1);background:var(--bg2);border-radius:0 0 8px 8px;}
+.compare-card .compare-glazes{font-size:10px;color:var(--ink3);padding:0 12px 8px;background:var(--bg2);}
+.compare-skip{display:block;margin:14px auto 0;font-size:11px;color:var(--ink3);background:none;border:none;cursor:pointer;text-decoration:underline;}
+.compare-done-msg{text-align:center;padding:24px 0;}
+.compare-done-msg h3{font-size:16px;margin-bottom:8px;}
+.compare-done-msg p{font-size:12px;color:var(--ink2);margin-bottom:16px;}
+.calibrate-badge{font-size:9px;background:var(--accent);color:#fff;border-radius:4px;padding:1px 4px;margin-left:4px;vertical-align:middle;}
 
 /* ── COMPOSITION CANVAS (multi-column combined gradients) ── */
 .comp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:500;}
@@ -902,6 +917,8 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
       <div class="view-section-head" id="discoverHead">
         <span class="view-section-label">Discover</span>
         <span class="view-section-count" id="discoverContext"></span>
+        <button class="btn xs" id="scoreSortBtn" onclick="toggleScoreSort()" title="Sort by aesthetic score" style="margin-left:auto;">★ Score</button>
+        <button class="btn xs" id="calibrateBtn" onclick="openCalibrate()" title="Run pairwise comparisons to personalize scores">Calibrate</button>
       </div>
       <div class="gallery" id="gallery" role="list"></div>
     </div>
@@ -1053,6 +1070,10 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   </div>
 </div>
 
+<div id="compareOverlay" style="display:none" role="dialog" aria-modal="true" aria-label="Palette preference comparison">
+  <div class="compare-box" id="compareBox"></div>
+</div>
+
 <script>
 // Declare global variables for backward compatibility across ES modules in strict mode
 var clayKey      = 'white';
@@ -1089,6 +1110,8 @@ var _vs          = { shape: 'cylinder', direction: 'top', stops: [], glazes: [],
 var _focusedCardKey = null;
 var _ctxMenu     = null;
 var _activeSheet = null;
+var compPairs      = [];   // [{a, b, winner, ts}]
+var learnedWeights = null; // [w1..w7] or null
 </script>
 
 <script type="module">
@@ -1103,8 +1126,10 @@ import {
   renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, wireMobileImagePicker, initSectionObserver, initHorizontalSwipe,
   moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection, setGalleryViewMode, setControlsSection, setTileDivisions,
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer,
+  updateCalibrateBtn, openCalibrate, closeCalibrate, renderComparePair,
+  recordPair, fitWeights, spearmanRho, resetLearnedWeights,
   closeCompositionModal
-} from './render.js?v=7';
+} from './render.js';
 import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse } from './palette-detail.js';
 
 // ── APPEARANCE ──────────────────────────────────────────────────────────────
@@ -1133,36 +1158,43 @@ Object.assign(window, {
   // Appearance
   setTheme,
 
+
   // Tabs & Clay
   setClay, applyPreset, resetLevers, shuffle, setTab,
   openSheet, closeSheet, openShortcutOverlay, closeShortcutOverlay,
-  
+
   // Projects
   createNewProject, switchContext, switchToProjectTab,
-  
+
   // Ratings, Ranking, Vessel
   startQuickRate, startRank, rankChoose, rankSkip,
   openVesselModal, closeVesselModal: () => document.getElementById('vesselModal')?.classList.remove('open'),
-  
+
   // Filters & selection
   setGlazeFilter, clearGlazeSelection,
   toggleScoreSort,
-  
+
   // Context menu
   closeCtxMenu,
 
   // Composition canvas
   closeCompositionModal,
-  
+
+
   // Label editing
   editLabel: (key, el) => { el.contentEditable = 'true'; el.focus(); },
-  
+
   // UI callbacks called across files
   renderSidebar, renderTopbarTabs, updateCount, showToast, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer, setGalleryViewMode, setControlsSection, setTileDivisions,
+
+  // Preference calibration (Phase 2)
+  updateCalibrateBtn, openCalibrate, closeCalibrate, renderComparePair,
+  recordPair, fitWeights, spearmanRho, resetLearnedWeights,
 
   // Palette detail page
   openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse,
 });
+
 
 // ── KEYBOARD SHORTCUTS ────────────────────────────────────────────────────────
 const PRESET_KEYS = ['turrell','rothko','albers','martin','kelly','judd','eliasson','wada'];
@@ -1254,6 +1286,10 @@ loadAll().then(() => {
   renderScoreWeighting();
   wireImageDrop();
   wireMobileImagePicker();
+  document.getElementById('compareOverlay').addEventListener('click',e=>{
+    if(e.target.id==='compareOverlay')closeCalibrate();
+  });
+  updateCalibrateBtn();
   initSectionObserver();
   initHorizontalSwipe();
 });

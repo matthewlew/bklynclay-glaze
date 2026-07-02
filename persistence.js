@@ -87,7 +87,9 @@ export async function saveAll() {
     meta: state.likedMeta,
     projects: state.projects,
     labels: state.labelStore,
-    rankState
+    rankState,
+    pairs: state.compPairs,
+    learnedWeights: state.learnedWeights
   };
 
   let success = false;
@@ -258,6 +260,8 @@ export async function loadAll() {
       state.rankMode = 'done';
       state.rankSorted = (loadedData.rankState.sorted || []).map(k => state.likedMeta.find(m => m.key === k)).filter(Boolean);
     }
+    state.compPairs = data.pairs || [];
+    state.learnedWeights = data.learnedWeights || null;
   }
 
   if (migrated) {
@@ -298,7 +302,9 @@ export function exportSession() {
     meta: state.likedMeta,
     projects: state.projects,
     labels: state.labelStore,
-    rankState
+    rankState,
+    pairs: state.compPairs,
+    learnedWeights: state.learnedWeights
   };
   const txt = JSON.stringify(data, null, 2);
   navigator.clipboard.writeText(txt)
