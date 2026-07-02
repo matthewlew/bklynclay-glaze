@@ -573,7 +573,9 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .ctx-item{display:flex;align-items:center;gap:8px;padding:7px 13px;font-size:12px;font-weight:500;color:var(--ink2);cursor:pointer;font-family:var(--font);transition:background .12s,color .12s;white-space:nowrap;}
 .ctx-item:hover{background:var(--surf);color:var(--ink);}
 .ctx-item.danger:hover{background:var(--danger-bg);color:var(--danger);}
+.ctx-item.disabled{opacity:.4;pointer-events:none;}
 .ctx-divider{height:1px;background:var(--border);margin:3px 0;}
+.comp-copy-badge{position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;letter-spacing:.04em;padding:3px 7px;border-radius:var(--r);background:var(--ink);color:var(--white);z-index:2;pointer-events:none;}
 .ctx-submenu{position:fixed;background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);box-shadow:0 4px 20px rgba(0,0,0,.13);z-index:501;min-width:160px;overflow:hidden;padding:4px 0;}
 .board-dropdown-item{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;font-size:12px;font-family:var(--font);border:none;background:none;width:100%;}
 .board-dropdown-item:hover{background:var(--surf);}
@@ -669,11 +671,14 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .comp-count-btn.on{background:var(--ink);color:var(--white);border-color:var(--ink);}
 .comp-body{display:flex;flex:1;min-height:0;overflow:hidden;background:var(--surf);}
 .comp-columns{display:flex;flex:1;min-width:0;}
-.comp-col{position:relative;min-width:0;overflow:hidden;}
+.comp-col{position:relative;min-width:0;overflow:hidden;background:var(--card);}
 .comp-col-label{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.9);text-shadow:0 1px 4px rgba(0,0,0,.5);background:linear-gradient(to top,rgba(0,0,0,.35),transparent);}
+.comp-col.comp-col-empty{display:flex;align-items:center;justify-content:center;background:var(--surf);}
+.comp-col-empty-label{font-size:11px;font-weight:600;color:var(--ink3);text-align:center;padding:0 10px;}
 .comp-divider{flex-shrink:0;width:20px;margin:0 -10px;position:relative;z-index:3;cursor:col-resize;touch-action:none;}
 .comp-divider::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:2px;transform:translateX(-50%);background:rgba(255,255,255,.6);}
 .comp-footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0;}
+.comp-footer .btn.danger{border-color:var(--danger);color:var(--danger);}
 
 /* ── INLINE EDIT INPUTS ── */
 .proj-tab-input{font-size:12px;font-weight:600;font-family:inherit;border:none;background:transparent;color:inherit;outline:none;width:100%;}

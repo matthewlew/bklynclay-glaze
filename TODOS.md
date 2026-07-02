@@ -39,6 +39,27 @@ Feed `rankSorted` results into a per-project glaze affinity map. Cap each glaze'
 
 ## Design + UX (from /plan-design-review · 2026-06-30)
 
+## Mobile UX (from session · 2026-07-01)
+
+### M1 — Swipe-to-dismiss sheets with live finger tracking (P1) ✓
+**Completed:** 2026-07-01 — Sheet follows finger live, springs back on low velocity/distance, dismisses on flick or dy>120px. Backdrop fades with drag. touchmove listener cleaned up on close.
+
+### M2 — Horizontal swipe between Saved ↔ Discover sections (P1) ✓
+**Completed:** 2026-07-01 — `initHorizontalSwipe()` on `#mainContent`; swipe left→Discover, right→Saved; 45° angle guard prevents triggering during vertical scroll.
+
+### M3 — Haptic feedback on Android (P2) ✓
+**Completed:** 2026-07-01 — `navigator.vibrate()` gated on `'vibrate' in navigator`: pin/save=15ms, shuffle=25ms, delete=[30,0,30].
+
+### M4 — Replace `confirm()` / `prompt()` with mobile bottom sheets (P2) ✓
+**Completed:** 2026-07-01 — `confirmSheet()` and `promptSheet()` reusable helpers in render.js; replaced both native dialog call sites in `showProjMenu()`.
+
+### M5 — Pull-to-shuffle gesture (P3)
+Pull down past 60px at the top of `#mainContent` to trigger shuffle, with spring-back animation and rotating shuffle icon. Only fires when already at scroll position 0.
+**Files:** `render.js` — touch handlers on `#mainContent`; calls `shuffle()`
+**Effort:** ~40 lines
+
+---
+
 ## Completed
 
 ### T1 — Sticky Controls Toolbar in Gallery (P1)
