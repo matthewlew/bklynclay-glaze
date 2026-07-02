@@ -237,6 +237,77 @@ test('clicking the pin badge in palette detail toggles saved state', async ({ pa
   await expect(badge).toContainText(wasSaved ? 'Saved' : 'Unsaved');
 });
 
+test('view-rating pure helpers compute gradients and summarize logs correctly', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
+  const result = await page.evaluate(async () => {
+    const vr = await import('/view-rating.js');
+    const hexes = ['#ff0000', '#00ff00', '#0000ff'];
+    const linear = vr.linearCSS(hexes);
+    const radial = vr.radialCSS(hexes);
+    const conic = vr.conicCSS(hexes);
+    const stripes = vr.stripesCSS(hexes);
+    const turrell = vr.turrellSVGDataUri(hexes);
+    const combos = vr.allCombos();
+    const singleHex = vr.linearCSS(['#abcabc']);
+    const summary = vr.summarizeViewRatings([
+      { key: 'p1', order: [{ mode: 'linear', reverse: false }, { mode: 'radial', reverse: false }] },
+      { key: 'p2', order: [{ mode: 'radial', reverse: false }, { mode: 'linear', reverse: false }] },
+    ]);
+    return { linear, radial, conic, stripes, turrell, combosLen: combos.length, singleHex, summary };
+  });
+  expect(result.linear).toBe('linear-gradient(to bottom,#ff0000,#00ff00,#0000ff)');
+  expect(result.radial).toContain('radial-gradient(ellipse at 50% 50%');
+  expect(result.conic).toContain('conic-gradient(from 0deg');
+  expect(result.stripes).toContain('linear-gradient(to bottom,');
+  expect(result.turrell).toContain('url("data:image/svg+xml,');
+  expect(result.combosLen).toBe(10); // 5 modes x fwd/rev
+  expect(result.singleHex).toBe('#abcabc');
+  // linear and radial tie for average rank 0.5 across the two logged palettes
+  expect(result.summary).toHaveLength(2);
+  expect(result.summary[0].avgRank).toBeCloseTo(0.5);
+  expect(result.summary[0].count).toBe(2);
+});
+
+test('Rate Views card sort: rank cards, complete a palette, and see results summary', async ({ page }) => {
+  await page.goto('/');
+  // Ensure at least one palette is pinned/saved.
+  await page.locator('.card').first().click();
+  await expect(page.locator('#paletteDetail')).toHaveClass(/open/);
+  const badge = page.locator('#pdPinBadge');
+  if (!(await badge.getAttribute('class')).includes('is-saved')) {
+    await badge.click();
+    await expect(badge).toHaveClass(/is-saved/);
+  }
+  await page.locator('#paletteDetail .pd-back').click();
+
+  // Navigate to Analytics tab and launch the Rate Views card sort.
+  await page.locator('.ttab', { hasText: 'Analytics' }).click();
+  const viewBtn = page.locator('.rate-rank-mode-btn', { hasText: 'Rate Views' });
+  await expect(viewBtn).toBeVisible();
+  await viewBtn.click();
+
+  const cards = page.locator('.vr-card');
+  await expect(cards.first()).toBeVisible({ timeout: 3000 });
+  const count = await cards.count();
+  expect(count).toBe(10);
+
+  // Click every card to build a full ranking order.
+  for (let i = 0; i < count; i++) {
+    await cards.nth(i).click();
+  }
+  await expect(cards.first()).toHaveClass(/ranked/);
+  await expect(cards.first().locator('.vr-card-rank')).toHaveText('1');
+
+  const doneBtn = page.locator('button', { hasText: 'Done — save & next palette' });
+  await expect(doneBtn).toBeEnabled();
+  await doneBtn.click();
+
+  // Only one palette was pinned, so the sort should immediately finish and show results.
+  await expect(page.locator('button', { hasText: 'Rate Views Again' })).toBeVisible({ timeout: 3000 });
+  await expect(page.locator('.rank-results .rank-result-row').first()).toBeVisible();
+});
+
 test('mobile gallery renders all tiles fully without clipping', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/');
