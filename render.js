@@ -9,7 +9,7 @@ function scoreAesthetic(glazes){ return _scoreAesthetic(glazes, state.learnedWei
 // Constants for SVG
 const TH = 78;
 const TG = 1;
-const NT = 4;
+let NT = 4;
 const SVG_W = 100;
 
 const SCORE_HI = 70;
@@ -85,10 +85,16 @@ export function tileInner(glazes,ck,tf,tb,H,W){
   return`<defs>${defs}</defs><rect width="${W}" height="${H}" fill="${clayHex}"/>${body}${overlay}${dots}`;
 }
 
+// Total stack height is pinned to the classic 4-tile size regardless of NT,
+// so raising the tile-division count subdivides the same card height into
+// thinner bands instead of making cards grow taller.
+function _stackTotalHeight(tH){return 4*tH+3*TG;}
+
 export function tileSVG(ti,glazes,ck,tH){
   tH=tH||TH;ck=ck||clayKey;
-  const TOTAL=NT*tH+(NT-1)*TG;
-  const top=ti*(tH+TG),bot=top+tH,tf=top/TOTAL,tb=bot/TOTAL,W=SVG_W,H=tH;
+  const TOTAL=_stackTotalHeight(tH);
+  const effH=(TOTAL-(NT-1)*TG)/NT;
+  const top=ti*(effH+TG),bot=top+effH,tf=top/TOTAL,tb=bot/TOTAL,W=SVG_W,H=effH;
   return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="display:block;width:100%;border-radius:3px;" aria-hidden="true">${tileInner(glazes,ck,tf,tb,H,W)}</svg>`;
 }
 
@@ -130,9 +136,8 @@ export function galleryGradientCSS(glazes,ck,mode){
 export function buildStack(glazes,ck,tH){
   tH=tH||TH;
   if(galleryViewMode&&galleryViewMode!=='tiles'){
-    const totalH=NT*tH+(NT-1)*TG;
     const wrap=document.createElement('div');wrap.className='tile-col tile-gradient';
-    wrap.style.height=totalH+'px';
+    wrap.style.height=_stackTotalHeight(tH)+'px';
     wrap.style.background=galleryGradientCSS(glazes,ck||clayKey,galleryViewMode);
     return wrap;
   }
@@ -153,6 +158,13 @@ export function refreshStack(col,glazes,ck,tH){
 export function setGalleryViewMode(mode){
   galleryViewMode=mode;
   document.querySelectorAll('.gv-btn').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
+  lastRenderedKeys=[];lastSavedKeys=[];
+  if(currentTab==='explore'){renderGallery();}
+}
+
+export function setTileDivisions(n){
+  NT=n;
+  document.querySelectorAll('.td-btn').forEach(b=>b.classList.toggle('on',parseInt(b.dataset.n,10)===n));
   lastRenderedKeys=[];lastSavedKeys=[];
   if(currentTab==='explore'){renderGallery();}
 }
@@ -939,6 +951,15 @@ export function updateMultiBar(){
     clearMultiSelect();
   });
   bar.appendChild(riffBtn);
+  if(selectedKeys.size>=2){
+    const composeBtn=document.createElement('button');composeBtn.textContent='Compose columns';
+    composeBtn.addEventListener('click',()=>{
+      const srcs=[...selectedKeys].map(_resolvePaletteByKey).filter(s=>s&&s.glazes.length);
+      openCompositionModal(srcs);
+      clearMultiSelect();
+    });
+    bar.appendChild(composeBtn);
+  }
   projects.forEach(proj=>{
     const b=document.createElement('button');b.textContent=`→ ${proj.name}`;
     b.addEventListener('click',()=>{
@@ -1893,6 +1914,128 @@ export function _vPlate(ctx,W,H){
   ctx.fillStyle=rs;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fill();
   ctx.restore();
   ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.strokeStyle='rgba(0,0,0,0.12)';ctx.lineWidth=1.5;ctx.stroke();
+}
+
+// ── COMPOSITION CANVAS (multi-column combined gradients) ──────────────────────
+// Lets a multi-selected set of palettes be viewed and resized side-by-side as
+// parallel gradient columns, independent of the single-palette editor.
+let _compAllSrcs = [];
+let _compCols = [];
+let _compDrag = null;
+
+function _compColumnCSS(glazes,ck){
+  ck=ck||clayKey;
+  if(!glazes||!glazes.length)return CLAY[ck];
+  const stops=Array.from({length:9},(_,i)=>{const t=i/8,c=sampleAt(t,glazes,ck);return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${Math.round(t*100)}%`;});
+  return`linear-gradient(to bottom,${stops.join(',')})`;
+}
+
+export function openCompositionModal(paletteObjs){
+  _compAllSrcs=paletteObjs.filter(p=>p&&p.glazes&&p.glazes.length);
+  if(_compAllSrcs.length<2)return;
+  const n=Math.min(4,_compAllSrcs.length);
+  _compCols=_compAllSrcs.slice(0,n).map(p=>({label:p.label||'Palette',glazes:p.glazes,weight:1}));
+  const ov=document.getElementById('compositionModal');if(!ov)return;
+  _renderCompositionModal();
+  ov.classList.add('open');
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('open');},{once:true});
+}
+
+export function closeCompositionModal(){
+  document.getElementById('compositionModal')?.classList.remove('open');
+}
+
+export function setCompColumnCount(n){
+  n=Math.max(2,Math.min(4,n,_compAllSrcs.length));
+  _compCols=_compAllSrcs.slice(0,n).map(p=>({label:p.label||'Palette',glazes:p.glazes,weight:1}));
+  _renderCompositionModal();
+}
+
+function _renderCompositionModal(){
+  const ov=document.getElementById('compositionModal');if(!ov)return;
+  ov.innerHTML='';
+  const modal=document.createElement('div');modal.className='comp-modal';
+
+  const hdr=document.createElement('div');hdr.className='comp-header';
+  const ttl=document.createElement('div');ttl.className='comp-title';ttl.textContent=`Composition — ${_compCols.length} columns`;
+  const countRow=document.createElement('div');countRow.className='comp-col-count';
+  [2,3,4].forEach(n=>{
+    const b=document.createElement('button');b.className='comp-count-btn'+(n===_compCols.length?' on':'');
+    b.textContent=n;b.disabled=n>_compAllSrcs.length;
+    b.addEventListener('click',()=>setCompColumnCount(n));
+    countRow.appendChild(b);
+  });
+  const xBtn=document.createElement('button');xBtn.className='comp-close';xBtn.textContent='×';xBtn.setAttribute('aria-label','Close');
+  xBtn.onclick=closeCompositionModal;
+  hdr.append(ttl,countRow,xBtn);modal.appendChild(hdr);
+
+  const body=document.createElement('div');body.className='comp-body';
+  const cols=document.createElement('div');cols.className='comp-columns';
+  const totalW=_compCols.reduce((a,c)=>a+c.weight,0);
+  _compCols.forEach((c,i)=>{
+    const col=document.createElement('div');col.className='comp-col';
+    col.style.flex=`${c.weight} ${c.weight} 0`;
+    col.style.background=_compColumnCSS(c.glazes,clayKey);
+    const lbl=document.createElement('div');lbl.className='comp-col-label';lbl.textContent=c.label;
+    col.appendChild(lbl);
+    cols.appendChild(col);
+    if(i<_compCols.length-1){
+      const div=document.createElement('div');div.className='comp-divider';
+      div.dataset.idx=i;
+      div.addEventListener('mousedown',e=>_compDividerStart(e.clientX,i,cols));
+      div.addEventListener('touchstart',e=>_compDividerStart(e.touches[0].clientX,i,cols),{passive:true});
+      cols.appendChild(div);
+    }
+  });
+  body.appendChild(cols);modal.appendChild(body);
+
+  const footer=document.createElement('div');footer.className='comp-footer';
+  const saveBtn=document.createElement('button');saveBtn.className='btn primary';saveBtn.textContent='Save as combined palette';
+  saveBtn.addEventListener('click',_compSaveCombined);
+  footer.appendChild(saveBtn);modal.appendChild(footer);
+
+  ov.appendChild(modal);
+}
+
+function _compDividerStart(startX,idx,colsEl){
+  const rect=colsEl.getBoundingClientRect();
+  _compDrag={idx,startX,rectWidth:rect.width,wA:_compCols[idx].weight,wB:_compCols[idx+1].weight};
+  const move=e=>_compDividerMove(e.touches?e.touches[0].clientX:e.clientX);
+  const up=()=>{
+    document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);
+    document.removeEventListener('touchmove',move);document.removeEventListener('touchend',up);
+    _compDrag=null;
+  };
+  document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
+  document.addEventListener('touchmove',move,{passive:true});document.addEventListener('touchend',up);
+}
+
+function _compDividerMove(clientX){
+  if(!_compDrag)return;
+  const {idx,startX,rectWidth,wA,wB}=_compDrag;
+  const totalW=_compCols.reduce((a,c)=>a+c.weight,0);
+  const pairTotal=wA+wB;
+  const dxFrac=(clientX-startX)/rectWidth*totalW;
+  const minW=pairTotal*0.2;
+  let newA=Math.max(minW,Math.min(pairTotal-minW,wA+dxFrac));
+  _compCols[idx].weight=newA;
+  _compCols[idx+1].weight=pairTotal-newA;
+  const colsEl=document.querySelector('.comp-columns');
+  if(colsEl){
+    colsEl.querySelectorAll('.comp-col').forEach((el,i)=>{el.style.flex=`${_compCols[i].weight} ${_compCols[i].weight} 0`;});
+  }
+}
+
+function _compSaveCombined(){
+  const glazes=_compCols.flatMap(c=>c.glazes).sort((a,b)=>b.lum-a.lum);
+  const label=_compCols.map(c=>c.label).join(' + ');
+  const p=withKey({id:mkid(),label,feeling:'',tag:'Composed',glazes});
+  palettes=[p,...palettes.slice(0,19)];
+  if(currentTab!=='explore')setTab('explore');
+  renderGallery();
+  document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth'});
+  showToast(`Saved combined palette "${label}"`);
+  closeCompositionModal();
 }
 
 // ── SECTION OBSERVER ──────────────────────────────────────────────────────────
