@@ -252,7 +252,9 @@ export async function loadAll() {
   if (loadedData) {
     state.likedKeys = new Set(loadedData.keys || []);
     state.likedMeta = loadedData.meta || [];
-    state.projects = loadedData.projects || [];
+    // IndexedDB getAll() returns records in key order, not the user's custom
+    // drag-reorder order, so re-sort by the explicit `order` stamp instead.
+    state.projects = (loadedData.projects || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     state.labelStore = loadedData.labels || {};
     if (loadedData.rankState && loadedData.rankState.mode === 'done') {
       state.rankMode = 'done';

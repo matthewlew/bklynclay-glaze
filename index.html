@@ -88,6 +88,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .ttab{padding:0 14px;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;color:var(--ink3);border-bottom:2px solid transparent;font-family:var(--font);transition:color .12s,border-color .12s;white-space:nowrap;}
 .ttab:hover{color:var(--ink);}
 .ttab.on{color:var(--ink);border-bottom-color:var(--ink);}
+.ttab.drag-over{background:var(--drag-green-bg) !important;outline:2px dashed var(--drag-green-outline);outline-offset:-2px;}
 .topbar-right{display:flex;align-items:center;gap:8px;margin-left:auto;}
 .btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 13px;font-size:12px;font-weight:500;border:1.5px solid var(--border);background:var(--card);border-radius:var(--r);cursor:pointer;color:var(--ink2);white-space:nowrap;font-family:var(--font);transition:background .12s,color .12s,border-color .12s;line-height:1;}
 .btn:hover{background:var(--surf);border-color:var(--border2);color:var(--ink);}
@@ -263,16 +264,17 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .proj-body{padding:6px 8px;}
 .proj-actions{display:flex;gap:5px;padding:6px 8px 8px;border-top:1px solid var(--border);}
 
-/* Sidebar palette chip */
-.lchip{display:flex;align-items:center;gap:6px;padding:6px 6px;border-radius:4px;margin-bottom:5px;cursor:pointer;background:var(--gray-light);border:1px solid var(--border);transition:background .12s;}
-.lchip:hover{background:var(--surf);border-color:var(--border2);}
+/* Sidebar palette chip — mini gradient thumbnails, no text */
+.lchip-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.lchip{position:relative;aspect-ratio:1/1;border-radius:6px;cursor:pointer;overflow:hidden;border:1.5px solid var(--border);transition:border-color .12s,transform .12s;}
+.lchip:hover{border-color:var(--border2);transform:translateY(-1px);}
+.lchip:focus-visible{outline:2px solid var(--acc);outline-offset:1px;}
 
-.lchip-strip{width:36px;height:18px;border-radius:3px;flex-shrink:0;}
-.lchip-info{flex:1;min-width:0;}
-.lchip-name{font-size:11px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.lchip-glazes{font-size:10px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.lchip-rm{background:none;border:none;cursor:pointer;color:var(--ink3);font-size:14px;line-height:1;padding:0;flex-shrink:0;}
-.lchip-rm:hover{color:var(--danger);}
+.lchip-strip{position:absolute;inset:0;border-radius:0;}
+.lchip-aperture{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36%;aspect-ratio:1;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.08);}
+.lchip-rm{position:absolute;top:2px;right:2px;width:16px;height:16px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:12px;line-height:1;padding:0;opacity:0;transition:opacity .12s;}
+.lchip:hover .lchip-rm,.lchip:focus-within .lchip-rm{opacity:1;}
+.lchip-rm:hover{background:var(--danger);}
 .flash{font-size:11px;color:#2a7a2a;background:#eaf6ea;border-radius:4px;padding:3px 8px;display:none;margin-bottom:8px;text-align:center;margin:8px 10px 0;}
 .empty-sb{font-size:11px;color:var(--ink3);text-align:center;padding:18px 0;line-height:1.6;}
 
@@ -374,18 +376,16 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   .topbar{display:none;}
   .section-jump-nav,.gallery-toolbar,.view-section-head,.project-banner{display:none!important;}
   .left-panel,.right-sidebar{display:none;}
+  .gv-desktop-only{display:none!important;}
   /* Full-height layout */
   .main-content{height:100svh;height:100vh;}
   .app-body{padding-bottom:56px;}
-  /* Gallery fills viewport: 2 rows exactly fill the screen */
   .gallery{
     grid-template-columns:repeat(2,1fr);
-    grid-auto-rows:calc((100svh - 56px - 24px) / 2);
+    grid-auto-rows:auto;
     padding:8px;gap:8px;
     min-height:calc(100svh - 56px);
   }
-  /* No hover on mobile — footer always visible */
-  .card-footer{opacity:1;}
   .card:not(.compact){min-height:0;}
   .mobile-bottom-bar{display:flex;}
   .mobile-shuffle-fab{display:flex;align-items:center;justify-content:center;}
@@ -692,15 +692,28 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .bd-item-count{font-size:10px;color:var(--ink3);}
 .analytics-pair-label{flex:1;font-size:11px;color:var(--ink);}
 .analytics-pair-count{font-size:10px;color:var(--ink3);flex-shrink:0;margin-right:4px;}
-.score-weight-select{width:100%;font-size:11px;font-family:var(--font);border:1.5px solid var(--border);border-radius:var(--r);padding:5px 7px;background:var(--surf);color:var(--ink);outline:none;cursor:pointer;}
-.score-weight-select:focus{border-color:var(--ink);}
 .score-weight-hint{font-size:10px;color:var(--ink3);margin-top:6px;line-height:1.4;}
 .analytics-empty-msg{font-size:11px;color:var(--ink3);padding-top:6px;}
 
 /* ── PALETTE DETAIL OVERLAY ─────────────────────────────────────────────────── */
-.pd-overlay{position:fixed;inset:0;z-index:600;background:var(--surf);display:flex;flex-direction:column;overflow:hidden;}
+.pd-overlay{position:fixed;inset:0;z-index:600;background:var(--surf);display:flex;flex-direction:column;overflow:hidden;transform:translateX(4%);opacity:0;transition:transform .18s cubic-bezier(.2,0,.2,1),opacity .18s cubic-bezier(.2,0,.2,1);}
+.pd-overlay.open{transform:translateX(0);opacity:1;}
 .pd-topbar{height:50px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;}
 .pd-back{background:none;border:none;cursor:pointer;font-size:18px;color:var(--ink3);padding:0 6px;font-family:var(--font);line-height:1;transition:color .12s;flex-shrink:0;}
+
+/* ── MOBILE PROJECTS SCREEN ───────────────────────────────────────────────── */
+.projects-view .pv-title{font-size:14px;font-weight:700;color:var(--ink);flex:1;}
+.pv-add-btn{background:none;border:none;cursor:pointer;font-size:20px;color:var(--ink2);padding:0 4px;font-family:var(--font);line-height:1;flex-shrink:0;}
+.pv-add-btn:hover{color:var(--ink);}
+.pv-list{overflow-y:auto;padding:8px;}
+.pv-row{display:flex;align-items:center;gap:10px;padding:12px 10px;border-radius:var(--r);cursor:pointer;background:var(--card);margin-bottom:6px;transition:background .12s;}
+.pv-row.active{background:var(--sel-bg,rgba(0,0,0,.05));}
+.pv-row.pv-dragging{opacity:.6;}
+.pv-strip{display:flex;gap:2px;align-items:center;flex-shrink:0;min-width:24px;}
+.pv-name{font-size:14px;font-weight:600;color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pv-count{font-size:12px;color:var(--ink3);flex-shrink:0;}
+.pv-menu-btn{font-size:16px;line-height:1;background:none;border:none;cursor:pointer;color:var(--ink3);padding:4px 6px;border-radius:3px;flex-shrink:0;}
+.pv-handle{font-size:18px;line-height:1;color:var(--ink3);padding:4px 4px;flex-shrink:0;touch-action:none;cursor:grab;}
 .pd-back:hover{color:var(--ink);}
 .pd-title{font-size:14px;font-weight:700;color:var(--ink);flex:1;border:none;background:transparent;font-family:var(--font);outline:none;min-width:0;}
 .pd-title:focus{background:var(--surf);padding:2px 6px;border-radius:var(--r);margin:-2px -6px;}
@@ -731,7 +744,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .pd-block-del:hover{opacity:1;color:#fff;background:rgba(180,0,0,.75);}
 
 /* Pin badge in topbar */
-.pd-pin-badge{font-size:10px;font-weight:700;letter-spacing:.05em;padding:3px 8px;border-radius:var(--r);border:1px solid var(--border);color:var(--ink3);background:transparent;flex-shrink:0;cursor:default;transition:color .15s,border-color .15s;}
+.pd-pin-badge{font-size:10px;font-weight:700;letter-spacing:.05em;padding:3px 8px;min-height:32px;display:inline-flex;align-items:center;border-radius:var(--r);border:1px solid var(--border);color:var(--ink3);background:transparent;flex-shrink:0;cursor:pointer;transition:color .15s,border-color .15s;font-family:var(--font);}
 .pd-pin-badge.is-saved{color:var(--pin-saved);border-color:var(--pin-saved-border);}
 
 /* Resize handle between blocks */
@@ -929,15 +942,15 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     </div>
 
     <div class="ps" data-sec="view">
-      <div class="plabel">Gallery View</div>
-      <div class="gallery-view-toggle" id="galleryViewToggle">
+      <div class="plabel gv-desktop-only" id="galleryViewLabel">Gallery View</div>
+      <div class="gallery-view-toggle gv-desktop-only" id="galleryViewToggle">
         <button class="gv-btn on" data-mode="tiles" onclick="setGalleryViewMode('tiles')">Tiles</button>
         <button class="gv-btn" data-mode="linear" onclick="setGalleryViewMode('linear')">Linear</button>
         <button class="gv-btn" data-mode="radial" onclick="setGalleryViewMode('radial')">Radial</button>
         <button class="gv-btn" data-mode="conic" onclick="setGalleryViewMode('conic')">Conic</button>
       </div>
-      <div class="plabel" style="margin-top:12px;">Tile Divisions</div>
-      <div class="gallery-view-toggle" id="tileDivisionToggle">
+      <div class="plabel gv-desktop-only" id="tileDivisionLabel" style="margin-top:12px;">Tile Divisions</div>
+      <div class="gallery-view-toggle gv-desktop-only" id="tileDivisionToggle">
         <button class="td-btn on" data-n="4" onclick="setTileDivisions(4)">4</button>
         <button class="td-btn" data-n="8" onclick="setTileDivisions(8)">8</button>
         <button class="td-btn" data-n="12" onclick="setTileDivisions(12)">12</button>
@@ -954,7 +967,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 
     <div class="ps" data-sec="score">
       <div class="plabel">Aesthetic Score Weighting</div>
-      <select id="scoreWeightSelect" class="score-weight-select"></select>
+      <div class="artist-grid" id="scoreWeightSelect"></div>
       <div id="scoreWeightHint" class="score-weight-hint"></div>
     </div>
 
@@ -993,13 +1006,23 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     <span class="mbb-icon">⚙</span>
     <span class="mbb-label">Controls</span>
   </button>
-  <button class="mobile-bar-btn" onclick="openSheet('boards')" title="Boards">
+  <button class="mobile-bar-btn" onclick="openProjectsView()" title="Boards">
     <span class="mbb-icon">☰</span>
     <span class="mbb-label">Boards</span>
   </button>
 </div>
 <button class="mobile-shuffle-fab" id="mobileShuffleFab" onclick="shuffle()" title="Shuffle">↺</button>
 <div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
+
+<!-- ── MOBILE PROJECTS SCREEN ─────────────────────────────────────────────── -->
+<div id="projectsView" class="pd-overlay projects-view hidden">
+  <div class="pd-topbar">
+    <button class="pd-back" onclick="closeProjectsView()" title="Back">←</button>
+    <span class="pv-title">Projects</span>
+    <button class="pv-add-btn" onclick="createNewProject()" title="New board">＋</button>
+  </div>
+  <div class="pv-list" id="pvList"></div>
+</div>
 <!-- Controls sheet -->
 <div class="bottom-sheet" id="sheetControls">
   <div class="sheet-handle"></div>
@@ -1008,12 +1031,12 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     <button class="sheet-close" onclick="closeSheet()">✕</button>
   </div>
   <div class="cs-section-tabs" id="csSectionTabs">
-    <button class="cs-tab on" data-sec="clay" onclick="setControlsSection('clay')">Clay</button>
+    <button class="cs-tab on" data-sec="adjust" onclick="setControlsSection('adjust')">Adjust</button>
     <button class="cs-tab" data-sec="view" onclick="setControlsSection('view')">View</button>
     <button class="cs-tab" data-sec="score" onclick="setControlsSection('score')">Score</button>
     <button class="cs-tab" data-sec="style" onclick="setControlsSection('style')">Style</button>
-    <button class="cs-tab" data-sec="adjust" onclick="setControlsSection('adjust')">Adjust</button>
     <button class="cs-tab" data-sec="photo" onclick="setControlsSection('photo')">Photo</button>
+    <button class="cs-tab" data-sec="clay" onclick="setControlsSection('clay')">Clay</button>
   </div>
   <div class="ps" data-sec="photo">
     <button class="sb-photo-btn" id="sheetPhotoBtn">🖼 Select photo → extract palette</button>
@@ -1108,12 +1131,13 @@ import {
   createNewProject, startQuickRate, startRank, rankChoose, rankSkip,
   openVesselModal, setGlazeFilter, clearGlazeSelection, closeCtxMenu,
   switchContext, switchToProjectTab, buildLeversUI, renderTopbarTabs,
+  openProjectsView, closeProjectsView, renderProjectsView,
   renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, wireMobileImagePicker, initSectionObserver, initHorizontalSwipe,
   moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection, setGalleryViewMode, setControlsSection, setTileDivisions,
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer,
   closeCompositionModal
 } from './render.js?v=7';
-import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse } from './palette-detail.js';
+import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail } from './palette-detail.js';
 
 // ── APPEARANCE ──────────────────────────────────────────────────────────────
 function setTheme(name){
@@ -1147,6 +1171,7 @@ Object.assign(window, {
   
   // Projects
   createNewProject, switchContext, switchToProjectTab,
+  openProjectsView, closeProjectsView,
   
   // Ratings, Ranking, Vessel
   startQuickRate, startRank, rankChoose, rankSkip,
@@ -1169,7 +1194,7 @@ Object.assign(window, {
   renderSidebar, renderTopbarTabs, updateCount, showToast, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer, setGalleryViewMode, setControlsSection, setTileDivisions,
 
   // Palette detail page
-  openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse,
+  openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail,
 });
 
 // ── KEYBOARD SHORTCUTS ────────────────────────────────────────────────────────
@@ -1254,6 +1279,7 @@ document.addEventListener('scroll', () => closeCtxMenu(), true);
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 setTheme(localStorage.getItem('bklyn_theme') || 'light');
+if (window.innerWidth <= 700) setGalleryViewMode('linear');
 loadAll().then(() => {
   buildLeversUI();
   applyPreset('turrell');
@@ -1273,7 +1299,7 @@ loadAll().then(() => {
     <button class="pd-back" onclick="closePaletteDetail()" title="Back to gallery">←</button>
     <button id="pdPrevBtn" class="pd-nav-btn" onclick="pdPrev()" title="Previous palette">‹</button>
     <input id="pdTitle" class="pd-title" type="text" autocomplete="off" placeholder="Palette name">
-    <span id="pdPinBadge" class="pd-pin-badge" title="Palette save status">♥ Saved</span>
+    <button id="pdPinBadge" class="pd-pin-badge" title="Pin/unpin this palette" onclick="togglePinFromDetail()">♥ Saved</button>
     <span class="shortcut-key" title="Press . to pin/unpin this palette">.</span>
     <span id="pdNavCounter" class="pd-nav-counter"></span>
     <button id="pdNextBtn" class="pd-nav-btn" onclick="pdNext()" title="Next palette">›</button>

@@ -1,7 +1,7 @@
 // ── PALETTE DETAIL PAGE ────────────────────────────────────────────────────────
 import { GLAZES, CLAY } from './glazes-data.js';
 import { saveAll } from './persistence.js';
-import { glazeCSS, togglePinState } from './render.js';
+import { glazeCSS, galleryGradientCSS, togglePinState, applyGlaze, toHex } from './render.js';
 
 // ── Module state ───────────────────────────────────────────────────────────────
 let _key        = null;
@@ -21,6 +21,16 @@ const MIN_W = 6;
 
 function mkStop(name, hex, w) { return {id: _nid++, name, hex, weight: w}; }
 function isMobile() { return window.innerWidth <= 700; }
+
+// Render the clay-adjusted color (matches gallery swatches) rather than the
+// raw stored glaze hex, so the detail view never looks mismatched from the card.
+function _dispHex(stop) {
+  const g = GLAZES.find(x => x.name === stop.name);
+  if (!g) return stop.hex;
+  const ck = typeof clayKey !== 'undefined' ? clayKey : 'white';
+  const c = applyGlaze(g, ck);
+  return toHex(c.r, c.gr, c.b);
+}
 
 function normalize() {
   const t = _stops.reduce((a,s) => a + s.weight, 0) || 1;
@@ -68,7 +78,7 @@ function swipeBlockGlaze(stop, dir) {
   // Patch DOM directly for instant feedback
   const el = document.querySelector(`[data-pid="${stop.id}"]`);
   if (el) {
-    el.querySelector('.pd-block-fill').style.background = next.hex;
+    el.querySelector('.pd-block-fill').style.background = _dispHex(stop);
     el.querySelector('.pd-block-name').textContent = next.name;
     const finEl = el.querySelector('.pd-block-fin');
     if (finEl) finEl.textContent = _finLabel(next);
@@ -86,39 +96,39 @@ function _weights(arr) {
 }
 
 function _linearCss(arr) {
-  if (arr.length === 1) return arr[0].hex;
+  if (arr.length === 1) return _dispHex(arr[0]);
   const ws = _weights(arr); let pct = 0;
-  const pts = arr.map((s,i) => { const st=pct; pct+=ws[i]*100; return `${s.hex} ${((st+pct)/2).toFixed(1)}%`; });
+  const pts = arr.map((s,i) => { const st=pct; pct+=ws[i]*100; return `${_dispHex(s)} ${((st+pct)/2).toFixed(1)}%`; });
   return `linear-gradient(to bottom,${pts.join(',')})`;
 }
 
 function _radialCss(arr) {
-  if (arr.length === 1) return arr[0].hex;
+  if (arr.length === 1) return _dispHex(arr[0]);
   const ws = _weights(arr); let pct = 0;
-  const pts = arr.map((s,i) => { const st=pct; pct+=ws[i]*100; return `${s.hex} ${((st+pct)/2).toFixed(1)}%`; });
+  const pts = arr.map((s,i) => { const st=pct; pct+=ws[i]*100; return `${_dispHex(s)} ${((st+pct)/2).toFixed(1)}%`; });
   // Shift center left on desktop to account for 280px stops panel
   const cx = isMobile() ? '50%' : 'calc(50% - 140px)';
   return `radial-gradient(ellipse at ${cx} 50%,${pts.join(',')})`;
 }
 
 function _conicCss(arr) {
-  if (arr.length === 1) return arr[0].hex;
+  if (arr.length === 1) return _dispHex(arr[0]);
   // Match gallery style: hard-edge equal sectors, from 0deg, close loop with first color
   const ws = _weights(arr); let pct = 0;
-  const pts = arr.map((s,i) => { const p = pct; pct += ws[i] * 100; return `${s.hex} ${p.toFixed(1)}%`; });
-  pts.push(`${arr[0].hex} 100%`);
+  const pts = arr.map((s,i) => { const p = pct; pct += ws[i] * 100; return `${_dispHex(s)} ${p.toFixed(1)}%`; });
+  pts.push(`${_dispHex(arr[0])} 100%`);
   const cx = isMobile() ? '50%' : 'calc(50% - 140px)';
   return `conic-gradient(from 0deg at ${cx} 50%,${pts.join(',')})`;
 }
 
 function _stripesCss(arr) {
-  if (arr.length === 1) return arr[0].hex;
+  if (arr.length === 1) return _dispHex(arr[0]);
   // Mirror the gradient: forward 0-50%, backward 50-100% — smooth seam at both ends
   const ws = _weights(arr);
   let pct = 0;
-  const fwd = arr.map((s,i) => { const st=pct; pct+=ws[i]*50; return `${s.hex} ${((st+pct)/2).toFixed(1)}%`; });
+  const fwd = arr.map((s,i) => { const st=pct; pct+=ws[i]*50; return `${_dispHex(s)} ${((st+pct)/2).toFixed(1)}%`; });
   pct = 50;
-  const rev = [...arr].reverse().map((s,i) => { const wi=arr.length-1-i; const st=pct; pct+=ws[wi]*50; return `${s.hex} ${((st+pct)/2).toFixed(1)}%`; });
+  const rev = [...arr].reverse().map((s,i) => { const wi=arr.length-1-i; const st=pct; pct+=ws[wi]*50; return `${_dispHex(s)} ${((st+pct)/2).toFixed(1)}%`; });
   return `linear-gradient(to bottom,${[...fwd,...rev].join(',')})`;
 }
 
@@ -129,7 +139,7 @@ function _turrellSVG(arr) {
   const rects = arr.map((s,i) => {
     const m = (i * step).toFixed(2);
     const sz = (100 - 2 * parseFloat(m)).toFixed(2);
-    return `<rect x="${m}%" y="${m}%" width="${sz}%" height="${sz}%" fill="${s.hex}"/>`;
+    return `<rect x="${m}%" y="${m}%" width="${sz}%" height="${sz}%" fill="${_dispHex(s)}"/>`;
   });
   return `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="display:block;position:absolute;inset:0">${rects.join('')}</svg>`;
 }
@@ -142,7 +152,7 @@ function renderGradBg(arr) {
   const apEl    = document.getElementById('pdConicAperture');
   if (!el) return;
 
-  if (canvas && arr.length) canvas.style.backgroundColor = arr[0].hex;
+  if (canvas && arr.length) canvas.style.backgroundColor = _dispHex(arr[0]);
   if (noiseEl) noiseEl.style.opacity = _noiseOn ? '1' : '0';
 
   // Reset all inline styles set by individual modes
@@ -166,7 +176,7 @@ function renderGradBg(arr) {
     if (!isMobile()) el.style.right = '280px';
     el.style.filter    = 'blur(18px) saturate(0.9)';
     el.style.transform = 'scale(1.08)';
-    el.style.background = dispArr.length ? dispArr[0].hex : 'var(--surf)';
+    el.style.background = dispArr.length ? _dispHex(dispArr[0]) : 'var(--surf)';
     el.innerHTML = _turrellSVG(dispArr);
     return;
   }
@@ -221,9 +231,17 @@ function sync() {
   m.hexes = _stops.map(s => s.hex);
   saveAll();
   const gs = _stops.map(s => GLAZES.find(g => g.name === s.name)).filter(Boolean);
-  const css = gs.length ? glazeCSS(gs, clayKey) : '';
-  document.querySelectorAll(`.lchip[data-key="${_key}"] .lchip-strip`).forEach(el => { if (css) el.style.background = css; });
-  document.querySelectorAll(`.lchip[data-key="${_key}"] .lchip-glazes`).forEach(el => { el.textContent = m.names.join(', '); });
+  const mode = typeof galleryViewMode !== 'undefined' ? galleryViewMode : null;
+  const css = gs.length ? galleryGradientCSS(gs, clayKey, mode) : '';
+  document.querySelectorAll(`.lchip[data-key="${_key}"]`).forEach(chip => {
+    const strip = chip.querySelector('.lchip-strip');
+    if (css && strip) strip.style.background = css;
+    let ap = chip.querySelector('.lchip-aperture');
+    if (mode === 'conic') {
+      if (!ap && strip) { ap = document.createElement('div'); ap.className = 'lchip-aperture'; ap.style.background = CLAY[clayKey]; strip.appendChild(ap); }
+    } else if (ap) { ap.remove(); }
+    chip.title = `${(chip.title.split('\n')[0]||'')}\n${m.names.join(', ')}`;
+  });
 }
 
 // ── Nav counter ────────────────────────────────────────────────────────────────
@@ -396,7 +414,7 @@ function render() {
       const glaze = GLAZES.find(g => g.name === s.name);
       const fin   = _finLabel(glaze);
       el.innerHTML = `
-        <div class="pd-block-fill" style="background:${s.hex}"></div>
+        <div class="pd-block-fill" style="background:${_dispHex(s)}"></div>
         <div class="pd-block-info">
           <div class="pd-block-name">${s.name}<span class="pd-block-fin">${fin}</span></div>
           <div class="pd-block-hex">${s.hex}</div>
@@ -661,8 +679,22 @@ export function openPaletteDetail(key, fallback) {
   if (_keyIdx === -1) { _allKeys = [key]; _keyIdx = 0; }
   _nid = 0; _drag = null;
 
-  document.getElementById('paletteDetail').style.display = 'flex';
+  // Default the render mode to whatever the gallery is currently showing,
+  // so opening a conic gallery view lands you in conic here too.
+  const modeMap = {linear:'linear', radial:'radial', conic:'conic'};
+  _gradMode = modeMap[typeof galleryViewMode !== 'undefined' ? galleryViewMode : null] || 'linear';
+  _gradReverse = false;
+
+  // Stop blocks are cached by id in render(); ids restart at 0 each open, so
+  // stale elements from a prior open (e.g. before a clay change) must be
+  // cleared or they'd be reused with their old, now-wrong swatch color.
+  const container = document.getElementById('pdStopsContainer');
+  if (container) container.innerHTML = '';
+
+  const overlay = document.getElementById('paletteDetail');
+  overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
+  requestAnimationFrame(() => overlay.classList.add('open'));
 
   _loadKeyData(key, fallback);
   updateNav();
@@ -681,7 +713,9 @@ export function openPaletteDetail(key, fallback) {
 }
 
 export function closePaletteDetail() {
-  document.getElementById('paletteDetail').style.display = 'none';
+  const overlay = document.getElementById('paletteDetail');
+  overlay.classList.remove('open');
+  setTimeout(() => { overlay.style.display = 'none'; }, 180);
   document.body.style.overflow = '';
   window.removeEventListener('resize', render);
   document.removeEventListener('keydown', _onKeyDown);

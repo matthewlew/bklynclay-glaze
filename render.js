@@ -177,6 +177,7 @@ export function setGalleryViewMode(mode){
   if(tdLabel&&tdLabel.classList.contains('plabel')){tdLabel.style.display=mode==='tiles'?'':'none';}
   lastRenderedKeys=[];lastSavedKeys=[];
   if(currentTab==='explore'){renderGallery();}
+  renderSidebar();
 }
 
 export function setTileDivisions(n){
@@ -452,6 +453,7 @@ export function createNewProject(){
   const newId=mkid();
   const proj={id:newId,name:'New Board',leverState:{...levers},scorePreset:'Balanced'};
   projects.push(proj);
+  _stampProjectOrder();
   saveAll();
   renderTopbarTabs();
   switchToProjectTab(newId);
@@ -583,6 +585,109 @@ export function renderBoardSwitcher(){
   });
 }
 
+// IndexedDB's `projects` object store returns getAll() results in key order,
+// not custom order, so drag-reordering needs an explicit stamp to survive reload.
+function _stampProjectOrder(){ projects.forEach((p,i)=>{p.order=i;}); }
+
+// ── MOBILE PROJECTS SCREEN (full-screen list, replaces the Boards half-sheet) ──
+export function openProjectsView(){
+  const view=document.getElementById('projectsView');if(!view)return;
+  renderProjectsView();
+  view.style.display='flex';
+  document.body.style.overflow='hidden';
+  requestAnimationFrame(()=>view.classList.add('open'));
+}
+
+export function closeProjectsView(){
+  const view=document.getElementById('projectsView');if(!view)return;
+  view.classList.remove('open');
+  setTimeout(()=>{view.style.display='none';},180);
+  document.body.style.overflow='';
+}
+
+export function renderProjectsView(){
+  const list=document.getElementById('pvList');if(!list)return;
+  list.innerHTML='';
+
+  const allRow=document.createElement('div');
+  allRow.className='pv-row pv-row-all'+(activeContext==='global'?' active':'');
+  allRow.innerHTML=`<div class="pv-strip"><div class="proj-tab-all-icon"></div></div><span class="pv-name">All Palettes</span><span class="pv-count">${likedMeta.filter(m=>!m.projectId).length||''}</span>`;
+  allRow.addEventListener('click',()=>{switchToProjectTab('global');closeProjectsView();});
+  list.appendChild(allRow);
+
+  projects.forEach(proj=>{
+    const row=document.createElement('div');
+    row.className='pv-row'+(activeContext===proj.id?' active':'');
+    row.dataset.projId=proj.id;
+
+    const strip=document.createElement('div');strip.className='pv-strip';
+    const meta=likedMeta.filter(m=>m.projectId===proj.id);
+    const names=[...new Set(meta.flatMap(m=>m.names||[]))].slice(0,4);
+    names.forEach(n=>{
+      const g=GLAZES.find(x=>x.name===n);
+      if(g){const c=applyGlaze(g,clayKey);const d=document.createElement('div');d.className='proj-color-dot';d.style.background=`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})`;strip.appendChild(d);}
+    });
+    row.appendChild(strip);
+
+    const name=document.createElement('span');name.className='pv-name';name.textContent=proj.name;
+    row.appendChild(name);
+
+    const count=document.createElement('span');count.className='pv-count';count.textContent=meta.length||'';
+    row.appendChild(count);
+
+    const menu=document.createElement('button');menu.className='pv-menu-btn';menu.textContent='⋯';menu.title='Board options';
+    menu.addEventListener('click',e=>{e.stopPropagation();showProjMenu(proj.id,menu);});
+    row.appendChild(menu);
+
+    const handle=document.createElement('div');handle.className='pv-handle';handle.textContent='⠿';
+    row.appendChild(handle);
+
+    row.addEventListener('click',e=>{
+      if(e.target.closest('.pv-menu-btn,.pv-handle'))return;
+      switchToProjectTab(proj.id);closeProjectsView();
+    });
+
+    _wirePvRowDrag(handle,row,list);
+    list.appendChild(row);
+  });
+}
+
+function _wirePvRowDrag(handle,row,list){
+  let startY=0,dragging=false;
+  const onStart=e=>{
+    startY=e.touches[0].clientY;dragging=true;
+    row.classList.add('pv-dragging');
+  };
+  const onMove=e=>{
+    if(!dragging)return;
+    const y=e.touches[0].clientY;
+    const rows=[...list.querySelectorAll('.pv-row:not(.pv-row-all)')];
+    const target=rows.find(r=>{
+      if(r===row)return false;
+      const rect=r.getBoundingClientRect();
+      return y>=rect.top&&y<=rect.bottom;
+    });
+    if(target){
+      const rect=target.getBoundingClientRect();
+      if(y<rect.top+rect.height/2)list.insertBefore(row,target);
+      else list.insertBefore(row,target.nextSibling);
+    }
+    startY=y;
+  };
+  const onEnd=()=>{
+    if(!dragging)return;
+    dragging=false;
+    row.classList.remove('pv-dragging');
+    const orderedIds=[...list.querySelectorAll('.pv-row:not(.pv-row-all)')].map(r=>r.dataset.projId);
+    projects=orderedIds.map(id=>projects.find(p=>p.id===id)).filter(Boolean);
+    _stampProjectOrder();
+    saveAll();renderTopbarTabs();
+  };
+  handle.addEventListener('touchstart',onStart,{passive:true});
+  handle.addEventListener('touchmove',onMove,{passive:true});
+  handle.addEventListener('touchend',onEnd,{passive:true});
+}
+
 export function renderSidebar(){
   if(typeof _activeSheet!=='undefined' && _activeSheet && _activeSheet.id==='sheetBoards') closeSheet();
   const scroll=document.getElementById('sbScroll');if(!scroll)return;
@@ -602,7 +707,9 @@ export function renderSidebar(){
     const ctxLbl=document.createElement('div');ctxLbl.className='sb-context-label';
     ctxLbl.textContent=activeContext==='global'?'Pinned':`Saved`;
     scroll.appendChild(ctxLbl);
-    contextMeta.forEach(m=>scroll.appendChild(buildSidebarChip(m,activeContext!=='global')));
+    const grid=document.createElement('div');grid.className='lchip-grid';
+    contextMeta.forEach(m=>grid.appendChild(buildSidebarChip(m,activeContext!=='global')));
+    scroll.appendChild(grid);
   } else {
     const em=document.createElement('div');em.className='empty-sb';
     em.innerHTML=activeContext==='global'
@@ -614,15 +721,16 @@ export function renderSidebar(){
 
 export function buildSidebarChip(m,inProject){
   const glazes=(m.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean);
+  const label=labelStore[m.key]||m.label;
   const chip=document.createElement('div');chip.className='lchip';chip.tabIndex=0;chip.dataset.key=m.key;
+  chip.title=`${label}\n${(m.names||[]).join(', ')}`;
   chip.draggable=true;
   chip.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',m.key);chip.classList.add('dragging');});
   chip.addEventListener('dragend',()=>chip.classList.remove('dragging'));
-  const strip=document.createElement('div');strip.className='lchip-strip';strip.style.background=glazeCSS(glazes);chip.appendChild(strip);
-  const info=document.createElement('div');info.className='lchip-info';
-  const nm=document.createElement('div');nm.className='lchip-name';nm.textContent=labelStore[m.key]||m.label;info.appendChild(nm);
-  const gn=document.createElement('div');gn.className='lchip-glazes';gn.textContent=(m.names||[]).join(', ');info.appendChild(gn);
-  chip.appendChild(info);
+  const strip=document.createElement('div');strip.className='lchip-strip';strip.style.background=galleryGradientCSS(glazes,clayKey,galleryViewMode);chip.appendChild(strip);
+  if(galleryViewMode==='conic'){
+    const ap=document.createElement('div');ap.className='lchip-aperture';ap.style.background=CLAY[clayKey];strip.appendChild(ap);
+  }
   const rm=document.createElement('button');rm.className='lchip-rm';rm.textContent='×';rm.title='Remove from pinned';
   rm.addEventListener('click',e=>{
     e.stopPropagation();
@@ -660,119 +768,6 @@ export function buildDragHandlers(card, p) {
   return handle;
 }
 
-export function buildGlazeChips(p, stack, card) {
-  const chipsWrap=document.createElement('div');chipsWrap.className='glaze-chips';
-  let dragSrcIdx=null;
-  const rebuildChips=(animate)=>{
-    const prevRects=animate?new Map(Array.from(chipsWrap.children).map(c=>[c.dataset.name,c.getBoundingClientRect()])):null;
-    chipsWrap.innerHTML='';
-    p.glazes.forEach((g,idx)=>{
-      const chip=document.createElement('div');chip.className='glaze-chip';chip.draggable=true;chip.dataset.idx=idx;chip.dataset.name=g.name;
-      const c=applyGlaze(g,clayKey);
-      const sw=document.createElement('div');sw.className='glaze-chip-swatch';sw.style.background=`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})`;
-      const nm=document.createElement('span');nm.className='glaze-chip-name';nm.textContent=g.name;
-      const rm=document.createElement('button');rm.className='glaze-chip-rm';rm.textContent='×';rm.title='Remove glaze';
-      rm.addEventListener('click',e=>{e.stopPropagation();if(p.glazes.length<=2)return;p.glazes.splice(idx,1);p.key=p.glazes.map(g=>g.name).join('|');card.dataset.key=p.key;refreshStack(stack,p.glazes,clayKey,TH);rebuildChips(true);});
-      chip.appendChild(sw);chip.appendChild(nm);chip.appendChild(rm);
-      chip.addEventListener('dragstart',e=>{dragSrcIdx=idx;e.dataTransfer.effectAllowed='move';chip.style.opacity='.4';});
-      chip.addEventListener('dragend',()=>{chip.style.opacity='';chipsWrap.querySelectorAll('.glaze-chip').forEach(c=>c.classList.remove('drag-over-chip'));});
-      chip.addEventListener('dragover',e=>{e.preventDefault();chip.classList.add('drag-over-chip');});
-      chip.addEventListener('dragleave',()=>chip.classList.remove('drag-over-chip'));
-      chip.addEventListener('drop',e=>{
-        e.preventDefault();chip.classList.remove('drag-over-chip');
-        if(dragSrcIdx===null||dragSrcIdx===idx)return;
-        const moved=p.glazes.splice(dragSrcIdx,1)[0];p.glazes.splice(idx,0,moved);
-        p.key=p.glazes.map(g=>g.name).join('|');card.dataset.key=p.key;
-        refreshStack(stack,p.glazes,clayKey,TH);rebuildChips(true);
-        const meta=likedMeta.find(m=>m.key===p.key);if(meta){meta.names=p.glazes.map(g=>g.name);saveAll();}
-      });
-      chipsWrap.appendChild(chip);
-    });
-    if(prevRects){
-      Array.from(chipsWrap.children).forEach(c=>{
-        const prev=prevRects.get(c.dataset.name);if(!prev)return;
-        const next=c.getBoundingClientRect();
-        const dy=prev.top-next.top;
-        if(!dy)return;
-        c.style.transform=`translateY(${dy}px)`;
-        c.classList.add('flip-dragging');
-        requestAnimationFrame(()=>{
-          c.classList.remove('flip-dragging');c.classList.add('flip-move');
-          c.style.transform='';
-          c.addEventListener('transitionend',()=>c.classList.remove('flip-move'),{once:true});
-        });
-      });
-    }
-  };
-  rebuildChips(false);
-  return chipsWrap;
-}
-
-export function buildPinButton(p, isLiked, card, compact) {
-  const pinBtn=document.createElement('button');
-  if(compact&&isLiked){
-    pinBtn.className='btn remove-subtle';pinBtn.textContent='Remove';
-  } else {
-    pinBtn.className='btn'+(isLiked?' pin-on':'');pinBtn.textContent=isLiked?'Pinned':'Pin';
-  }
-  pinBtn.addEventListener('click',()=>togglePin(p,pinBtn,card,compact));
-  return pinBtn;
-}
-
-export function buildBoardDropdown(p, pinBtn, card, compact) {
-  const wrap=document.createElement('div');wrap.className='board-dropdown';
-  const btn=document.createElement('button');btn.className='board-dropdown-btn';
-  const strip=document.createElement('div');strip.className='bd-strip';
-  const btnLabel=document.createElement('span');btnLabel.textContent='Save to board...';
-  const caret=document.createElement('span');caret.textContent='▾';caret.style.marginLeft='auto';
-  btn.appendChild(strip);btn.appendChild(btnLabel);btn.appendChild(caret);
-  const saveToBoard=(projId)=>{
-    if('vibrate' in navigator) navigator.vibrate(15);
-    if(!likedKeys.has(p.key)){
-      likedKeys.add(p.key);
-      if(!likedMeta.find(m=>m.key===p.key))
-        likedMeta.push({key:p.key,label:labelStore[p.key]||p.label,feeling:'',tag:p.tag,names:p.glazes.map(g=>g.name),hexes:p.glazes.map(g=>g.hex),projectId:projId});
-      else likedMeta.find(m=>m.key===p.key).projectId=projId;
-      pinBtn.className='btn pin-on';pinBtn.textContent='Pinned';
-      if(!compact)card.className='card liked';
-    } else {
-      const meta=likedMeta.find(m=>m.key===p.key);if(meta)meta.projectId=projId;
-    }
-    saveAll();renderSidebar();renderTopbarTabs();updateCount();
-    const pName=projects.find(x=>x.id===projId)?.name||'board';
-    const projGlazes=likedMeta.filter(x=>x.projectId===projId).flatMap(x=>(x.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean));
-    if(projGlazes.length)strip.style.background=glazeCSS(projGlazes.slice(0,4),clayKey);
-    btnLabel.textContent=`✓ ${pName}`;
-    showToast(`Saved to "${pName}"`);
-  };
-  let _dropOpen=null;
-  btn.addEventListener('click',e=>{
-    e.stopPropagation();
-    if(_dropOpen){_dropOpen.remove();_dropOpen=null;return;}
-    const panel=document.createElement('div');panel.className='board-dropdown-panel';_dropOpen=panel;
-    projects.forEach(proj=>{
-      const inP=likedMeta.find(x=>x.key===p.key&&x.projectId===proj.id);
-      const projGlazes=likedMeta.filter(x=>x.projectId===proj.id).flatMap(x=>(x.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean));
-      const item=document.createElement('button');item.className='board-dropdown-item';
-      const itemStrip=document.createElement('div');itemStrip.className='bd-item-strip';
-      if(projGlazes.length)itemStrip.style.background=glazeCSS(projGlazes.slice(0,4),clayKey);
-      const itemName=document.createElement('span');itemName.className='bd-item-name';itemName.textContent=proj.name;
-      const count=document.createElement('span');count.className='bd-item-count';count.textContent=likedMeta.filter(x=>x.projectId===proj.id).length+' palettes';
-      if(inP){const ck=document.createElement('span');ck.className='bd-item-check';ck.textContent='✓';item.appendChild(itemStrip);item.appendChild(itemName);item.appendChild(count);item.appendChild(ck);}
-      else{item.appendChild(itemStrip);item.appendChild(itemName);item.appendChild(count);}
-      item.addEventListener('click',e=>{e.stopPropagation();panel.remove();_dropOpen=null;saveToBoard(proj.id);});
-      panel.appendChild(item);
-    });
-    const r=btn.getBoundingClientRect();
-    panel.style.top=(r.bottom+3)+'px';panel.style.left=r.left+'px';panel.style.width=r.width+'px';
-    document.body.appendChild(panel);
-    const close=e=>{if(!panel.contains(e.target)){panel.remove();_dropOpen=null;document.removeEventListener('mousedown',close);}};
-    setTimeout(()=>document.addEventListener('mousedown',close),0);
-  });
-  wrap.appendChild(btn);
-  return wrap;
-}
-
 export function buildCard(p,isLiked,compact){
   const tileH=compact?44:TH;
   const card=document.createElement('article');
@@ -807,10 +802,7 @@ export function buildCard(p,isLiked,compact){
       clearTimeout(_lpTimer);
       const dx = e.changedTouches[0].clientX - _swipeStartX;
       const dy = Math.abs(e.changedTouches[0].clientY - _swipeStartY);
-      if (Math.abs(dx) < 60 || dy > 40) {
-        if (Math.abs(dx) < 60) card.classList.toggle('card-open');
-        return;
-      }
+      if (Math.abs(dx) < 60 || dy > 40) return;
       if (dx > 0) {
         if (!likedKeys.has(p.key)) {
           likedKeys.add(p.key);
@@ -838,58 +830,12 @@ export function buildCard(p,isLiked,compact){
   if(compact){
     card.appendChild(buildDragHandlers(card, p));
   }
-  const footer=document.createElement('div');footer.className='card-footer';
-  const lbl=document.createElement('div');lbl.className='card-label';lbl.contentEditable='true';lbl.spellcheck=false;
-  lbl.textContent=labelStore[p.key]||p.label;
-  lbl.addEventListener('blur',()=>{
-    const newLabel=lbl.textContent.trim()||p.label;p.label=newLabel;labelStore[p.key]=newLabel;
-    document.querySelectorAll(`[data-key="${p.key}"] .card-label`).forEach(el=>{if(el!==lbl)el.textContent=newLabel;});
-    document.querySelectorAll(`.lchip[data-key="${p.key}"] .lchip-name`).forEach(el=>el.textContent=newLabel);
-    const meta=likedMeta.find(m=>m.key===p.key);if(meta){meta.label=newLabel;saveAll();}
-  });
-  lbl.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lbl.blur();}});
-  footer.appendChild(lbl);
-  if(compact){
-    const gn=document.createElement('div');gn.className='card-glaze-names';
-    gn.textContent=p.glazes.map(g=>g.name).join(' · ');footer.appendChild(gn);
-  }
   if(!compact){
-    const tagRow=document.createElement('div');tagRow.className='card-tag-row';
-    const isBanding=new Set(p.glazes.map(g=>g.name)).size<p.glazes.length;
-    const tag=document.createElement('div');tag.className='card-tag';tag.textContent=(isBanding?'≋ ':'')+p.tag;
     const sc=scoreAesthetic(p.glazes,activeScoreWeights());
-    const badge=document.createElement('span');
-    badge.className='score-badge'+(sc>=SCORE_HI?' score-hi':sc>=SCORE_MID?' score-mid':' score-lo');
-    badge.title='Aesthetic score: contrast, harmony, distinctness, material variety';
-    badge.textContent='★ '+sc;
-    tagRow.appendChild(tag);tagRow.appendChild(badge);footer.appendChild(tagRow);
     const peekScore = document.createElement('div');
     peekScore.className = 'card-score-peek';
     peekScore.textContent = '★ ' + sc;
     card.appendChild(peekScore);
-    footer.appendChild(buildGlazeChips(p, stack, card));
-  }
-  const btns=document.createElement('div');btns.className='card-btns';
-  const pinBtn=buildPinButton(p, isLiked, card, compact);
-  const riffBtn=document.createElement('button');riffBtn.className='btn';riffBtn.textContent='Riff';
-  riffBtn.addEventListener('click',()=>{palettes=doRiff(p);if(currentTab!=='explore')setTab('explore');renderGallery();document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth'});});
-  btns.appendChild(pinBtn);btns.appendChild(riffBtn);
-  if(!compact){
-    const vesBtn=document.createElement('button');vesBtn.className='btn vessel-btn';vesBtn.textContent='View';vesBtn.title='Preview on vessel';
-    vesBtn.addEventListener('click',e=>{e.stopPropagation();openVesselModal(p.glazes,clayKey,labelStore[p.key]||p.label);});
-    btns.appendChild(vesBtn);
-  }
-  footer.appendChild(btns);
-  if(projects.length&&(!compact||activeContext==='global')){
-    const row2=document.createElement('div');row2.className='card-btns-row2';
-    row2.appendChild(buildBoardDropdown(p, pinBtn, card, compact));
-    footer.appendChild(row2);
-  }
-  card.appendChild(footer);
-  // Smart footer foreground: dark palette bottoms → white text
-  const bottomGlaze = p.glazes[p.glazes.length - 1];
-  if (bottomGlaze && bottomGlaze.lum < 0.38) footer.classList.add('dark-foot');
-  if(!compact){
     card.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('glaze')){e.preventDefault();card.classList.add('drag-over-glaze');}});
     card.addEventListener('dragleave',()=>card.classList.remove('drag-over-glaze'));
     card.addEventListener('drop',e=>{
@@ -900,13 +846,10 @@ export function buildCard(p,isLiked,compact){
         p.glazes.push(g);p.glazes.sort((a,b)=>b.lum-a.lum);
         p.key=p.glazes.map(g=>g.name).join('|');card.dataset.key=p.key;
         refreshStack(stack,p.glazes,clayKey,TH);
-        const ta=footer.querySelector('.inline-names');
-        if(ta){ta.value=p.glazes.map(g=>g.name).join('\n');ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}
         showToast(`Added ${glazeName}`);
       }
     });
   }
-  if(!compact)requestAnimationFrame(()=>{const ta=footer.querySelector('.inline-names');if(ta){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}});
   return card;
 }
 
@@ -1384,29 +1327,32 @@ export function renderLeftPanelPairings(){
 
 // ── SCORE WEIGHTING (right panel) ─────────────────────────────────────────────
 export function renderScoreWeighting(){
-  const sel=document.getElementById('scoreWeightSelect');if(!sel)return;
+  const wrap=document.getElementById('scoreWeightSelect');if(!wrap)return;
   const hint=document.getElementById('scoreWeightHint');
   const proj=activeContext!=='global'?projects.find(p=>p.id===activeContext):null;
-  sel.innerHTML='';
-  Object.keys(SCORE_PRESETS).forEach(key=>{
-    const opt=document.createElement('option');opt.value=key;opt.textContent=SCORE_PRESETS[key].label;
-    sel.appendChild(opt);
-  });
+  wrap.innerHTML='';
   const activeKey=proj?(proj.scorePreset||'Balanced'):'Balanced';
-  sel.value=activeKey;
-  sel.disabled=!proj;
   const updateHint=key=>{
     if(!hint)return;
     hint.textContent=proj?SCORE_PRESETS[key]?.desc||'':`Open a board to set its score weighting.`;
   };
+  Object.keys(SCORE_PRESETS).forEach(key=>{
+    const btn=document.createElement('button');
+    btn.className='achip'+(key===activeKey?' on':'');
+    btn.textContent=SCORE_PRESETS[key].label;
+    btn.disabled=!proj;
+    btn.onclick=()=>{
+      if(!proj)return;
+      proj.scorePreset=key;saveAll();
+      wrap.querySelectorAll('.achip').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      updateHint(key);
+      if(!sortByScore){sortByScore=true;const sbtn=document.getElementById('scoreSortBtn');if(sbtn)sbtn.className='btn xs filter-on';}
+      if(currentTab==='explore')renderGallery();
+    };
+    wrap.appendChild(btn);
+  });
   updateHint(activeKey);
-  sel.onchange=()=>{
-    if(!proj)return;
-    proj.scorePreset=sel.value;saveAll();
-    updateHint(sel.value);
-    if(!sortByScore){sortByScore=true;const btn=document.getElementById('scoreSortBtn');if(btn)btn.className='btn xs filter-on';}
-    if(currentTab==='explore')renderGallery();
-  };
 }
 
 // ── PIN TOGGLE ────────────────────────────────────────────────────────────────
@@ -1492,18 +1438,36 @@ export function renderTopbarTabs(){
   nav.querySelectorAll('.ttab[data-proj-id]').forEach(el=>el.remove());
   const exploreTab=document.getElementById('tab_explore');
   if(exploreTab)exploreTab.classList.toggle('on',activeContext==='global');
+  const insertAnchor=exploreTab&&exploreTab.nextSibling;
   projects.forEach(proj=>{
     const btn=document.createElement('button');
     btn.className='ttab'+(activeContext===proj.id?' on':'');
     btn.dataset.projId=proj.id;
+    btn.draggable=true;
     btn.textContent=proj.name;
-    btn.title='Double-click to rename';
+    btn.title='Double-click to rename · Drag to reorder';
     btn.addEventListener('click',()=>switchToProjectTab(proj.id));
     btn.addEventListener('contextmenu',e=>{e.preventDefault();showProjMenu(proj.id,btn);});
     let _lpt=null;
     btn.addEventListener('touchstart',e=>{_lpt=setTimeout(()=>{e.preventDefault();showProjMenu(proj.id,btn);},600);},{passive:false});
     btn.addEventListener('touchend',()=>clearTimeout(_lpt));
     btn.addEventListener('touchmove',()=>clearTimeout(_lpt));
+    btn.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain','proj-reorder:'+proj.id);e.dataTransfer.effectAllowed='move';});
+    btn.addEventListener('dragover',e=>{e.preventDefault();btn.classList.add('drag-over');});
+    btn.addEventListener('dragleave',()=>btn.classList.remove('drag-over'));
+    btn.addEventListener('drop',e=>{
+      e.preventDefault();btn.classList.remove('drag-over');
+      const data=e.dataTransfer.getData('text/plain');
+      if(!data||!data.startsWith('proj-reorder:'))return;
+      const srcId=data.slice('proj-reorder:'.length);
+      if(srcId===proj.id)return;
+      const srcIdx=projects.findIndex(p=>p.id===srcId),dstIdx=projects.findIndex(p=>p.id===proj.id);
+      if(srcIdx===-1||dstIdx===-1)return;
+      const [moved]=projects.splice(srcIdx,1);
+      projects.splice(projects.indexOf(proj),0,moved);
+      _stampProjectOrder();
+      saveAll();renderTopbarTabs();renderSidebar();
+    });
     btn.addEventListener('dblclick',e=>{
       e.stopPropagation();
       const inp=document.createElement('input');inp.type='text';inp.value=btn.textContent;
@@ -1519,7 +1483,7 @@ export function renderTopbarTabs(){
       inp.addEventListener('blur',commit);
       inp.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();inp.blur();}if(ev.key==='Escape'){committed=true;renderTopbarTabs();}});
     });
-    nav.insertBefore(btn,exploreTab.nextSibling);
+    nav.insertBefore(btn,insertAnchor);
   });
   updateProjectPicker();
 }
@@ -2162,7 +2126,7 @@ function _renderCompositionModal() {
   overlay.addEventListener('click', e => { if (e.target === overlay) closeCompositionModal(); }, { once: true });
 }
 
-// Reuses the exact board-creation path from createNewProject/buildBoardDropdown
+// Reuses the exact board-creation path from createNewProject
 // (projects.push + likedKeys/likedMeta + saveAll) rather than a new persistence layer.
 export function saveCompositionAsBoard() {
   const filled = _compSlots.filter(Boolean);
@@ -2270,7 +2234,7 @@ export function openSheet(name) {
       sheet._contentSource = sidebar;
       sheet._contentBody = body;
     }
-    setControlsSection('clay');
+    setControlsSection('adjust');
   }
   if (name === 'boards') {
     renderBoardSwitcher();
@@ -2370,7 +2334,9 @@ function _dialogSheet(html, onMount) {
   backdrop.style.zIndex = '310';
   const sheet = document.createElement('div');
   sheet.className = 'bottom-sheet open dialog-sheet';
-  sheet.style.cssText = 'top:auto;max-height:50vh;z-index:320;';
+  sheet.style.cssText = window.innerWidth > 700
+    ? 'top:50%;left:50%;bottom:auto;right:auto;transform:translate(-50%,-50%);width:380px;max-width:90vw;max-height:none;border-radius:var(--r);z-index:320;'
+    : 'top:auto;max-height:50vh;z-index:320;';
   sheet.innerHTML = `<div class="sheet-handle"></div>${html}`;
   const dismiss = () => { backdrop.remove(); sheet.remove(); };
   backdrop.addEventListener('click', dismiss);

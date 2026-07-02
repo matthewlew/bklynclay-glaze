@@ -2,9 +2,27 @@
 
 ## [Unreleased]
 
+## [1.2.2] — 2026-07-02
+
+### Changed
+- **Mobile gallery cards always render as a single linear gradient** — the Tiles/Radial/Conic view modes and 4/8/12/16 tile-division picker are desktop-only now; mobile forces `linear` gradient rendering and hides those controls in the Controls sheet for a simpler, more consistent card look.
+- **Aesthetic Score Weighting is now button selectors** — replaced the `<select>` dropdown with an `.achip` button grid matching the Style Presets buttons, on both desktop sidebar and mobile Controls sheet.
+- **Mobile Controls tab order** — reordered to Adjust, View, Score, Style, Photo, Clay (previously Clay, View, Score, Style, Adjust, Photo); Adjust is now the default tab shown when the sheet opens.
+
+## [1.2.1] — 2026-07-02
+
 ### Added
 - **Detail-view pin shortcut** — press `.` inside the palette detail view to pin/unpin the open palette; shares state mutation with the gallery-card pin via new `togglePinState()` in `render.js`. Chip badge next to the pin status shows the bound key; new row added to the `?` shortcut overlay.
 - **Per-project glaze affinity map** — `buildGlazeAffinity()` in `scoring.js` derives a per-glaze preference multiplier (capped 0.5x–2x, normalized to mean 1) from a project's completed palette ranking. Recomputed whenever ranking finishes, stored on `proj.glazeAffinity`, and applied as a weight multiplier in `generatePalette`/`generateBandingPalette` so shuffled palettes lean toward glazes the user ranked highly.
+- **Mobile Projects screen** — dedicated full-screen board list on mobile with touch-based drag-reorder, replacing the sidebar project switcher on small viewports.
+- **Board drag-reorder** — desktop topbar tabs and mobile Projects rows both support drag-to-reorder, persisted via `saveAll()`.
+
+### Fixed
+- **Palette detail pin button now clickable** — the pin/save control in the detail view topbar was a static `<span>` with no click handler; only the `.` keyboard shortcut worked. It's now a real `<button>` wired to `togglePinFromDetail()`, with a larger tap target for mobile.
+- **Mobile gallery card clipping** — the mobile gallery grid forced every card row to a fixed height calibrated to fit exactly two rows on screen. Cards with fewer tiles left blank space at the bottom; cards with a full 4-tile stack got clipped by `overflow:hidden`, showing only 2 of 4 glaze tiles. Row height is now `auto` so cards size to their actual content.
+
+### Removed
+- **Dead card-footer builders** — `buildGlazeChips`, `buildPinButton`, and `buildBoardDropdown` in `render.js` were leftover from the pre-simplification card footer and were no longer called anywhere.
 
 ## [1.2.0] — 2026-07-02
 
