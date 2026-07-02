@@ -768,119 +768,6 @@ export function buildDragHandlers(card, p) {
   return handle;
 }
 
-export function buildGlazeChips(p, stack, card) {
-  const chipsWrap=document.createElement('div');chipsWrap.className='glaze-chips';
-  let dragSrcIdx=null;
-  const rebuildChips=(animate)=>{
-    const prevRects=animate?new Map(Array.from(chipsWrap.children).map(c=>[c.dataset.name,c.getBoundingClientRect()])):null;
-    chipsWrap.innerHTML='';
-    p.glazes.forEach((g,idx)=>{
-      const chip=document.createElement('div');chip.className='glaze-chip';chip.draggable=true;chip.dataset.idx=idx;chip.dataset.name=g.name;
-      const c=applyGlaze(g,clayKey);
-      const sw=document.createElement('div');sw.className='glaze-chip-swatch';sw.style.background=`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})`;
-      const nm=document.createElement('span');nm.className='glaze-chip-name';nm.textContent=g.name;
-      const rm=document.createElement('button');rm.className='glaze-chip-rm';rm.textContent='×';rm.title='Remove glaze';
-      rm.addEventListener('click',e=>{e.stopPropagation();if(p.glazes.length<=2)return;p.glazes.splice(idx,1);p.key=p.glazes.map(g=>g.name).join('|');card.dataset.key=p.key;refreshStack(stack,p.glazes,clayKey,TH);rebuildChips(true);});
-      chip.appendChild(sw);chip.appendChild(nm);chip.appendChild(rm);
-      chip.addEventListener('dragstart',e=>{dragSrcIdx=idx;e.dataTransfer.effectAllowed='move';chip.style.opacity='.4';});
-      chip.addEventListener('dragend',()=>{chip.style.opacity='';chipsWrap.querySelectorAll('.glaze-chip').forEach(c=>c.classList.remove('drag-over-chip'));});
-      chip.addEventListener('dragover',e=>{e.preventDefault();chip.classList.add('drag-over-chip');});
-      chip.addEventListener('dragleave',()=>chip.classList.remove('drag-over-chip'));
-      chip.addEventListener('drop',e=>{
-        e.preventDefault();chip.classList.remove('drag-over-chip');
-        if(dragSrcIdx===null||dragSrcIdx===idx)return;
-        const moved=p.glazes.splice(dragSrcIdx,1)[0];p.glazes.splice(idx,0,moved);
-        p.key=p.glazes.map(g=>g.name).join('|');card.dataset.key=p.key;
-        refreshStack(stack,p.glazes,clayKey,TH);rebuildChips(true);
-        const meta=likedMeta.find(m=>m.key===p.key);if(meta){meta.names=p.glazes.map(g=>g.name);saveAll();}
-      });
-      chipsWrap.appendChild(chip);
-    });
-    if(prevRects){
-      Array.from(chipsWrap.children).forEach(c=>{
-        const prev=prevRects.get(c.dataset.name);if(!prev)return;
-        const next=c.getBoundingClientRect();
-        const dy=prev.top-next.top;
-        if(!dy)return;
-        c.style.transform=`translateY(${dy}px)`;
-        c.classList.add('flip-dragging');
-        requestAnimationFrame(()=>{
-          c.classList.remove('flip-dragging');c.classList.add('flip-move');
-          c.style.transform='';
-          c.addEventListener('transitionend',()=>c.classList.remove('flip-move'),{once:true});
-        });
-      });
-    }
-  };
-  rebuildChips(false);
-  return chipsWrap;
-}
-
-export function buildPinButton(p, isLiked, card, compact) {
-  const pinBtn=document.createElement('button');
-  if(compact&&isLiked){
-    pinBtn.className='btn remove-subtle';pinBtn.textContent='Remove';
-  } else {
-    pinBtn.className='btn'+(isLiked?' pin-on':'');pinBtn.textContent=isLiked?'Pinned':'Pin';
-  }
-  pinBtn.addEventListener('click',()=>togglePin(p,pinBtn,card,compact));
-  return pinBtn;
-}
-
-export function buildBoardDropdown(p, pinBtn, card, compact) {
-  const wrap=document.createElement('div');wrap.className='board-dropdown';
-  const btn=document.createElement('button');btn.className='board-dropdown-btn';
-  const strip=document.createElement('div');strip.className='bd-strip';
-  const btnLabel=document.createElement('span');btnLabel.textContent='Save...';
-  const caret=document.createElement('span');caret.textContent='▾';caret.style.marginLeft='auto';
-  btn.appendChild(strip);btn.appendChild(btnLabel);btn.appendChild(caret);
-  const saveToBoard=(projId)=>{
-    if('vibrate' in navigator) navigator.vibrate(15);
-    if(!likedKeys.has(p.key)){
-      likedKeys.add(p.key);
-      if(!likedMeta.find(m=>m.key===p.key))
-        likedMeta.push({key:p.key,label:labelStore[p.key]||p.label,feeling:'',tag:p.tag,names:p.glazes.map(g=>g.name),hexes:p.glazes.map(g=>g.hex),projectId:projId});
-      else likedMeta.find(m=>m.key===p.key).projectId=projId;
-      pinBtn.className='btn pin-on';pinBtn.textContent='Pinned';
-      if(!compact)card.className='card liked';
-    } else {
-      const meta=likedMeta.find(m=>m.key===p.key);if(meta)meta.projectId=projId;
-    }
-    saveAll();renderSidebar();renderTopbarTabs();updateCount();
-    const pName=projects.find(x=>x.id===projId)?.name||'board';
-    const projGlazes=likedMeta.filter(x=>x.projectId===projId).flatMap(x=>(x.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean));
-    if(projGlazes.length)strip.style.background=glazeCSS(projGlazes.slice(0,4),clayKey);
-    btnLabel.textContent=`✓ ${pName}`;
-    showToast(`Saved to "${pName}"`);
-  };
-  let _dropOpen=null;
-  btn.addEventListener('click',e=>{
-    e.stopPropagation();
-    if(_dropOpen){_dropOpen.remove();_dropOpen=null;return;}
-    const panel=document.createElement('div');panel.className='board-dropdown-panel';_dropOpen=panel;
-    projects.forEach(proj=>{
-      const inP=likedMeta.find(x=>x.key===p.key&&x.projectId===proj.id);
-      const projGlazes=likedMeta.filter(x=>x.projectId===proj.id).flatMap(x=>(x.names||[]).map(n=>GLAZES.find(g=>g.name===n)).filter(Boolean));
-      const item=document.createElement('button');item.className='board-dropdown-item';
-      const itemStrip=document.createElement('div');itemStrip.className='bd-item-strip';
-      if(projGlazes.length)itemStrip.style.background=glazeCSS(projGlazes.slice(0,4),clayKey);
-      const itemName=document.createElement('span');itemName.className='bd-item-name';itemName.textContent=proj.name;
-      const count=document.createElement('span');count.className='bd-item-count';count.textContent=likedMeta.filter(x=>x.projectId===proj.id).length+' palettes';
-      if(inP){const ck=document.createElement('span');ck.className='bd-item-check';ck.textContent='✓';item.appendChild(itemStrip);item.appendChild(itemName);item.appendChild(count);item.appendChild(ck);}
-      else{item.appendChild(itemStrip);item.appendChild(itemName);item.appendChild(count);}
-      item.addEventListener('click',e=>{e.stopPropagation();panel.remove();_dropOpen=null;saveToBoard(proj.id);});
-      panel.appendChild(item);
-    });
-    const r=btn.getBoundingClientRect();
-    panel.style.top=(r.bottom+3)+'px';panel.style.left=r.left+'px';panel.style.width=r.width+'px';
-    document.body.appendChild(panel);
-    const close=e=>{if(!panel.contains(e.target)){panel.remove();_dropOpen=null;document.removeEventListener('mousedown',close);}};
-    setTimeout(()=>document.addEventListener('mousedown',close),0);
-  });
-  wrap.appendChild(btn);
-  return wrap;
-}
-
 export function buildCard(p,isLiked,compact){
   const tileH=compact?44:TH;
   const card=document.createElement('article');
@@ -1440,29 +1327,32 @@ export function renderLeftPanelPairings(){
 
 // ── SCORE WEIGHTING (right panel) ─────────────────────────────────────────────
 export function renderScoreWeighting(){
-  const sel=document.getElementById('scoreWeightSelect');if(!sel)return;
+  const wrap=document.getElementById('scoreWeightSelect');if(!wrap)return;
   const hint=document.getElementById('scoreWeightHint');
   const proj=activeContext!=='global'?projects.find(p=>p.id===activeContext):null;
-  sel.innerHTML='';
-  Object.keys(SCORE_PRESETS).forEach(key=>{
-    const opt=document.createElement('option');opt.value=key;opt.textContent=SCORE_PRESETS[key].label;
-    sel.appendChild(opt);
-  });
+  wrap.innerHTML='';
   const activeKey=proj?(proj.scorePreset||'Balanced'):'Balanced';
-  sel.value=activeKey;
-  sel.disabled=!proj;
   const updateHint=key=>{
     if(!hint)return;
     hint.textContent=proj?SCORE_PRESETS[key]?.desc||'':`Open a board to set its score weighting.`;
   };
+  Object.keys(SCORE_PRESETS).forEach(key=>{
+    const btn=document.createElement('button');
+    btn.className='achip'+(key===activeKey?' on':'');
+    btn.textContent=SCORE_PRESETS[key].label;
+    btn.disabled=!proj;
+    btn.onclick=()=>{
+      if(!proj)return;
+      proj.scorePreset=key;saveAll();
+      wrap.querySelectorAll('.achip').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      updateHint(key);
+      if(!sortByScore){sortByScore=true;const sbtn=document.getElementById('scoreSortBtn');if(sbtn)sbtn.className='btn xs filter-on';}
+      if(currentTab==='explore')renderGallery();
+    };
+    wrap.appendChild(btn);
+  });
   updateHint(activeKey);
-  sel.onchange=()=>{
-    if(!proj)return;
-    proj.scorePreset=sel.value;saveAll();
-    updateHint(sel.value);
-    if(!sortByScore){sortByScore=true;const btn=document.getElementById('scoreSortBtn');if(btn)btn.className='btn xs filter-on';}
-    if(currentTab==='explore')renderGallery();
-  };
 }
 
 // ── PIN TOGGLE ────────────────────────────────────────────────────────────────
@@ -1548,6 +1438,7 @@ export function renderTopbarTabs(){
   nav.querySelectorAll('.ttab[data-proj-id]').forEach(el=>el.remove());
   const exploreTab=document.getElementById('tab_explore');
   if(exploreTab)exploreTab.classList.toggle('on',activeContext==='global');
+  const insertAnchor=exploreTab&&exploreTab.nextSibling;
   projects.forEach(proj=>{
     const btn=document.createElement('button');
     btn.className='ttab'+(activeContext===proj.id?' on':'');
@@ -1592,7 +1483,7 @@ export function renderTopbarTabs(){
       inp.addEventListener('blur',commit);
       inp.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();inp.blur();}if(ev.key==='Escape'){committed=true;renderTopbarTabs();}});
     });
-    nav.insertBefore(btn,exploreTab.nextSibling);
+    nav.insertBefore(btn,insertAnchor);
   });
   updateProjectPicker();
 }
@@ -2235,7 +2126,7 @@ function _renderCompositionModal() {
   overlay.addEventListener('click', e => { if (e.target === overlay) closeCompositionModal(); }, { once: true });
 }
 
-// Reuses the exact board-creation path from createNewProject/buildBoardDropdown
+// Reuses the exact board-creation path from createNewProject
 // (projects.push + likedKeys/likedMeta + saveAll) rather than a new persistence layer.
 export function saveCompositionAsBoard() {
   const filled = _compSlots.filter(Boolean);
@@ -2343,7 +2234,7 @@ export function openSheet(name) {
       sheet._contentSource = sidebar;
       sheet._contentBody = body;
     }
-    setControlsSection('clay');
+    setControlsSection('adjust');
   }
   if (name === 'boards') {
     renderBoardSwitcher();

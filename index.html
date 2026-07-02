@@ -379,10 +379,9 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   /* Full-height layout */
   .main-content{height:100svh;height:100vh;}
   .app-body{padding-bottom:56px;}
-  /* Gallery fills viewport: 2 rows exactly fill the screen */
   .gallery{
     grid-template-columns:repeat(2,1fr);
-    grid-auto-rows:calc((100svh - 56px - 24px) / 2);
+    grid-auto-rows:auto;
     padding:8px;gap:8px;
     min-height:calc(100svh - 56px);
   }
@@ -692,8 +691,6 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .bd-item-count{font-size:10px;color:var(--ink3);}
 .analytics-pair-label{flex:1;font-size:11px;color:var(--ink);}
 .analytics-pair-count{font-size:10px;color:var(--ink3);flex-shrink:0;margin-right:4px;}
-.score-weight-select{width:100%;font-size:11px;font-family:var(--font);border:1.5px solid var(--border);border-radius:var(--r);padding:5px 7px;background:var(--surf);color:var(--ink);outline:none;cursor:pointer;}
-.score-weight-select:focus{border-color:var(--ink);}
 .score-weight-hint{font-size:10px;color:var(--ink3);margin-top:6px;line-height:1.4;}
 .analytics-empty-msg{font-size:11px;color:var(--ink3);padding-top:6px;}
 
@@ -704,7 +701,9 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .pd-back{background:none;border:none;cursor:pointer;font-size:18px;color:var(--ink3);padding:0 6px;font-family:var(--font);line-height:1;transition:color .12s;flex-shrink:0;}
 
 /* ── MOBILE PROJECTS SCREEN ───────────────────────────────────────────────── */
-.projects-view .pv-title{font-size:14px;font-weight:700;color:var(--ink);}
+.projects-view .pv-title{font-size:14px;font-weight:700;color:var(--ink);flex:1;}
+.pv-add-btn{background:none;border:none;cursor:pointer;font-size:20px;color:var(--ink2);padding:0 4px;font-family:var(--font);line-height:1;flex-shrink:0;}
+.pv-add-btn:hover{color:var(--ink);}
 .pv-list{overflow-y:auto;padding:8px;}
 .pv-row{display:flex;align-items:center;gap:10px;padding:12px 10px;border-radius:var(--r);cursor:pointer;background:var(--card);margin-bottom:6px;transition:background .12s;}
 .pv-row.active{background:var(--sel-bg,rgba(0,0,0,.05));}
@@ -744,7 +743,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .pd-block-del:hover{opacity:1;color:#fff;background:rgba(180,0,0,.75);}
 
 /* Pin badge in topbar */
-.pd-pin-badge{font-size:10px;font-weight:700;letter-spacing:.05em;padding:3px 8px;border-radius:var(--r);border:1px solid var(--border);color:var(--ink3);background:transparent;flex-shrink:0;cursor:default;transition:color .15s,border-color .15s;}
+.pd-pin-badge{font-size:10px;font-weight:700;letter-spacing:.05em;padding:3px 8px;min-height:32px;display:inline-flex;align-items:center;border-radius:var(--r);border:1px solid var(--border);color:var(--ink3);background:transparent;flex-shrink:0;cursor:pointer;transition:color .15s,border-color .15s;font-family:var(--font);}
 .pd-pin-badge.is-saved{color:var(--pin-saved);border-color:var(--pin-saved-border);}
 
 /* Resize handle between blocks */
@@ -967,7 +966,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 
     <div class="ps" data-sec="score">
       <div class="plabel">Aesthetic Score Weighting</div>
-      <select id="scoreWeightSelect" class="score-weight-select"></select>
+      <div class="artist-grid" id="scoreWeightSelect"></div>
       <div id="scoreWeightHint" class="score-weight-hint"></div>
     </div>
 
@@ -1019,6 +1018,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   <div class="pd-topbar">
     <button class="pd-back" onclick="closeProjectsView()" title="Back">←</button>
     <span class="pv-title">Projects</span>
+    <button class="pv-add-btn" onclick="createNewProject()" title="New board">＋</button>
   </div>
   <div class="pv-list" id="pvList"></div>
 </div>
@@ -1030,12 +1030,12 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     <button class="sheet-close" onclick="closeSheet()">✕</button>
   </div>
   <div class="cs-section-tabs" id="csSectionTabs">
-    <button class="cs-tab on" data-sec="clay" onclick="setControlsSection('clay')">Clay</button>
+    <button class="cs-tab on" data-sec="adjust" onclick="setControlsSection('adjust')">Adjust</button>
     <button class="cs-tab" data-sec="view" onclick="setControlsSection('view')">View</button>
     <button class="cs-tab" data-sec="score" onclick="setControlsSection('score')">Score</button>
     <button class="cs-tab" data-sec="style" onclick="setControlsSection('style')">Style</button>
-    <button class="cs-tab" data-sec="adjust" onclick="setControlsSection('adjust')">Adjust</button>
     <button class="cs-tab" data-sec="photo" onclick="setControlsSection('photo')">Photo</button>
+    <button class="cs-tab" data-sec="clay" onclick="setControlsSection('clay')">Clay</button>
   </div>
   <div class="ps" data-sec="photo">
     <button class="sb-photo-btn" id="sheetPhotoBtn">🖼 Select photo → extract palette</button>
@@ -1136,7 +1136,7 @@ import {
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer,
   closeCompositionModal
 } from './render.js?v=7';
-import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse } from './palette-detail.js';
+import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail } from './palette-detail.js';
 
 // ── APPEARANCE ──────────────────────────────────────────────────────────────
 function setTheme(name){
@@ -1193,7 +1193,7 @@ Object.assign(window, {
   renderSidebar, renderTopbarTabs, updateCount, showToast, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer, setGalleryViewMode, setControlsSection, setTileDivisions,
 
   // Palette detail page
-  openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse,
+  openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail,
 });
 
 // ── KEYBOARD SHORTCUTS ────────────────────────────────────────────────────────
@@ -1297,7 +1297,7 @@ loadAll().then(() => {
     <button class="pd-back" onclick="closePaletteDetail()" title="Back to gallery">←</button>
     <button id="pdPrevBtn" class="pd-nav-btn" onclick="pdPrev()" title="Previous palette">‹</button>
     <input id="pdTitle" class="pd-title" type="text" autocomplete="off" placeholder="Palette name">
-    <span id="pdPinBadge" class="pd-pin-badge" title="Palette save status">♥ Saved</span>
+    <button id="pdPinBadge" class="pd-pin-badge" title="Pin/unpin this palette" onclick="togglePinFromDetail()">♥ Saved</button>
     <span class="shortcut-key" title="Press . to pin/unpin this palette">.</span>
     <span id="pdNavCounter" class="pd-nav-counter"></span>
     <button id="pdNextBtn" class="pd-nav-btn" onclick="pdNext()" title="Next palette">›</button>
