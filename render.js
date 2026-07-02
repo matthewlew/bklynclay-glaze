@@ -1708,7 +1708,7 @@ export function renderViewRating(container){
 
   const grid=document.createElement('div');grid.className='vr-grid';
   allCombos().forEach(combo=>{
-    const card=document.createElement('div');card.className='vr-card';
+    const card=document.createElement('div');card.className='vr-card';card.tabIndex=0;card.setAttribute('role','button');
     const sw=document.createElement('div');sw.className='vr-card-swatch';
     const style=cssForMode(combo.mode,m.names,clayKey,combo.reverse);
     Object.assign(sw.style,style);
@@ -1716,7 +1716,7 @@ export function renderViewRating(container){
     const lbl=document.createElement('div');lbl.className='vr-card-label';
     lbl.textContent=`${combo.mode}${combo.reverse?' · rev':''}`;
     card.appendChild(sw);card.appendChild(badge);card.appendChild(lbl);
-    card.addEventListener('click',()=>{
+    const rankCard=()=>{
       const key=comboKey(combo);
       const idx=vrOrder.indexOf(key);
       if(idx>=0){vrOrder.splice(idx,1);}
@@ -1729,6 +1729,10 @@ export function renderViewRating(container){
         c.classList.toggle('ranked',rank>=0);
       });
       doneBtn.disabled=vrOrder.length<1;
+    };
+    card.addEventListener('click',rankCard);
+    card.addEventListener('keydown',e=>{
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();rankCard();}
     });
     card.dataset.comboKey=comboKey(combo);
     grid.appendChild(card);
