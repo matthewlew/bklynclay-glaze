@@ -28,11 +28,23 @@ This document is the single source of truth for visual decisions. When building 
 | `--border2` | `#ccc` | Stronger borders, hover border states |
 | `--clay-w` | `#E2DDD6` | White clay body color (used in SVG rendering) |
 | `--clay-r` | `#7A3828` | Red/Brooklyn clay body color (used in SVG rendering) |
+| `--white` | `#fff` | Alias for white text/fill on dark or accent backgrounds |
+| `--ink-hover` | `#2a2a2a` | Hover state for `.btn.primary` and dark FABs |
+| `--danger` | `#c00` | Destructive hover text/border (`.btn.remove-subtle:hover`) |
+| `--danger-bg` | `#fff5f5` | Destructive hover background |
+| `--red` | `#e53935` | Destructive filled buttons (`.ds-btn.danger` in mobile sheet) — distinct from `--danger`, which is for hover-only states |
+| `--pin-saved` | `#e05a78` | "Saved" pin badge text (`.pd-pin-badge.is-saved`) |
+| `--pin-saved-border` | `rgba(224,90,120,.4)` | Border for saved pin badge |
+| `--acc-rgb` | `184,69,16` | RGB channels of `--acc`, for `rgba()` composition where `color-mix` isn't used |
+| `--gray-light` | `#fafafa` | Sidebar chip (`.lchip`) background |
+| `--gray-mid` | `#ddd` | Misc light-mode secondary border |
+| `--score-hi-bg` / `--score-hi-text` | `color-mix(in srgb,#2a7a40 12%,var(--surf))` / `#1a5a30` | Analytics score badge, high tier |
+| `--score-mid-bg` / `--score-mid-text` | `color-mix(in srgb,#8a6020 12%,var(--surf))` / `#6a4010` | Analytics score badge, mid tier |
+| `--drag-bg` | `#fff8f5` | Drag-over background (warm) |
+| `--drag-green-bg` / `--drag-green-outline` | `#dff0e8` / `#5aaa7a` | Drag-over background/outline (valid-drop state) |
 
 **Derived accent values (use these, do not hardcode):**
 - `rgba(184,69,16,.12)` → accent glow/ring: `color-mix(in srgb, var(--acc) 12%, transparent)` — or use as `var(--acc)` at 12% opacity
-- Hover on primary button: `#2a2a2a` — alias as `--ink-hover` if reused more than 2x
-- Danger color: `#c00` — alias as `--danger` if reused more than 2x
 
 ### Semantic usage rules
 
@@ -53,16 +65,19 @@ No custom typeface. Uses system font stack:
 
 | Role | Size | Weight | Usage |
 |---|---|---|---|
+| Nano | `7–9px` | `400–700` | Mobile/compact palette-detail chips, finish micro-labels, dense tile overlays |
 | Section labels | `10px` | `700` + uppercase + `letter-spacing: .09em` | Panel headers, card section labels |
 | Body / card labels | `12–13px` | `500–700` | Tab labels, card names, body copy |
 | Supporting text | `11px` | `400–600` | Glaze names, chip labels, descriptions |
 | Micro / metadata | `10px` | `400` | Counts, timestamps, finish badges |
 | Base body | `14px` | `400` | Set on `body` |
+| Icon glyph | `18–22px` | n/a | Icon-only buttons (`.pd-back`, `.pd-nav-btn`, `.mobile-shuffle-fab`) — not text, no weight/tracking rules apply |
 
 **Rules:**
 - Do not introduce new font sizes outside this scale.
 - Do not add external typefaces.
 - Uppercase labels always pair with `letter-spacing: .08-.10em` and `font-weight: 700`.
+- Nano and icon-glyph tiers are exceptions for space-constrained mobile/icon contexts — don't use them for primary body copy.
 
 ---
 
@@ -101,11 +116,13 @@ No custom typeface. Uses system font stack:
 | Token | Value | Usage |
 |---|---|---|
 | `--r` | `6px` | Default — all cards, buttons, inputs, dropdowns |
-| Pill (chips, toasts) | `20–22px` | Anchor chips, toast, multi-action bar |
+| Pill (chips, toasts) | `20px`, `22px`, or `999px` | Anchor chips, toast, multi-action bar, mobile sheet pills. `999px` is the "fully round regardless of height" form of the same pill pattern — prefer a fixed `20-22px` unless the element's height is dynamic. |
 | Modal | `10px` | Modal only — intentionally larger |
+| Bottom sheet | `10px 10px 0 0` | Mobile bottom-sheet top corners only |
 | Small internal | `3–4px` | Glaze chips, swatches, dots |
+| Micro internal | `1–2px` | Sheet drag handle, resize-bar ticks |
 
-**Rule:** Use `var(--r)` for all standard interactive elements. Only deviate for pill shapes and modals, documented above.
+**Rule:** Use `var(--r)` for all standard interactive elements. Only deviate for pill shapes, modals, the bottom sheet, and micro internal marks, documented above.
 
 ---
 
@@ -218,22 +235,59 @@ These are hardcoded by design — they map to physical glaze finishes and should
 | Drag over | `border-color: var(--acc); box-shadow: 0 0 0 2px rgba(184,69,16,.22)` |
 | Disabled | Not yet used — use `color: var(--ink3); pointer-events: none` |
 
-All transitions: `transition: background .12s, color .12s, border-color .12s`
+Default transitions: `transition: background .12s, color .12s, border-color .12s`
+
+| Speed | Usage |
+|---|---|
+| `.12s` | Default — color/background/border state changes (the vast majority of transitions) |
+| `.1s` | Small icon-button opacity/background (e.g. `.pd-block-del`) — allowed for tight-feedback micro-interactions |
+| `.15s` | Drag states, pin badge color/border |
+| `.18s` | Bottom-sheet nav height/position animation |
+| `.2s` | Toast opacity |
+| `.4s` | Progress bar width fill |
+
+Easing: default is implicit ease. `cubic-bezier(.4,0,.2,1)` is used for the bottom-sheet slide-up transform — reserved for sheet/drawer open-close motion, not general UI state.
 
 ---
 
-## Analytics Colors (JS-rendered only)
+## Themes
 
-These are used only in JS for SVG/canvas rendering and computed color math — not in CSS:
+The app ships four appearance themes, switchable via the **Appearance** control (right sidebar / mobile "View" sheet tab → `#themeToggle`). Each theme is a pure override of the semantic token layer — component CSS never branches on theme name, it only ever reads `var(--ink)`, `var(--surf)`, etc. This is what makes adding a theme cheap: define a `:root[data-theme="x"]` block that redeclares the semantic tokens, and every component restyles automatically.
 
-| Purpose | Value |
-|---|---|
-| Warm temperature | `#c87030` |
-| Cool temperature | `#4890c0` / `#4870a0` |
-| Dark depth | `#181818` |
-| Light depth | `#d8d4cc` |
+| Theme | `data-theme` | Character |
+|---|---|---|
+| Light (default) | *(attribute absent)* | Base `:root` values — off-white, high contrast |
+| Dark | `dark` | Inverted neutral — warm near-black surface, light text |
+| Stoneware | `stoneware` | Light theme leaning into the white clay body's cream/warm-neutral palette |
+| Brooklyn Red | `brooklyn` | Dark theme built around the Brooklyn Red clay body's brick/terracotta palette |
 
-Do not migrate these to CSS variables — they feed into color math algorithms.
+**Tokens that flip per theme:** `--ink`, `--ink2`, `--ink3`, `--border`, `--border2`, `--surf`, `--card`, `--acc`, `--ink-hover`, `--danger`, `--danger-bg`, `--acc-rgb`, `--white`, `--gray-light`, `--gray-mid`, `--score-hi-text`, `--score-mid-text`, `--drag-bg`, `--drag-green-bg`, `--drag-green-outline`.
+
+**Tokens that never flip:** `--clay-w`, `--clay-r` (SVG glaze-body rendering), `--warm`, `--cool`, `--tone-dark`, `--tone-light` (analytics color math), `--font`, `--r`, `--panel`, `--side`, `--pin-saved`, `--pin-saved-border` (a fixed accent color, not part of the neutral scale). These are excluded on purpose — they represent physical/data properties, not app chrome, and changing them per-theme would make glaze colors lie about themselves.
+
+**`--white` is semantic, not literal.** It means "the contrast color to place on top of an `--ink`-filled surface" (e.g. `.btn.primary` text). In light/stoneware, `--ink` is dark so `--white` is literally white. In dark/brooklyn, `--ink` becomes the *light* color (used for both text and fills, per the existing single-token pattern), so `--white` is redefined to a dark value there — same name, inverted meaning, correct contrast. Do not "fix" this by hardcoding `#fff` in a component; it will break in dark themes.
+
+**Wiring:**
+- `setTheme(name)` (in `index.html`'s inline module script) sets/removes `data-theme` on `<html>`, persists to `localStorage['bklyn_theme']`, and syncs `.theme-btn.on` state.
+- A blocking inline `<script>` in `<head>` (before the stylesheet) applies the persisted theme synchronously to prevent a flash of the wrong theme on load.
+- The Appearance control lives once in the DOM (right sidebar `.ps[data-sec="view"]`) and is physically relocated into the mobile bottom sheet by the existing `openSheet`/`setControlsSection` logic — do not duplicate the markup for mobile.
+
+**Adding a 5th theme:** add one `:root[data-theme="x"]` block redeclaring the "flip" token list above, add one `.theme-btn` to `#themeToggle`, done. No component CSS or JS changes required unless the new theme needs a token that doesn't flip today.
+
+---
+
+## Analytics Colors
+
+Used in both JS color math (SVG/canvas rendering) and CSS (badges/UI), backed by shared tokens:
+
+| Token | Value | Purpose |
+|---|---|---|
+| `--warm` | `#c87030` | Warm temperature |
+| `--cool` | `#4870a0` | Cool temperature (JS also uses `#4890c0` as a lighter variant in gradients — not tokenized, computed) |
+| `--tone-dark` | `#181818` | Dark depth |
+| `--tone-light` | `#d8d4cc` | Light depth |
+
+These are CSS custom properties, not JS-only constants — reference `var(--warm)` etc. in CSS, and read the same computed values in JS via `getComputedStyle` or a mirrored JS constant. If JS and CSS drift on the hex value, the CSS token wins; update the JS constant to match.
 
 ---
 
@@ -243,10 +297,8 @@ Do not migrate these to CSS variables — they feed into color math algorithms.
 2. **No new font sizes** outside the scale above.
 3. **No new typefaces.**
 4. **No new border-radius values** outside those documented. Use `var(--r)` by default.
-5. **All transitions at `.12s`** unless there's a documented reason (drag: `.15s`, toast: `.2s`).
-6. **No inline styles in HTML.** Layout/state exceptions (display:none toggles) are acceptable in JS, but not in the HTML source.
-7. **`--surf` ≠ `#faf8f5`.** The project section background uses `#faf8f5` which is a non-tokenized variant. Consolidate to `--surf` when touching those areas.
-8. **Duplicate CSS rules must be resolved.** `.analytics-swatch-row` is currently defined twice — the second definition wins.
+5. **No new transition speeds** outside the table above.
+6. **No inline `style=""` in HTML source**, including static initial states. Use the `.hidden{display:none}` utility class for elements that start hidden and are toggled via `el.style.display` in JS — JS-set inline styles still override the class, so this is safe. One-off layout tweaks (e.g. a single `margin-top`) should become a class if reused, or stay inline only as a last resort.
 
 ---
 

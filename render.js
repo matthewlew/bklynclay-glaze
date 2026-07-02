@@ -170,6 +170,11 @@ export function refreshStack(col,glazes,ck,tH){
 export function setGalleryViewMode(mode){
   galleryViewMode=mode;
   document.querySelectorAll('.gv-btn').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
+  // Tile divisions only apply to tiles mode; hide the control otherwise
+  const tdToggle=document.getElementById('tileDivisionToggle');
+  const tdLabel=tdToggle&&tdToggle.previousElementSibling;
+  if(tdToggle){tdToggle.style.display=mode==='tiles'?'':'none';}
+  if(tdLabel&&tdLabel.classList.contains('plabel')){tdLabel.style.display=mode==='tiles'?'':'none';}
   lastRenderedKeys=[];lastSavedKeys=[];
   if(currentTab==='explore'){renderGallery();}
 }
@@ -243,6 +248,7 @@ export function updatePresetName(){
 }
 
 export function shuffle(){
+  if('vibrate' in navigator) navigator.vibrate(25);
   const gal=document.getElementById('gallery');
   if(gal){
     gal.style.transition='opacity .1s';
@@ -436,6 +442,7 @@ export function createNewProject(){
 }
 
 export function deleteProject(id){
+  if('vibrate' in navigator) navigator.vibrate([30,0,30]);
   const proj=projects.find(p=>p.id===id);
   const affectedMeta=likedMeta.filter(m=>m.projectId===id).map(m=>({...m}));
   likedMeta.forEach(m=>{if(m.projectId===id)delete m.projectId;});
@@ -456,13 +463,12 @@ export function showProjMenu(projId,anchor){
   const renameItem=document.createElement('button');renameItem.className='proj-menu-item';renameItem.textContent='Rename board';
   renameItem.addEventListener('click',()=>{
     popup.remove();_projMenuOpen=null;
-    const newName=prompt('Rename board:',proj.name);
-    if(newName&&newName.trim()){proj.name=newName.trim();saveAll();renderSidebar();renderTopbarTabs();}
+    promptSheet('Rename board:',proj.name,'Rename',val=>{proj.name=val;saveAll();renderSidebar();renderTopbarTabs();});
   });
   const deleteItem=document.createElement('button');deleteItem.className='proj-menu-item danger';deleteItem.textContent='Delete board…';
   deleteItem.addEventListener('click',()=>{
     popup.remove();_projMenuOpen=null;
-    if(confirm(`Delete "${proj.name}"? Saved palettes will be moved back to All.`)){deleteProject(projId);}
+    confirmSheet(`Delete "${proj.name}"? Saved palettes will be moved back to All.`,'Delete board',()=>deleteProject(projId));
   });
   popup.appendChild(renameItem);popup.appendChild(deleteItem);
   const r=anchor.getBoundingClientRect();
@@ -688,6 +694,7 @@ export function buildBoardDropdown(p, pinBtn, card, compact) {
   const caret=document.createElement('span');caret.textContent='▾';caret.style.marginLeft='auto';
   btn.appendChild(strip);btn.appendChild(btnLabel);btn.appendChild(caret);
   const saveToBoard=(projId)=>{
+    if('vibrate' in navigator) navigator.vibrate(15);
     if(!likedKeys.has(p.key)){
       likedKeys.add(p.key);
       if(!likedMeta.find(m=>m.key===p.key))
@@ -1366,6 +1373,7 @@ export function renderScoreWeighting(){
 
 // ── PIN TOGGLE ────────────────────────────────────────────────────────────────
 export function togglePin(p,btn,card,compact){
+  if('vibrate' in navigator) navigator.vibrate(15);
   if(likedKeys.has(p.key)){
     const snapData=likedMeta.find(m=>m.key===p.key)?{...likedMeta.find(m=>m.key===p.key)}:null;
     likedKeys.delete(p.key);likedMeta=likedMeta.filter(m=>m.key!==p.key);
@@ -2072,6 +2080,27 @@ export function initSectionObserver(){
   obs.observe(saved);obs.observe(disc);
 }
 
+export function initHorizontalSwipe(){
+  const mainEl=document.getElementById('mainContent');
+  if(!mainEl)return;
+  let sx=0,sy=0;
+  mainEl.addEventListener('touchstart',e=>{
+    sx=e.touches[0].clientX;sy=e.touches[0].clientY;
+  },{passive:true});
+  mainEl.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx;
+    const dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)<40||Math.abs(dx)<Math.abs(dy)*1.2)return; // too short or too vertical
+    if(dx<0){
+      // swipe left → Discover
+      document.getElementById('discoverHead')?.scrollIntoView({behavior:'smooth'});
+    }else{
+      // swipe right → Saved
+      document.getElementById('savedSection')?.scrollIntoView({behavior:'smooth'});
+    }
+  },{passive:true});
+}
+
 // ── KEYBOARD NAVIGATION & SHEETS ──────────────────────────────────────────────
 export function moveFocusToCard(dir) {
   const cards = [...document.querySelectorAll('#gallery .card')];
@@ -2128,12 +2157,51 @@ export function openSheet(name) {
   backdrop?.classList.add('open');
   sheet.classList.add('open');
 
-  let startY = 0;
-  const onTouchStart = e => { startY = e.touches[0].clientY; };
-  const onTouchEnd = e => { if (e.changedTouches[0].clientY - startY > 80) closeSheet(); };
+  let startY = 0, lastY = 0, lastT = 0, dragging = false;
+
+  const onTouchStart = e => {
+    // Only start drag from handle area or within top 60px of sheet
+    const touch = e.touches[0];
+    const rect = sheet.getBoundingClientRect();
+    if (touch.clientY - rect.top > 60) return;
+    startY = lastY = touch.clientY;
+    lastT = Date.now();
+    dragging = true;
+    sheet.style.transition = 'none';
+  };
+
+  const onTouchMove = e => {
+    if (!dragging) return;
+    const touch = e.touches[0];
+    const dy = touch.clientY - startY;
+    if (dy > 0) {
+      sheet.style.transform = `translateY(${dy}px)`;
+      if (backdrop) backdrop.style.opacity = Math.max(0, 1 - dy / 300);
+    }
+    lastY = touch.clientY;
+    lastT = Date.now();
+  };
+
+  const onTouchEnd = e => {
+    if (!dragging) return;
+    dragging = false;
+    const dy = lastY - startY;
+    const dt = Date.now() - lastT;
+    const velocity = dt > 0 ? dy / dt : 0; // px/ms
+    sheet.style.transition = '';
+    if (backdrop) backdrop.style.opacity = '';
+    if (dy > 120 || velocity > 0.4) {
+      closeSheet();
+    } else {
+      sheet.style.transform = '';
+    }
+  };
+
   sheet.addEventListener('touchstart', onTouchStart, {passive:true});
+  sheet.addEventListener('touchmove', onTouchMove, {passive:true});
   sheet.addEventListener('touchend', onTouchEnd, {passive:true});
   sheet._onTouchStart = onTouchStart;
+  sheet._onTouchMove = onTouchMove;
   sheet._onTouchEnd = onTouchEnd;
 }
 
@@ -2147,7 +2215,10 @@ export function closeSheet() {
       _activeSheet._contentBody = null;
     }
     if (_activeSheet._onTouchStart) _activeSheet.removeEventListener('touchstart', _activeSheet._onTouchStart);
+    if (_activeSheet._onTouchMove) _activeSheet.removeEventListener('touchmove', _activeSheet._onTouchMove);
     if (_activeSheet._onTouchEnd) _activeSheet.removeEventListener('touchend', _activeSheet._onTouchEnd);
+    _activeSheet.style.transform = '';
+    _activeSheet.style.transition = '';
     _activeSheet.classList.remove('open');
     _activeSheet = null;
   }
@@ -2160,6 +2231,61 @@ export function setControlsSection(sec){
   const sheet=document.getElementById('sheetControls');if(!sheet)return;
   sheet.querySelectorAll('[data-sec]').forEach(el=>el.classList.toggle('active-sec',el.dataset.sec===sec));
   sheet.querySelectorAll('.cs-tab').forEach(b=>b.classList.toggle('on',b.dataset.sec===sec));
+}
+
+// ── DIALOG SHEETS (replace native confirm/prompt on mobile) ──────────────────
+
+function _dialogSheet(html, onMount) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'sheet-backdrop open';
+  backdrop.style.zIndex = '310';
+  const sheet = document.createElement('div');
+  sheet.className = 'bottom-sheet open dialog-sheet';
+  sheet.style.cssText = 'top:auto;max-height:50vh;z-index:320;';
+  sheet.innerHTML = `<div class="sheet-handle"></div>${html}`;
+  const dismiss = () => { backdrop.remove(); sheet.remove(); };
+  backdrop.addEventListener('click', dismiss);
+  document.body.appendChild(backdrop);
+  document.body.appendChild(sheet);
+  onMount(sheet, dismiss);
+}
+
+export function confirmSheet(message, title, onConfirm) {
+  _dialogSheet(
+    `<div class="sheet-header"><span class="sheet-title">${title||'Confirm'}</span></div>
+     <div style="padding:0 16px 12px;color:var(--ink2);font-size:14px;">${message}</div>
+     <div style="display:flex;gap:8px;padding:0 16px 32px;">
+       <button class="ds-btn ds-cancel" style="flex:1;">Cancel</button>
+       <button class="ds-btn ds-confirm danger" style="flex:1;">Delete</button>
+     </div>`,
+    (sheet, dismiss) => {
+      sheet.querySelector('.ds-cancel').addEventListener('click', dismiss);
+      sheet.querySelector('.ds-confirm').addEventListener('click', () => { dismiss(); onConfirm(); });
+    }
+  );
+}
+
+export function promptSheet(message, defaultVal, title, onSave) {
+  _dialogSheet(
+    `<div class="sheet-header"><span class="sheet-title">${title||'Rename'}</span></div>
+     <div style="padding:0 16px 12px;">
+       <input class="ds-input" value="${(defaultVal||'').replace(/"/g,'&quot;')}" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r);font-size:15px;font-family:var(--font);background:var(--surf);color:var(--ink);">
+     </div>
+     <div style="display:flex;gap:8px;padding:0 16px 32px;">
+       <button class="ds-btn ds-cancel" style="flex:1;">Cancel</button>
+       <button class="ds-btn ds-save" style="flex:1;">Save</button>
+     </div>`,
+    (sheet, dismiss) => {
+      const input = sheet.querySelector('.ds-input');
+      input.focus(); input.select();
+      sheet.querySelector('.ds-cancel').addEventListener('click', dismiss);
+      sheet.querySelector('.ds-save').addEventListener('click', () => {
+        const val = input.value.trim();
+        if (val) { dismiss(); onSave(val); }
+      });
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') sheet.querySelector('.ds-save').click(); });
+    }
+  );
 }
 
 // ── CONTEXT MENU ─────────────────────────────────────────────────────────────
