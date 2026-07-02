@@ -2,6 +2,7 @@ import { CLAY, GLAZES, NL, LEVERS, PRESETS } from './glazes-data.js';
 import { hd, circularSpan, cardTemperature, cardDepth, harmonyScore, scoreAesthetic, scoreGlaze, pairingScore, buildGlazeAffinity, SCORE_PRESETS, DEFAULT_SCORE_WEIGHTS } from './scoring.js';
 import { state } from './state.js';
 import { saveAll, exportSession } from './persistence.js';
+import { allCombos, comboKey, cssForMode, summarizeViewRatings } from './view-rating.js';
 
 // Constants for SVG
 const TH = 78;
@@ -1593,11 +1594,17 @@ export function renderRankInContainer(container){
     const rateBtn=document.createElement('button');rateBtn.className='rate-rank-mode-btn';
     rateBtn.innerHTML=`<span class="mode-label">Quick Rate ★</span><span class="mode-desc">Star each palette once<br>${likedMeta.length} steps · fast</span>`;
     rateBtn.addEventListener('click',()=>startQuickRate(container));
-    modeBtns.appendChild(fullBtn);modeBtns.appendChild(rateBtn);
+    const viewBtn=document.createElement('button');viewBtn.className='rate-rank-mode-btn';
+    viewBtn.innerHTML=`<span class="mode-label">Rate Views ✦</span><span class="mode-desc">Sort linear/radial/stripes/etc.<br>per palette · sets its default view</span>`;
+    viewBtn.addEventListener('click',()=>startViewRating(container));
+    modeBtns.appendChild(fullBtn);modeBtns.appendChild(rateBtn);modeBtns.appendChild(viewBtn);
     container.appendChild(modeBtns);return;
   }
   if(rankMode==='rating'){
     renderQuickRate(container);return;
+  }
+  if(rankMode==='viewrating'){
+    renderViewRating(container);return;
   }
   if(rankMode==='active'&&rankCurrentItem){
     const prog=document.createElement('div');prog.style.cssText='font-size:10px;color:var(--ink3);margin-bottom:10px;';
@@ -1614,6 +1621,9 @@ export function renderRankInContainer(container){
     const skip=document.createElement('button');skip.className='rank-skip';skip.textContent='Skip (tie)';
     skip.addEventListener('click',()=>{rankSkip();renderRankInContainer(container);});
     container.appendChild(skip);return;
+  }
+  if(rankMode==='viewrating-done'){
+    renderViewRatingResults(container);return;
   }
   if(rankMode==='done'){
     const results=document.createElement('div');results.className='rank-results';
@@ -1674,6 +1684,95 @@ export function renderQuickRate(container){
   const skip=document.createElement('button');skip.className='rank-skip';skip.textContent='Skip';
   skip.addEventListener('click',()=>{rateScores[m.key]=0;rateQueue.shift();renderQuickRate(container);});
   container.appendChild(skip);
+}
+
+// ── RATE VIEWS (card sort per palette across gradient view types) ─────────────
+export function startViewRating(container){
+  vrQueue=[...likedMeta];vrOrder=[];rankMode='viewrating';renderRankInContainer(container);
+}
+
+export function renderViewRating(container){
+  container.innerHTML='';
+  if(!vrQueue.length){
+    rankMode='viewrating-done';renderRankInContainer(container);return;
+  }
+  const m=vrQueue[0];
+  vrCurrentKey=m.key;vrOrder=[];
+  const prog=document.createElement('div');prog.style.cssText='font-size:10px;color:var(--ink3);margin-bottom:8px;';
+  prog.textContent=`Palette ${likedMeta.length-vrQueue.length+1} of ${likedMeta.length} — click cards in your preferred order`;
+  container.appendChild(prog);
+
+  const name=document.createElement('div');name.style.cssText='font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px;';
+  name.textContent=labelStore[m.key]||m.label;
+  container.appendChild(name);
+
+  const grid=document.createElement('div');grid.className='vr-grid';
+  allCombos().forEach(combo=>{
+    const card=document.createElement('div');card.className='vr-card';
+    const sw=document.createElement('div');sw.className='vr-card-swatch';
+    const style=cssForMode(combo.mode,m.names,clayKey,combo.reverse);
+    Object.assign(sw.style,style);
+    const badge=document.createElement('div');badge.className='vr-card-rank';
+    const lbl=document.createElement('div');lbl.className='vr-card-label';
+    lbl.textContent=`${combo.mode}${combo.reverse?' · rev':''}`;
+    card.appendChild(sw);card.appendChild(badge);card.appendChild(lbl);
+    card.addEventListener('click',()=>{
+      const key=comboKey(combo);
+      const idx=vrOrder.indexOf(key);
+      if(idx>=0){vrOrder.splice(idx,1);}
+      else{vrOrder.push(key);}
+      grid.querySelectorAll('.vr-card').forEach(c=>{
+        const cKey=c.dataset.comboKey;
+        const rank=vrOrder.indexOf(cKey);
+        const b=c.querySelector('.vr-card-rank');
+        b.textContent=rank>=0?String(rank+1):'';
+        c.classList.toggle('ranked',rank>=0);
+      });
+      doneBtn.disabled=vrOrder.length<allCombos().length;
+    });
+    card.dataset.comboKey=comboKey(combo);
+    grid.appendChild(card);
+  });
+  container.appendChild(grid);
+
+  const doneBtn=document.createElement('button');doneBtn.className='btn';doneBtn.textContent='Done — save & next palette';doneBtn.style.marginTop='12px';doneBtn.disabled=true;
+  doneBtn.addEventListener('click',()=>{
+    const order=vrOrder.map(k=>{const [mode,rev]=k.split(':');return{mode,reverse:rev==='rev'};});
+    viewPrefs[m.key]=order[0];
+    viewRatingLog.push({key:m.key,order});
+    saveAll();
+    vrQueue.shift();
+    renderViewRating(container);
+  });
+  container.appendChild(doneBtn);
+
+  const skip=document.createElement('button');skip.className='rank-skip';skip.textContent='Skip palette';
+  skip.addEventListener('click',()=>{vrQueue.shift();renderViewRating(container);});
+  container.appendChild(skip);
+}
+
+export function renderViewRatingResults(container){
+  container.innerHTML='';
+  const summary=summarizeViewRatings(viewRatingLog);
+  if(!summary.length){
+    container.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:8px 0;">No view ratings recorded yet.</div>';
+  } else {
+    const results=document.createElement('div');results.className='rank-results';
+    summary.forEach((row,i)=>{
+      const [mode,rev]=row.comboKey.split(':');
+      const rowEl=document.createElement('div');rowEl.className='rank-result-row';
+      const num=document.createElement('div');num.className='rank-result-num';num.textContent=`${i+1}`;
+      const info=document.createElement('div');info.className='rank-result-info';
+      const nm=document.createElement('div');nm.className='rank-result-name';nm.textContent=`${mode}${rev==='rev'?' · reversed':''}`;
+      const gn=document.createElement('div');gn.className='rank-result-glazes';gn.textContent=`avg rank ${(row.avgRank+1).toFixed(1)} · ${row.count} palette${row.count!==1?'s':''}`;
+      info.appendChild(nm);info.appendChild(gn);
+      rowEl.appendChild(num);rowEl.appendChild(info);results.appendChild(rowEl);
+    });
+    container.appendChild(results);
+  }
+  const restart=document.createElement('button');restart.className='btn';restart.textContent='Rate Views Again';restart.style.marginTop='10px';
+  restart.addEventListener('click',()=>{rankMode='idle';vrQueue=[];vrOrder=[];renderRankInContainer(container);});
+  container.appendChild(restart);
 }
 
 export function startRank(container){

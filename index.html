@@ -496,6 +496,16 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .rate-rank-mode-btn .mode-label{font-weight:600;display:block;margin-bottom:2px;}
 .rate-rank-mode-btn .mode-desc{font-size:10px;color:var(--ink3);display:block;}
 
+/* ── RATE VIEWS (card sort) ── */
+.vr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;max-width:680px;width:100%;}
+.vr-card{position:relative;cursor:pointer;border-radius:var(--r);border:2px solid var(--border);overflow:hidden;background:var(--card);transition:border-color .12s,box-shadow .12s;}
+.vr-card:hover{border-color:var(--acc);box-shadow:0 0 0 3px rgba(var(--acc-rgb),.12);}
+.vr-card.ranked{border-color:var(--acc);}
+.vr-card-swatch{width:100%;height:80px;background-position:center;background-repeat:no-repeat;}
+.vr-card-rank{position:absolute;top:5px;right:5px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--acc);color:var(--white);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .1s;}
+.vr-card.ranked .vr-card-rank{opacity:1;}
+.vr-card-label{font-size:10px;color:var(--ink3);text-align:center;padding:5px 6px;text-transform:capitalize;}
+
 /* ── PROJECT OPTIONS MENU ── */
 .sb-proj-menu-btn{font-size:13px;line-height:1;background:none;border:none;cursor:pointer;color:var(--ink3);padding:2px 5px;border-radius:3px;font-family:var(--font);}
 .sb-proj-menu-btn:hover{background:var(--border);color:var(--ink);}
@@ -1116,6 +1126,11 @@ var rankLow      = 0;
 var rankHigh     = 0;
 var rankTotalComparisons = 0;
 var rankDoneComparisons = 0;
+var viewPrefs    = {};
+var viewRatingLog = [];
+var vrQueue      = [];
+var vrOrder      = [];
+var vrCurrentKey = null;
 var _vs          = { shape: 'cylinder', direction: 'top', stops: [], glazes: [], ck: 'white' };
 var _focusedCardKey = null;
 var _ctxMenu     = null;
@@ -1129,6 +1144,7 @@ import {
   setClay, applyPreset, resetLevers, shuffle, setTab,
   openSheet, closeSheet, openShortcutOverlay, closeShortcutOverlay,
   createNewProject, startQuickRate, startRank, rankChoose, rankSkip,
+  startViewRating, renderViewRating, renderViewRatingResults,
   openVesselModal, setGlazeFilter, clearGlazeSelection, closeCtxMenu,
   switchContext, switchToProjectTab, buildLeversUI, renderTopbarTabs,
   openProjectsView, closeProjectsView, renderProjectsView,
@@ -1136,7 +1152,7 @@ import {
   moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection, setGalleryViewMode, setControlsSection, setTileDivisions,
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer,
   closeCompositionModal
-} from './render.js?v=7';
+} from './render.js?v=8';
 import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail } from './palette-detail.js';
 
 // ── APPEARANCE ──────────────────────────────────────────────────────────────
@@ -1175,6 +1191,7 @@ Object.assign(window, {
   
   // Ratings, Ranking, Vessel
   startQuickRate, startRank, rankChoose, rankSkip,
+  startViewRating, renderViewRating, renderViewRatingResults,
   openVesselModal, closeVesselModal: () => document.getElementById('vesselModal')?.classList.remove('open'),
   
   // Filters & selection

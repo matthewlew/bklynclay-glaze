@@ -679,11 +679,19 @@ export function openPaletteDetail(key, fallback) {
   if (_keyIdx === -1) { _allKeys = [key]; _keyIdx = 0; }
   _nid = 0; _drag = null;
 
-  // Default the render mode to whatever the gallery is currently showing,
-  // so opening a conic gallery view lands you in conic here too.
-  const modeMap = {linear:'linear', radial:'radial', conic:'conic'};
-  _gradMode = modeMap[typeof galleryViewMode !== 'undefined' ? galleryViewMode : null] || 'linear';
-  _gradReverse = false;
+  // A rated palette (via the Rate Views card sort) carries its own preferred
+  // view/reverse — honor that over the gallery-wide toggle. Otherwise default
+  // to whatever the gallery is currently showing, so opening a conic gallery
+  // view lands you in conic here too.
+  const pref = (typeof viewPrefs !== 'undefined' && viewPrefs[key]) || null;
+  if (pref) {
+    _gradMode = pref.mode;
+    _gradReverse = !!pref.reverse;
+  } else {
+    const modeMap = {linear:'linear', radial:'radial', conic:'conic'};
+    _gradMode = modeMap[typeof galleryViewMode !== 'undefined' ? galleryViewMode : null] || 'linear';
+    _gradReverse = false;
+  }
 
   // Stop blocks are cached by id in render(); ids restart at 0 each open, so
   // stale elements from a prior open (e.g. before a clay change) must be

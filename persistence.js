@@ -87,7 +87,9 @@ export async function saveAll() {
     meta: state.likedMeta,
     projects: state.projects,
     labels: state.labelStore,
-    rankState
+    rankState,
+    viewPrefs: state.viewPrefs,
+    viewRatingLog: state.viewRatingLog
   };
 
   let success = false;
@@ -114,7 +116,9 @@ export async function saveAll() {
       const configStore = transaction.objectStore('config');
       configStore.put([...state.likedKeys], 'likedKeys');
       configStore.put(rankState, 'rankState');
-      
+      configStore.put(state.viewPrefs, 'viewPrefs');
+      configStore.put(state.viewRatingLog, 'viewRatingLog');
+
       await new Promise((resolve, reject) => {
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
@@ -160,13 +164,17 @@ export async function loadAll() {
       const palRequest = transaction.objectStore('palettes').getAll();
       const keysRequest = transaction.objectStore('config').get('likedKeys');
       const rankRequest = transaction.objectStore('config').get('rankState');
+      const viewPrefsRequest = transaction.objectStore('config').get('viewPrefs');
+      const viewRatingLogRequest = transaction.objectStore('config').get('viewRatingLog');
 
       const allResult = await new Promise((resolve, reject) => {
         transaction.oncomplete = () => resolve({
           projects: projRequest.result || [],
           palettes: palRequest.result || [],
           keys: keysRequest.result || [],
-          rankState: rankRequest.result || null
+          rankState: rankRequest.result || null,
+          viewPrefs: viewPrefsRequest.result || null,
+          viewRatingLog: viewRatingLogRequest.result || null
         });
         transaction.onerror = () => reject(transaction.error);
       });
@@ -193,7 +201,9 @@ export async function loadAll() {
           meta: allResult.palettes,
           projects: allResult.projects,
           labels: labels,
-          rankState: allResult.rankState
+          rankState: allResult.rankState,
+          viewPrefs: allResult.viewPrefs,
+          viewRatingLog: allResult.viewRatingLog
         };
       }
     } catch (e) {
@@ -218,6 +228,8 @@ export async function loadAll() {
         const configStore = transaction.objectStore('config');
         configStore.put(d.keys || [], 'likedKeys');
         if (d.rankState) configStore.put(d.rankState, 'rankState');
+        if (d.viewPrefs) configStore.put(d.viewPrefs, 'viewPrefs');
+        if (d.viewRatingLog) configStore.put(d.viewRatingLog, 'viewRatingLog');
 
         await new Promise((resolve, reject) => {
           transaction.oncomplete = () => resolve();
@@ -256,6 +268,8 @@ export async function loadAll() {
     // drag-reorder order, so re-sort by the explicit `order` stamp instead.
     state.projects = (loadedData.projects || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     state.labelStore = loadedData.labels || {};
+    state.viewPrefs = loadedData.viewPrefs || {};
+    state.viewRatingLog = loadedData.viewRatingLog || [];
     if (loadedData.rankState && loadedData.rankState.mode === 'done') {
       state.rankMode = 'done';
       state.rankSorted = (loadedData.rankState.sorted || []).map(k => state.likedMeta.find(m => m.key === k)).filter(Boolean);
@@ -300,7 +314,9 @@ export function exportSession() {
     meta: state.likedMeta,
     projects: state.projects,
     labels: state.labelStore,
-    rankState
+    rankState,
+    viewPrefs: state.viewPrefs,
+    viewRatingLog: state.viewRatingLog
   };
   const txt = JSON.stringify(data, null, 2);
   navigator.clipboard.writeText(txt)
@@ -326,6 +342,8 @@ export function doImport() {
       state.likedMeta = d.meta || [];
       state.projects = d.projects || [];
       state.labelStore = d.labels || {};
+      state.viewPrefs = d.viewPrefs || {};
+      state.viewRatingLog = d.viewRatingLog || [];
       if (d.rankState && d.rankState.mode === 'done') {
         state.rankMode = 'done';
         state.rankSorted = (d.rankState.sorted || []).map(k => state.likedMeta.find(m => m.key === k)).filter(Boolean);
