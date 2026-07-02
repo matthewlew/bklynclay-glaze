@@ -375,7 +375,7 @@ export function setTab(tab){
   staticTabs.forEach(t=>{
     const b=document.getElementById('tab_'+t),v=document.getElementById('view_'+t);
     if(b)b.className='ttab'+(t===tab?' on':'');
-    if(v)v.style.display=t===tab?'':'none';
+    if(v){v.style.display=t===tab?'':'none';v.classList.toggle('hidden',t!==tab);}
   });
   document.querySelectorAll('.ttab[data-proj-id]').forEach(b=>b.classList.remove('on'));
   if(tab==='explore'){activeContext='global';updateProjectBanner();renderSavedSection();renderSidebar();}
