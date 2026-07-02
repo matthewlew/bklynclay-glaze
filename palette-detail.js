@@ -1,5 +1,5 @@
 // ── PALETTE DETAIL PAGE ────────────────────────────────────────────────────────
-import { GLAZES } from './glazes-data.js';
+import { GLAZES, CLAY } from './glazes-data.js';
 import { saveAll } from './persistence.js';
 import { glazeCSS } from './render.js';
 
@@ -14,6 +14,7 @@ let _navigating = false;
 let _swipeStartX = null, _swipeStartY = null;
 let _gradMode   = 'linear';
 let _noiseOn    = false;
+let _gradReverse = false;
 
 const MIN_W = 6;
 
@@ -101,18 +102,23 @@ function _radialCss(arr) {
 
 function _conicCss(arr) {
   if (arr.length === 1) return arr[0].hex;
-  const ws = _weights(arr); let deg = 0;
-  const pts = arr.map((s,i) => { const st=deg; deg+=ws[i]*360; return `${s.hex} ${st.toFixed(1)}deg ${deg.toFixed(1)}deg`; });
+  // Match gallery style: hard-edge equal sectors, from 0deg, close loop with first color
+  const ws = _weights(arr); let pct = 0;
+  const pts = arr.map((s,i) => { const p = pct; pct += ws[i] * 100; return `${s.hex} ${p.toFixed(1)}%`; });
+  pts.push(`${arr[0].hex} 100%`);
   const cx = isMobile() ? '50%' : 'calc(50% - 140px)';
-  return `conic-gradient(from -90deg at ${cx} 50%,${pts.join(',')})`;
+  return `conic-gradient(from 0deg at ${cx} 50%,${pts.join(',')})`;
 }
 
 function _stripesCss(arr) {
   if (arr.length === 1) return arr[0].hex;
-  const ws = _weights(arr); let pct = 0;
-  const pts = [];
-  arr.forEach((s,i) => { const st=pct; pct+=ws[i]*100; pts.push(`${s.hex} ${st.toFixed(1)}%`,`${s.hex} ${pct.toFixed(1)}%`); });
-  return `linear-gradient(to bottom,${pts.join(',')})`;
+  // Mirror the gradient: forward 0-50%, backward 50-100% — smooth seam at both ends
+  const ws = _weights(arr);
+  let pct = 0;
+  const fwd = arr.map((s,i) => { const st=pct; pct+=ws[i]*50; return `${s.hex} ${((st+pct)/2).toFixed(1)}%`; });
+  pct = 50;
+  const rev = [...arr].reverse().map((s,i) => { const wi=arr.length-1-i; const st=pct; pct+=ws[wi]*50; return `${s.hex} ${((st+pct)/2).toFixed(1)}%`; });
+  return `linear-gradient(to bottom,${[...fwd,...rev].join(',')})`;
 }
 
 function _turrellSVG(arr) {
@@ -132,42 +138,62 @@ function renderGradBg(arr) {
   const el      = document.getElementById('pdGradient');
   const canvas  = document.getElementById('pdCanvas');
   const noiseEl = document.getElementById('pdNoiseOverlay');
+  const apEl    = document.getElementById('pdConicAperture');
   if (!el) return;
 
-  // Canvas bg = first stop hue so blur edges don't bleed white
   if (canvas && arr.length) canvas.style.backgroundColor = arr[0].hex;
-
-  // Noise overlay always synced regardless of mode
   if (noiseEl) noiseEl.style.opacity = _noiseOn ? '1' : '0';
 
+  // Reset all inline styles set by individual modes
+  el.innerHTML = '';
+  el.style.right = '';
+  el.style.backgroundSize = '';
+  el.style.backgroundRepeat = '';
+
+  // Show/hide external aperture div (sibling of pdGradient, outside blur)
+  if (apEl) {
+    apEl.classList.toggle('hidden', _gradMode !== 'conic');
+    if (_gradMode === 'conic') {
+      apEl.style.background = CLAY[typeof clayKey !== 'undefined' ? clayKey : 'white'];
+      apEl.style.left = isMobile() ? '50%' : 'calc(50% - 140px)';
+    }
+  }
+
   if (_gradMode === 'turrell') {
-    // Soft blur = Josef Albers squares of light, not harsh Albers hard-edge
-    el.style.background = arr.length ? arr[0].hex : 'var(--surf)';
-    el.style.filter     = 'blur(18px) saturate(0.9)';
-    el.style.transform  = 'scale(1.12)';
-    el.innerHTML        = _turrellSVG(arr);
+    const dispArr = _gradReverse ? [...arr].reverse() : arr;
+    // Constrain element to visible canvas area (exclude 280px stops panel) so squares center correctly
+    if (!isMobile()) el.style.right = '280px';
+    el.style.filter    = 'blur(18px) saturate(0.9)';
+    el.style.transform = 'scale(1.08)';
+    el.style.background = dispArr.length ? dispArr[0].hex : 'var(--surf)';
+    el.innerHTML = _turrellSVG(dispArr);
     return;
   }
 
-  el.innerHTML = '';
-
   if (_gradMode === 'conic') {
-    // Less blur for conic so wedge structure reads; centered on visible area
-    el.style.filter    = 'blur(28px) saturate(1.4)';
-    el.style.transform = 'scale(1.18)';
-    el.style.background = _conicCss(arr);
+    const dispArr = _gradReverse ? [...arr].reverse() : arr;
+    // Low blur to preserve the hard-edge wedge structure matching gallery style
+    el.style.filter    = 'blur(3px) saturate(1.2)';
+    el.style.transform = 'scale(1.02)';
+    el.style.background = _conicCss(dispArr);
   } else if (_gradMode === 'radial') {
-    el.style.filter    = 'blur(60px) saturate(1.1)';
-    el.style.transform = 'scale(1.18)';
-    el.style.background = _radialCss(arr);
+    const dispArr = _gradReverse ? [...arr].reverse() : arr;
+    // _radialCss already centers at calc(50% - 140px) to account for the stops panel
+    el.style.filter    = 'blur(20px) saturate(1.1)';
+    el.style.transform = 'scale(1.04)';
+    el.style.background = _radialCss(dispArr);
   } else if (_gradMode === 'stripes') {
-    el.style.filter    = 'blur(2px)';
-    el.style.transform = '';
-    el.style.background = _stripesCss(arr);
+    // Mirrored gradient: forward 0-50%, backward 50-100% — smooth seam at both ends
+    const dispArr = _gradReverse ? [...arr].reverse() : arr;
+    el.style.filter    = 'none';
+    el.style.transform = 'none';
+    el.style.background = _stripesCss(dispArr);
   } else {
-    el.style.filter    = 'blur(60px) saturate(1.1)';
-    el.style.transform = 'scale(1.18)';
-    el.style.background = _linearCss(arr);
+    // Linear — true gradient, no blur so transitions read accurately
+    const dispArr = _gradReverse ? [...arr].reverse() : arr;
+    el.style.filter    = 'none';
+    el.style.transform = 'none';
+    el.style.background = _linearCss(dispArr);
   }
 }
 
@@ -216,6 +242,11 @@ function updateModeBar() {
   });
   const noiseBtn = document.getElementById('pdNoiseBtn');
   if (noiseBtn) noiseBtn.classList.toggle('active', _noiseOn);
+  const flipBtn = document.getElementById('pdFlipBtn');
+  if (flipBtn) {
+    flipBtn.style.display = '';
+    flipBtn.classList.toggle('active', _gradReverse);
+  }
 }
 
 function updatePinBadge() {
@@ -267,7 +298,19 @@ export function pdNext() { _navigate('next'); }
 export function pdPrev() { _navigate('prev'); }
 
 export function setGradMode(mode) {
-  _gradMode = mode;
+  if (mode === _gradMode) {
+    // Re-clicking the active mode toggles the color order
+    _gradReverse = !_gradReverse;
+  } else {
+    _gradMode = mode;
+    _gradReverse = false;
+  }
+  updateModeBar();
+  renderGradBg(_stops);
+}
+
+export function pdToggleReverse() {
+  _gradReverse = !_gradReverse;
   updateModeBar();
   renderGradBg(_stops);
 }
@@ -632,5 +675,5 @@ export function closePaletteDetail() {
     grad.removeEventListener('touchend',   _onSwipeEnd);
   }
   _key = null; _stops = []; _drag = null; _allKeys = []; _keyIdx = -1; _navigating = false;
-  _gradMode = 'linear'; _noiseOn = false;
+  _gradMode = 'linear'; _noiseOn = false; _gradReverse = false;
 }

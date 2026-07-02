@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BklynClay Glaze Studio</title>
 <link rel="manifest" href="./manifest.json">
+<script>
+(function(){
+  var t = localStorage.getItem('bklyn_theme');
+  if (t && t !== 'light') document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -32,7 +38,46 @@
   --drag-bg:#fff8f5;
   --drag-green-bg:#dff0e8;
   --drag-green-outline:#5aaa7a;
+  --red:#e53935;
+  --pin-saved:#e05a78;
+  --pin-saved-border:rgba(224,90,120,.4);
 }
+
+/* ── THEMES ──
+   Each theme overrides only the semantic layer (ink/surf/card/border/acc/etc).
+   Component CSS never references a theme name directly — it only reads these
+   tokens, so a theme is fully defined by its :root[data-theme="x"] block.
+   --clay-w/--clay-r/--warm/--cool/--tone-dark/--tone-light are excluded on
+   purpose: they drive glaze-rendering color math, not app chrome. */
+:root[data-theme="dark"]{
+  --ink:#f0efe9;--ink2:#c7c4bc;--ink3:#8f8c83;
+  --border:#38352f;--border2:#4c4841;
+  --surf:#171512;--card:#211e1a;
+  --acc:#d9622a;
+  --ink-hover:#d8d4cc;--danger:#ff6b6b;--danger-bg:#2a1414;--acc-rgb:217,98,42;
+  --white:#171512;
+  --gray-light:#242220;--gray-mid:#4a4642;
+  --score-hi-text:#5fcf82;--score-mid-text:#e0ac5a;
+  --drag-bg:#241a14;--drag-green-bg:#132a1e;--drag-green-outline:#4a9a6c;
+}
+:root[data-theme="stoneware"]{
+  --ink:#2b2620;--ink2:#5c5346;--ink3:#93897a;
+  --border:#ddd6cb;--border2:#c9c0b0;
+  --surf:#ede8e0;--card:#fbf9f6;
+  --acc:#b84510;
+}
+:root[data-theme="brooklyn"]{
+  --ink:#f3e6e0;--ink2:#d8b8ac;--ink3:#a8776a;
+  --border:#4a2b23;--border2:#5f382d;
+  --surf:#241512;--card:#2e1a16;
+  --acc:#e0693a;
+  --ink-hover:#d8b8ac;--danger:#ff8a6a;--danger-bg:#3a1c16;--acc-rgb:224,105,58;
+  --white:#241512;
+  --gray-light:#33201a;--gray-mid:#5f382d;
+  --score-hi-text:#7fd89e;--score-mid-text:#eab871;
+  --drag-bg:#2e1c14;--drag-green-bg:#1c2e22;--drag-green-outline:#5aaa7a;
+}
+
 html{scroll-behavior:smooth;}
 body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);background:var(--surf);min-height:100vh;display:flex;flex-direction:column;}
 
@@ -83,6 +128,13 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .gv-btn,.td-btn{padding:8px 0;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:var(--font);color:var(--ink3);background:var(--card);transition:background .12s,color .12s;text-align:center;min-height:36px;}
 .gv-btn+.gv-btn,.td-btn+.td-btn{border-left:1.5px solid var(--border);}
 .gv-btn.on,.td-btn.on{background:var(--ink);color:var(--white);}
+
+/* Theme toggle (2x2 — labels are longer than gallery-view's) */
+.theme-toggle{display:grid;grid-template-columns:repeat(2,1fr);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.theme-btn{padding:8px 4px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:var(--font);color:var(--ink3);background:var(--card);transition:background .12s,color .12s;text-align:center;min-height:36px;border-left:1.5px solid var(--border);border-top:1.5px solid var(--border);}
+.theme-btn:nth-child(2n-1){border-left:none;}
+.theme-btn:nth-child(-n+2){border-top:none;}
+.theme-btn.on{background:var(--ink);color:var(--white);}
 
 /* Artist chips */
 .artist-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
@@ -289,7 +341,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .mobile-bar-btn .mbb-icon{font-size:14px;line-height:1;}
 .mobile-bar-btn .mbb-label{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;}
 .mobile-shuffle-fab{display:none;position:fixed;right:16px;bottom:72px;width:56px;height:56px;border-radius:50%;background:var(--ink);color:var(--white);border:none;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28);z-index:210;}
-.mobile-shuffle-fab:active{background:var(--ink-hover,#2a2a2a);}
+.mobile-shuffle-fab:active{background:var(--ink-hover);}
 /* ── BOTTOM SHEET ── */
 .sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:210;display:none;}
 .sheet-backdrop.open{display:block;}
@@ -300,6 +352,9 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .sheet-title{font-size:13px;font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.08em;}
 .sheet-close{background:none;border:none;font-size:14px;cursor:pointer;color:var(--ink3);line-height:1;padding:0 4px;}
 .sheet-body{padding:0 0 56px;}
+.ds-btn{padding:12px;border-radius:var(--r);border:1px solid var(--border);background:var(--surf);color:var(--ink);font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer;min-height:44px;}
+.ds-btn.danger{background:var(--red);border-color:var(--red);color:var(--white);}
+.ds-btn.ds-save{background:var(--ink);border-color:var(--ink);color:var(--white);}
 .sb-board-switcher{display:flex;gap:6px;overflow-x:auto;padding:0 16px 12px;-webkit-overflow-scrolling:touch;}
 .sb-board-switcher:empty{display:none;}
 .sbs-pill{flex-shrink:0;padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--ink2);font-size:12px;font-weight:600;font-family:var(--font);white-space:nowrap;cursor:pointer;min-height:32px;}
@@ -666,7 +721,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 
 /* Pin badge in topbar */
 .pd-pin-badge{font-size:10px;font-weight:700;letter-spacing:.05em;padding:3px 8px;border-radius:var(--r);border:1px solid var(--border);color:var(--ink3);background:transparent;flex-shrink:0;cursor:default;transition:color .15s,border-color .15s;}
-.pd-pin-badge.is-saved{color:#e05a78;border-color:rgba(224,90,120,.4);}
+.pd-pin-badge.is-saved{color:var(--pin-saved);border-color:var(--pin-saved-border);}
 
 /* Resize handle between blocks */
 .pd-resize{position:absolute;left:0;right:0;height:16px;z-index:30;cursor:ns-resize;display:flex;align-items:center;justify-content:center;transform:translateY(-50%);touch-action:none;}
@@ -773,6 +828,9 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   }
   .pd-tile-name{font-size:7px;padding:2px 2px;}
 }
+
+/* Utility — kept last so it wins by source order over component display rules; JS-set inline styles still take precedence. */
+.hidden{display:none;}
 </style>
 </head>
 <body>
@@ -826,13 +884,13 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
         <button class="btn xs" id="scoreSortBtn" onclick="toggleScoreSort()" title="Sort by aesthetic score">★ Score</button>
       </div>
       <!-- Saved palettes section -->
-      <div id="savedSection" style="display:none;">
+      <div id="savedSection" class="hidden">
         <div class="view-section-head">
           <span class="view-section-label" id="savedSectionLabel">Saved</span>
           <span class="view-section-count" id="savedSectionCount"></span>
         </div>
         <!-- Project analytics mini-band -->
-        <div id="projectAnalyticsBand" style="display:none;"></div>
+        <div id="projectAnalyticsBand" class="hidden"></div>
         <div class="gallery" id="savedGallery" role="list"></div>
       </div>
       <!-- Discover section -->
@@ -843,7 +901,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
       <div class="gallery" id="gallery" role="list"></div>
     </div>
     <!-- ANALYTICS (includes ranking) -->
-    <div id="view_analytics" style="display:none;"></div>
+    <div id="view_analytics" class="hidden"></div>
   </main>
 
   <!-- RIGHT SIDEBAR: Controls (clay, artist refs, feel levers, shuffle) -->
@@ -872,6 +930,13 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
         <button class="td-btn" data-n="8" onclick="setTileDivisions(8)">8</button>
         <button class="td-btn" data-n="12" onclick="setTileDivisions(12)">12</button>
         <button class="td-btn" data-n="16" onclick="setTileDivisions(16)">16</button>
+      </div>
+      <div class="plabel" style="margin-top:12px;">Appearance</div>
+      <div class="theme-toggle" id="themeToggle">
+        <button class="theme-btn on" data-theme="light" onclick="setTheme('light')">Light</button>
+        <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')">Dark</button>
+        <button class="theme-btn" data-theme="stoneware" onclick="setTheme('stoneware')">Stoneware</button>
+        <button class="theme-btn" data-theme="brooklyn" onclick="setTheme('brooklyn')">Brooklyn Red</button>
       </div>
     </div>
 
@@ -940,7 +1005,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   </div>
   <div class="ps" data-sec="photo">
     <button class="sb-photo-btn" id="sheetPhotoBtn">🖼 Select photo → extract palette</button>
-    <input type="file" id="mobileImageInput" accept="image/*" style="display:none">
+    <input type="file" id="mobileImageInput" accept="image/*" class="hidden">
   </div>
   <div class="sheet-body" id="sheetControlsBody"></div>
 </div>
@@ -1030,11 +1095,21 @@ import {
   createNewProject, startQuickRate, startRank, rankChoose, rankSkip,
   openVesselModal, setGlazeFilter, clearGlazeSelection, closeCtxMenu,
   switchContext, switchToProjectTab, buildLeversUI, renderTopbarTabs,
-  renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, wireMobileImagePicker, initSectionObserver,
+  renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, wireMobileImagePicker, initSectionObserver, initHorizontalSwipe,
   moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection, setGalleryViewMode, setControlsSection, setTileDivisions,
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer
 } from './render.js?v=7';
-import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise } from './palette-detail.js';
+import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse } from './palette-detail.js';
+
+// ── APPEARANCE ──────────────────────────────────────────────────────────────
+function setTheme(name){
+  if (name === 'light') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', name);
+  localStorage.setItem('bklyn_theme', name);
+  document.querySelectorAll('#themeToggle .theme-btn').forEach(b=>{
+    b.classList.toggle('on', b.dataset.theme === name);
+  });
+}
 
 // ── WINDOW EXPORTS (required for inline onclick= handlers in module scope) ────
 Object.assign(window, {
@@ -1048,7 +1123,10 @@ Object.assign(window, {
     }
   },
   closeImport: () => document.getElementById('importModal')?.classList.remove('open'),
-  
+
+  // Appearance
+  setTheme,
+
   // Tabs & Clay
   setClay, applyPreset, resetLevers, shuffle, setTab,
   openSheet, closeSheet, openShortcutOverlay, closeShortcutOverlay,
@@ -1074,7 +1152,7 @@ Object.assign(window, {
   renderSidebar, renderTopbarTabs, updateCount, showToast, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer, setGalleryViewMode, setControlsSection, setTileDivisions,
 
   // Palette detail page
-  openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise,
+  openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse,
 });
 
 // ── KEYBOARD SHORTCUTS ────────────────────────────────────────────────────────
@@ -1157,6 +1235,7 @@ document.addEventListener('keydown', e => {
 document.addEventListener('scroll', () => closeCtxMenu(), true);
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
+setTheme(localStorage.getItem('bklyn_theme') || 'light');
 loadAll().then(() => {
   buildLeversUI();
   applyPreset('turrell');
@@ -1166,11 +1245,12 @@ loadAll().then(() => {
   wireImageDrop();
   wireMobileImagePicker();
   initSectionObserver();
+  initHorizontalSwipe();
 });
 </script>
 
 <!-- ── PALETTE DETAIL OVERLAY ─────────────────────────────────────────────── -->
-<div id="paletteDetail" class="pd-overlay" style="display:none">
+<div id="paletteDetail" class="pd-overlay hidden">
   <div class="pd-topbar">
     <button class="pd-back" onclick="closePaletteDetail()" title="Back to gallery">←</button>
     <button id="pdPrevBtn" class="pd-nav-btn" onclick="pdPrev()" title="Previous palette">‹</button>
@@ -1183,6 +1263,7 @@ loadAll().then(() => {
   <div class="pd-body">
     <div class="pd-canvas" id="pdCanvas">
       <div class="pd-gradient-bg" id="pdGradient"></div>
+      <div class="conic-aperture hidden" id="pdConicAperture"></div>
       <div id="pdNoiseOverlay"></div>
       <div class="pd-mode-bar">
         <button class="pd-mode-btn active" data-mode="linear"  onclick="setGradMode('linear')">Linear</button>
@@ -1191,6 +1272,7 @@ loadAll().then(() => {
         <button class="pd-mode-btn"        data-mode="turrell" onclick="setGradMode('turrell')">Turrell</button>
         <button class="pd-mode-btn"        data-mode="stripes" onclick="setGradMode('stripes')">Stripes</button>
         <div class="pd-mode-sep"></div>
+        <button class="pd-mode-btn hidden" id="pdFlipBtn" onclick="pdToggleReverse()">Flip</button>
         <button class="pd-mode-btn" id="pdNoiseBtn" onclick="pdToggleNoise()">Grain</button>
       </div>
       <div class="pd-footer">
@@ -1213,7 +1295,7 @@ loadAll().then(() => {
     </div>
   </div>
 </div>
-<div id="pdGhost" style="display:none"><div id="pdGhostLabel"></div></div>
+<div id="pdGhost" class="hidden"><div id="pdGhostLabel"></div></div>
 
 <script>
 if ('serviceWorker' in navigator) {
