@@ -53,8 +53,21 @@ New module `flow-view.js`, following the existing module pattern (`palette-detai
 - **DOM windowing:** keep ~15 card nodes in the DOM (recycle far-offscreen cards),
   repositioning via spacer heights so native scroll offsets stay correct. `flowHistory`
   itself is unbounded for the session.
-- **Card overlay UI:** glaze names (small, bottom-left) fade out while scroll velocity
-  is high, fade back in at rest.
+- **Card overlay UI:** glaze names (small, bottom-left), each with a round swatch
+  dot — names alone are not enough to identify a glaze (design-shotgun feedback).
+  The overlay fades out while scroll velocity is high, fades back in at rest.
+
+### Approved visual chrome (design-shotgun 2026-07-04, variant B3)
+
+- **Full-bleed gradient** — edge to edge, no inset card, no chrome margins.
+- **Top center:** frosted pill with the style name in letterspaced caps
+  (e.g. RADIAL), with the 5 style-position dots directly beneath it (current style
+  highlighted) so the dots visibly index the pill.
+- **Top right:** small frosted circular ✕.
+- **Save pulse:** white ✦ spark with an expanding ring, centered (double-tap
+  confirmation).
+- **Conic style keeps the hollow aperture circle** (`.conic-aperture`), matching
+  the existing gallery/detail treatment.
 
 ### Horizontal gesture (style switch)
 
@@ -70,18 +83,31 @@ New module `flow-view.js`, following the existing module pattern (`palette-detai
   view's turrell SVG rendering; stripes reuses the stripes pattern from the detail
   view. Shared logic is extracted/exported rather than duplicated.
 
-### Tap → edit mode
+### Tap → edit mode (stop handles on the gradient)
+
+Approved via design-shotgun 2026-07-04 (variant B3, "Darkroom HUD + stop handles";
+mockups in `~/.gstack/projects/bklynclay-glaze/designs/flow-mode-20260704/`). There
+is no edit panel — the gradient itself becomes the editor.
 
 - Single tap (after a ~250ms double-tap disambiguation window) freezes the feed
-  (scroll locked) and slides up an edit panel over the current card.
-- Panel shows one row/block per glaze: color swatch, glaze name, hex.
-- **Reorder:** drag blocks to reorder layers; the background gradient updates live.
-- **Replace:** tap a block to open a glaze picker (searchable list from the glaze
-  library, honoring the artist filter); selecting swaps that glaze in place.
+  (scroll locked) and reveals **stop handles directly on the gradient**:
+  - A hairline dashed **axis** drawn along the gradient's geometry: top→bottom for
+    linear, center→edge for radial/turrell, an arc around the center for conic,
+    across the bands for stripes.
+  - One **handle per glaze**: a circular swatch filled with the glaze color, white
+    ring + shadow, positioned at its actual stop position on the axis, with a
+    frosted label chip beside it showing glaze name + stop percentage.
+- **Move / reorder:** drag a handle along the axis to move that color region (stop
+  position); drag past a neighboring handle to swap layer order. Gradient updates
+  live. The active handle gets a Figma-style treatment: enlarged, accent-colored
+  selection ring and label, ⇅ arrows, and a dashed ghost circle marking its origin.
+- **Replace:** tap a handle's label chip to open a glaze picker (searchable list
+  from the glaze library, honoring the artist filter); selecting swaps that glaze
+  in place.
 - Edits mutate the palette in `flowHistory`, so the edited version is what gets saved
   and what you see if you scroll back to it.
-- **Exit:** a deliberate downward swipe/scroll on the panel, an ✕ button, or `Esc`
-  dismisses edit mode back to the feed.
+- **Exit:** a deliberate downward swipe/scroll, an ✕ button, or `Esc` dismisses
+  edit mode back to the feed.
 
 ### Save gestures
 
@@ -125,9 +151,11 @@ New module `flow-view.js`, following the existing module pattern (`palette-detai
   palettes (history restore).
 - Style cycling via keyboard updates card backgrounds and shows the pill; wraps
   around the mode list.
-- Single tap opens edit mode; panel lists the card's glazes with names/hex;
-  swipe-down/Esc exits.
-- Reorder in edit mode changes gradient stop order; replace swaps a glaze.
+- Single tap opens edit mode; stop handles appear on the gradient, one per glaze,
+  with name + percentage labels; swipe-down/Esc exits.
+- Dragging a handle along the axis moves its stop position; dragging past a
+  neighbor swaps layer order; tapping a label opens the replace picker and
+  selecting swaps the glaze.
 - Double-tap saves: palette appears in `likedMeta` / saved section after closing.
 - Hold-menu: appears after hold, release-on-item triggers action, release-outside
   cancels.
