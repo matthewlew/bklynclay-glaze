@@ -90,3 +90,39 @@ export function offAxisDistance(mode, x, y, w, h) {
 export function windowRange(idx, total, span = 7) {
   return { start: Math.max(0, idx - span), end: Math.min(total - 1, idx + span) };
 }
+
+// ── GRADIENT CSS ──────────────────────────────────────────────────────────────
+// Positioned-stop equivalents of view-rating.js's equal-stop cssForMode().
+// Returns {background, backgroundImage?, backgroundSize?} style fields.
+const pct = (v) => `${(v * 100).toFixed(1)}%`;
+const stopList = (stops) => stops.map(s => `${s.hex} ${pct(s.pos)}`).join(',');
+
+export function flowGradientCSS(mode, stops, clayHex) {
+  if (!stops || !stops.length) return { background: clayHex || '#ccc' };
+  if (stops.length === 1) return { background: stops[0].hex };
+  if (mode === 'radial')
+    return { background: `radial-gradient(circle at 50% 42%,${stopList(stops)})` };
+  if (mode === 'conic') {
+    const parts = stops.map(s => `${s.hex} ${pct(s.pos)}`);
+    parts.push(`${stops[0].hex} 100%`);
+    return { background: `conic-gradient(from 0deg at 50% 42%,${parts.join(',')})` };
+  }
+  if (mode === 'stripes') {
+    const fwd = stops.map(s => `${s.hex} ${(s.pos * 50).toFixed(1)}%`);
+    const rev = [...stops].reverse().map(s => `${s.hex} ${(50 + (1 - s.pos) * 50).toFixed(1)}%`);
+    return { background: `linear-gradient(to bottom,${[...fwd, ...rev].join(',')})` };
+  }
+  if (mode === 'turrell') {
+    const rects = stops.map(s => {
+      const m = s.pos * 45;
+      return `<rect x='${m.toFixed(2)}%' y='${m.toFixed(2)}%' width='${(100 - 2 * m).toFixed(2)}%' height='${(100 - 2 * m).toFixed(2)}%' fill='${s.hex}'/>`;
+    }).join('');
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'>${rects}</svg>`;
+    return {
+      background: stops[0].hex,
+      backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
+      backgroundSize: 'cover',
+    };
+  }
+  return { background: `linear-gradient(to bottom,${stopList(stops)})` };
+}

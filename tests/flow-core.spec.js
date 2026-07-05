@@ -3,6 +3,7 @@ import {
   equalStops, moveStop, insertStop, removeStop, replaceStopHex, midpoints,
   FLOW_MIN_STOPS, FLOW_MAX_STOPS,
   axisPoint, axisPos, offAxisDistance, conicRingRadius, windowRange,
+  flowGradientCSS,
 } from '../flow-core.js';
 
 test.describe('flow-core stop operations', () => {
@@ -106,5 +107,46 @@ test.describe('flow-core axis geometry', () => {
     expect(windowRange(50, 100)).toEqual({ start: 43, end: 57 });
     expect(windowRange(99, 100)).toEqual({ start: 92, end: 99 });
     expect(windowRange(2, 4, 7)).toEqual({ start: 0, end: 3 });
+  });
+});
+
+test.describe('flowGradientCSS', () => {
+  const stops = [
+    { hex: '#2850A8', pos: 0 },
+    { hex: '#90B8D0', pos: 0.34 },
+    { hex: '#705848', pos: 1 },
+  ];
+
+  test('linear uses positioned stops top→bottom', () => {
+    expect(flowGradientCSS('linear', stops, '#E2DDD6').background)
+      .toBe('linear-gradient(to bottom,#2850A8 0.0%,#90B8D0 34.0%,#705848 100.0%)');
+  });
+
+  test('radial centers at 50% 42%', () => {
+    expect(flowGradientCSS('radial', stops, '#E2DDD6').background)
+      .toBe('radial-gradient(circle at 50% 42%,#2850A8 0.0%,#90B8D0 34.0%,#705848 100.0%)');
+  });
+
+  test('conic wraps back to the first color at 100%', () => {
+    expect(flowGradientCSS('conic', stops, '#E2DDD6').background)
+      .toBe('conic-gradient(from 0deg at 50% 42%,#2850A8 0.0%,#90B8D0 34.0%,#705848 100.0%,#2850A8 100%)');
+  });
+
+  test('stripes mirrors positioned stops around 50%', () => {
+    const css = flowGradientCSS('stripes', stops, '#E2DDD6').background;
+    expect(css).toContain('#90B8D0 17.0%');  // fwd: pos*50
+    expect(css).toContain('#90B8D0 83.0%');  // rev: 50+(1-pos)*50
+  });
+
+  test('turrell emits concentric-rect SVG data URI with pos-scaled margins', () => {
+    const r = flowGradientCSS('turrell', stops, '#E2DDD6');
+    expect(r.background).toBe('#2850A8');
+    expect(r.backgroundSize).toBe('cover');
+    expect(decodeURIComponent(r.backgroundImage)).toContain("x='15.30%'"); // 0.34*45
+  });
+
+  test('degenerate inputs fall back safely', () => {
+    expect(flowGradientCSS('linear', [], '#E2DDD6').background).toBe('#E2DDD6');
+    expect(flowGradientCSS('linear', [{ hex: '#111', pos: 0.5 }], '#E2DDD6').background).toBe('#111');
   });
 });
