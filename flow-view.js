@@ -38,6 +38,9 @@ export function openFlow() {
   feed.scrollTop = 0;
   feed.addEventListener('scroll', _onScroll, { passive: true });
   document.addEventListener('keydown', _onKey, true);
+  feed.addEventListener('wheel', _onWheel, { passive: false });
+  feed.addEventListener('touchstart', _onTouchStart, { passive: true });
+  feed.addEventListener('touchend', _onTouchEnd, { passive: true });
 }
 
 export function closeFlow() {
@@ -47,11 +50,51 @@ export function closeFlow() {
   $('flowView').hidden = true;
   $('flowFeed').removeEventListener('scroll', _onScroll);
   document.removeEventListener('keydown', _onKey, true);
+  $('flowFeed').removeEventListener('wheel', _onWheel);
+  $('flowFeed').removeEventListener('touchstart', _onTouchStart);
+  $('flowFeed').removeEventListener('touchend', _onTouchEnd);
 }
 
 function _onKey(e) {
   if (!_open) return;
   if (e.key === 'Escape') { e.stopPropagation(); closeFlow(); }
+  if (_editing) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); _cycleStyle(1); }
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); _cycleStyle(-1); }
+}
+
+function _cycleStyle(dir) {
+  _styleIdx = (_styleIdx + dir + VIEW_MODES.length) % VIEW_MODES.length;
+  _renderStyleName();
+  _renderDots();
+  for (const [i, el] of _mounted) _applyCardStyle(el, flowHistory[i]);
+  const pill = $('flowStyleName');
+  pill.classList.remove('flash');
+  void pill.offsetWidth;             // restart the transition
+  pill.classList.add('flash');
+  setTimeout(() => pill.classList.remove('flash'), 300);
+}
+
+let _wheelAccum = 0, _wheelT = 0;
+function _onWheel(e) {
+  if (_editing) return;
+  const dx = e.shiftKey ? e.deltaY : e.deltaX;
+  if (Math.abs(dx) <= Math.abs(e.deltaY) && !e.shiftKey) return; // vertical = feed scroll
+  e.preventDefault();
+  const now = performance.now();
+  if (now - _wheelT > 400) _wheelAccum = 0;
+  _wheelT = now;
+  _wheelAccum += dx;
+  if (Math.abs(_wheelAccum) > 60) { _cycleStyle(_wheelAccum > 0 ? 1 : -1); _wheelAccum = 0; }
+}
+
+let _tsX = 0, _tsY = 0;
+function _onTouchStart(e) { _tsX = e.touches[0].clientX; _tsY = e.touches[0].clientY; }
+function _onTouchEnd(e) {
+  if (_editing) return;
+  const dx = e.changedTouches[0].clientX - _tsX;
+  const dy = e.changedTouches[0].clientY - _tsY;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) _cycleStyle(dx < 0 ? 1 : -1);
 }
 
 function _renderStyleName() {
@@ -96,9 +139,11 @@ let _mounted = new Map();  // feed index -> card element
 
 function _applyCardStyle(el, p) {
   const css = flowGradientCSS(_mode(), _ensureStops(p), CLAY[clayKey]);
-  el.style.background = css.background;
   el.style.backgroundImage = css.backgroundImage || '';
   el.style.backgroundSize = css.backgroundSize || '';
+  el.style.background = css.background;
+  if (css.backgroundImage) el.style.backgroundImage = css.backgroundImage;
+  if (css.backgroundSize) el.style.backgroundSize = css.backgroundSize;
   let ap = el.querySelector('.conic-aperture');
   if (_mode() === 'conic') {
     if (!ap) { ap = document.createElement('div'); ap.className = 'conic-aperture'; el.appendChild(ap); }

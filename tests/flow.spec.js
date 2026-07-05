@@ -68,3 +68,29 @@ test.describe('Flow feed', () => {
     await expect(rows.first().locator('i')).toHaveCount(1);
   });
 });
+
+test.describe('Flow style switching', () => {
+  test('ArrowRight/ArrowLeft cycle styles, update pill + dots, wrap around', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
+    await page.locator('#flowBtn').click();
+    await expect(page.locator('#flowStyleName')).toHaveText('LINEAR');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#flowStyleName')).toHaveText('RADIAL');
+    const bg = await page.locator('.flow-card[data-idx="0"]').evaluate(el => el.style.background);
+    expect(bg).toContain('radial-gradient');
+    // conic gets the aperture
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#flowStyleName')).toHaveText('CONIC');
+    await expect(page.locator('.flow-card[data-idx="0"] .conic-aperture')).toBeAttached();
+    // wrap: two more rights = TURRELL, one more = LINEAR again
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#flowStyleName')).toHaveText('TURRELL');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#flowStyleName')).toHaveText('LINEAR');
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('#flowStyleName')).toHaveText('TURRELL');
+    await expect(page.locator('#flowDots span.on')).toHaveCount(1);
+  });
+});
