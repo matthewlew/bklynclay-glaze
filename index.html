@@ -868,6 +868,43 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 
 /* Utility — kept last so it wins by source order over component display rules; JS-set inline styles still take precedence. */
 .hidden{display:none;}
+
+/* ── FLOW MODE ─────────────────────────────────────────────────────────── */
+:root{
+  --flow-chrome:rgba(20,20,20,.35);      /* frosted chrome on gradients */
+  --flow-chrome-strong:rgba(20,20,20,.55);
+  --flow-text:rgba(255,255,255,.9);
+  --flow-text-dim:rgba(255,255,255,.55);
+  --flow-axis:rgba(255,255,255,.5);
+  --flow-handle-ring:#fff;
+  --flow-active:rgba(24,110,240,.85);    /* Figma-style active handle */
+}
+.flow-view{position:fixed;inset:0;z-index:300;background:var(--ink);}
+.flow-view[hidden]{display:none;}
+.flow-top{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:0;right:0;
+  display:flex;flex-direction:column;align-items:center;gap:8px;z-index:4;pointer-events:none;}
+.flow-pill{background:var(--flow-chrome);backdrop-filter:blur(14px);color:var(--flow-text);
+  font-size:10px;letter-spacing:.26em;padding:7px 16px 6px 18px;border-radius:999px;
+  transition:transform .15s;}
+.flow-pill.flash{transform:scale(1.12);}
+.flow-dots{display:flex;gap:7px;}
+.flow-dots span{width:5px;height:5px;border-radius:50%;background:var(--flow-text-dim);transition:transform .15s;}
+.flow-dots span.on{background:var(--white);transform:scale(1.4);}
+.flow-x{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:16px;z-index:5;
+  width:32px;height:32px;border-radius:50%;border:0;cursor:pointer;
+  background:var(--flow-chrome);backdrop-filter:blur(14px);color:var(--flow-text);font-size:13px;}
+.flow-feed{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;
+  scroll-snap-type:y mandatory;scrollbar-width:none;}
+.flow-feed::-webkit-scrollbar{display:none;}
+.flow-card{height:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;}
+.flow-card .conic-aperture{top:42%;}
+.flow-names{position:absolute;left:20px;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);
+  color:var(--white);transition:opacity .25s;z-index:2;}
+.flow-names.fast{opacity:0;}
+.flow-name-row{display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.7;
+  text-shadow:0 1px 8px var(--flow-chrome);}
+.flow-name-row i{width:11px;height:11px;border-radius:50%;flex:none;
+  box-shadow:0 0 0 1px var(--flow-text-dim);}
 </style>
 </head>
 <body>
@@ -961,6 +998,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
         <button class="gv-btn" data-mode="radial" onclick="setGalleryViewMode('radial')">Radial</button>
         <button class="gv-btn" data-mode="conic" onclick="setGalleryViewMode('conic')">Conic</button>
       </div>
+      <button class="btn" id="flowBtn" onclick="openFlow()" title="Flow — rapid gradient scroll">Flow ✦</button>
       <div class="plabel gv-desktop-only" id="tileDivisionLabel" style="margin-top:12px;">Tile Divisions</div>
       <div class="gallery-view-toggle gv-desktop-only" id="tileDivisionToggle">
         <button class="td-btn on" data-n="4" onclick="setTileDivisions(4)">4</button>
@@ -1156,6 +1194,7 @@ import {
   closeCompositionModal
 } from './render.js?v=8';
 import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail } from './palette-detail.js';
+import { openFlow, closeFlow } from './flow-view.js';
 
 // ── APPEARANCE ──────────────────────────────────────────────────────────────
 function setTheme(name){
@@ -1214,6 +1253,9 @@ Object.assign(window, {
 
   // Palette detail page
   openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail,
+
+  // Flow mode
+  openFlow, closeFlow,
 });
 
 // ── KEYBOARD SHORTCUTS ────────────────────────────────────────────────────────
@@ -1361,6 +1403,19 @@ loadAll().then(() => {
   </div>
 </div>
 <div id="pdGhost" class="hidden"><div id="pdGhostLabel"></div></div>
+
+<!-- ── FLOW MODE OVERLAY ─────────────────────────────────────────────── -->
+<div id="flowView" class="flow-view" hidden>
+  <div class="flow-feed" id="flowFeed">
+    <div id="flowSpacerTop"></div>
+    <div id="flowSpacerBottom"></div>
+  </div>
+  <div class="flow-top">
+    <div class="flow-pill" id="flowStyleName">LINEAR</div>
+    <div class="flow-dots" id="flowDots"></div>
+  </div>
+  <button class="flow-x" id="flowClose" aria-label="Close Flow" onclick="closeFlow()">✕</button>
+</div>
 
 <script>
 if ('serviceWorker' in navigator) {
