@@ -92,18 +92,28 @@ is no edit panel — the gradient itself becomes the editor.
 - Single tap (after a ~250ms double-tap disambiguation window) freezes the feed
   (scroll locked) and reveals **stop handles directly on the gradient**:
   - A hairline dashed **axis** drawn along the gradient's geometry: top→bottom for
-    linear, center→edge for radial/turrell, an arc around the center for conic,
-    across the bands for stripes.
+    linear and stripes, center→edge for radial/turrell, and for conic a **dashed
+    ring** around the center drawn just outside the aperture circle (a conic stop
+    is an angle, so the ring is the axis; 0% at top, clockwise).
   - One **handle per glaze**: a circular swatch filled with the glaze color, white
     ring + shadow, positioned at its actual stop position on the axis, with a
-    frosted label chip beside it showing glaze name + stop percentage.
+    frosted label chip beside it showing glaze name + stop percentage. Labels point
+    away from the axis (outward from the ring on conic) and **auto-flip to the
+    inward side when a handle is near a screen edge** so they never clip.
 - **Move / reorder:** drag a handle along the axis to move that color region (stop
   position); drag past a neighboring handle to swap layer order. Gradient updates
   live. The active handle gets a Figma-style treatment: enlarged, accent-colored
   selection ring and label, ⇅ arrows, and a dashed ghost circle marking its origin.
-- **Replace:** tap a handle's label chip to open a glaze picker (searchable list
-  from the glaze library, honoring the artist filter); selecting swaps that glaze
-  in place.
+- **Replace:** tap a handle (or its label chip) to open a glaze picker (searchable
+  list from the glaze library, honoring the artist filter); selecting swaps that
+  glaze in place.
+- **Add:** ghost **"+" handles** appear at the midpoints between adjacent stops on
+  the axis (Figma-insert style). Tapping one opens the same glaze picker and
+  inserts the chosen glaze as a new stop at that position. Max palette size 6
+  (matching `doRiff`'s ceiling).
+- **Remove:** drag a handle off the axis (radially off the conic ring, sideways off
+  a linear axis) past a slop threshold and release — the stop is removed, gradient
+  reflows. Minimum 2 glazes enforced; at 2, drag-off snaps back.
 - Edits mutate the palette in `flowHistory`, so the edited version is what gets saved
   and what you see if you scroll back to it.
 - **Exit:** a deliberate downward swipe/scroll, an ✕ button, or `Esc` dismisses
