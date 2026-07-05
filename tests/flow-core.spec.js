@@ -90,6 +90,16 @@ test.describe('flow-core axis geometry', () => {
     }
   });
 
+  test('turrell axis centers at 50% and inverts through axisPos', () => {
+    const W = 390, H = 844;
+    const p = axisPoint('turrell', 0, W, H);
+    expect(p.y).toBeCloseTo(H * 0.5, 5);
+    for (const t of [0.1, 0.5, 0.9]) {
+      const q = axisPoint('turrell', t, W, H);
+      expect(axisPos('turrell', q.x, q.y, W, H)).toBeCloseTo(t, 3);
+    }
+  });
+
   test('axisPos clamps to 0..1 on line modes', () => {
     expect(axisPos('linear', W / 2, -500, W, H)).toBe(0);
     expect(axisPos('linear', W / 2, 5000, W, H)).toBe(1);

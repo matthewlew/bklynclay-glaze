@@ -47,10 +47,11 @@ export function midpoints(stops) {
 }
 
 // ── AXIS GEOMETRY ─────────────────────────────────────────────────────────────
-// The radial/conic/turrell gradient center used by flowGradientCSS is (50%, 42%).
-const CX = 0.5, CY = 0.42;
+// The radial/conic gradient center used by flowGradientCSS is (50%, 42%);
+// turrell squares center at (50%, 50%) instead — see Task 7 plan notes.
+const CX = 0.5, CY = 0.42, CY_TURRELL = 0.5;
 // Vertical inset for the linear/stripes axis so handles clear the top pill and
-// bottom hint; radial axis stops 70px short of the bottom edge.
+// bottom hint; radial/turrell axis stops 70px short of the bottom edge.
 const LINEAR_TOP = 120, LINEAR_BOT = 120, RADIAL_BOT = 70;
 
 export function conicRingRadius(w, h) { return Math.min(w, h) * 0.33; }
@@ -60,7 +61,11 @@ export function axisPoint(mode, t, w, h) {
     const r = conicRingRadius(w, h), a = t * 2 * Math.PI; // 0 = top, clockwise
     return { x: w * CX + r * Math.sin(a), y: h * CY - r * Math.cos(a) };
   }
-  if (mode === 'radial' || mode === 'turrell') {
+  if (mode === 'turrell') {
+    const y0 = h * CY_TURRELL;
+    return { x: w * CX, y: y0 + t * Math.max(1, h - y0 - RADIAL_BOT) };
+  }
+  if (mode === 'radial') {
     const y0 = h * CY;
     return { x: w * CX, y: y0 + t * Math.max(1, h - y0 - RADIAL_BOT) };
   }
@@ -72,7 +77,11 @@ export function axisPos(mode, x, y, w, h) {
     const a = Math.atan2(x - w * CX, -(y - h * CY));
     return (a / (2 * Math.PI) + 1) % 1;
   }
-  if (mode === 'radial' || mode === 'turrell') {
+  if (mode === 'turrell') {
+    const y0 = h * CY_TURRELL;
+    return Math.min(1, Math.max(0, (y - y0) / Math.max(1, h - y0 - RADIAL_BOT)));
+  }
+  if (mode === 'radial') {
     const y0 = h * CY;
     return Math.min(1, Math.max(0, (y - y0) / Math.max(1, h - y0 - RADIAL_BOT)));
   }
