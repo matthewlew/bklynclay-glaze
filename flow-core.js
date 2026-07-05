@@ -10,6 +10,7 @@ export const FLOW_MAX_STOPS = 6;
 const clamp01 = v => Math.min(1, Math.max(0, v));
 
 export function equalStops(hexes) {
+  if (!hexes.length) return [];
   const n = hexes.length;
   if (n === 1) return [{ hex: hexes[0], pos: 0.5 }];
   return hexes.map((hex, i) => ({ hex, pos: i / (n - 1) }));
@@ -61,9 +62,9 @@ export function axisPoint(mode, t, w, h) {
   }
   if (mode === 'radial' || mode === 'turrell') {
     const y0 = h * CY;
-    return { x: w * CX, y: y0 + t * (h - y0 - RADIAL_BOT) };
+    return { x: w * CX, y: y0 + t * Math.max(1, h - y0 - RADIAL_BOT) };
   }
-  return { x: w * CX, y: LINEAR_TOP + t * (h - LINEAR_TOP - LINEAR_BOT) };
+  return { x: w * CX, y: LINEAR_TOP + t * Math.max(1, h - LINEAR_TOP - LINEAR_BOT) };
 }
 
 export function axisPos(mode, x, y, w, h) {
@@ -73,9 +74,9 @@ export function axisPos(mode, x, y, w, h) {
   }
   if (mode === 'radial' || mode === 'turrell') {
     const y0 = h * CY;
-    return Math.min(1, Math.max(0, (y - y0) / (h - y0 - RADIAL_BOT)));
+    return Math.min(1, Math.max(0, (y - y0) / Math.max(1, h - y0 - RADIAL_BOT)));
   }
-  return Math.min(1, Math.max(0, (y - LINEAR_TOP) / (h - LINEAR_TOP - LINEAR_BOT)));
+  return Math.min(1, Math.max(0, (y - LINEAR_TOP) / Math.max(1, h - LINEAR_TOP - LINEAR_BOT)));
 }
 
 export function offAxisDistance(mode, x, y, w, h) {

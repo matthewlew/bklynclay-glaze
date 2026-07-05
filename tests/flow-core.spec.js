@@ -108,6 +108,21 @@ test.describe('flow-core axis geometry', () => {
     expect(windowRange(99, 100)).toEqual({ start: 92, end: 99 });
     expect(windowRange(2, 4, 7)).toEqual({ start: 0, end: 3 });
   });
+
+  test('axisPos never returns NaN on degenerate viewports', () => {
+    for (const h of [0, 70, 240]) {
+      for (const mode of ['linear', 'radial']) {
+        const t = axisPos(mode, 100, 50, 200, h);
+        expect(Number.isNaN(t)).toBe(false);
+        expect(t).toBeGreaterThanOrEqual(0);
+        expect(t).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  test('equalStops returns [] for empty input', () => {
+    expect(equalStops([])).toEqual([]);
+  });
 });
 
 test.describe('flowGradientCSS', () => {
