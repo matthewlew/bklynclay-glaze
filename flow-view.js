@@ -12,6 +12,7 @@ import {
 } from './render.js';
 import {
   equalStops, windowRange, flowGradientCSS,
+  axisPoint, midpoints, conicRingRadius, FLOW_MAX_STOPS,
 } from './flow-core.js';
 
 let _open = false;
@@ -41,6 +42,7 @@ export function openFlow() {
   feed.addEventListener('wheel', _onWheel, { passive: false });
   feed.addEventListener('touchstart', _onTouchStart, { passive: true });
   feed.addEventListener('touchend', _onTouchEnd, { passive: true });
+  feed.addEventListener('pointerup', _onPointerUp);
 }
 
 export function closeFlow() {
@@ -53,16 +55,18 @@ export function closeFlow() {
   $('flowFeed').removeEventListener('wheel', _onWheel);
   $('flowFeed').removeEventListener('touchstart', _onTouchStart);
   $('flowFeed').removeEventListener('touchend', _onTouchEnd);
+  $('flowFeed').removeEventListener('pointerup', _onPointerUp);
 }
 
 function _onKey(e) {
   if (!_open) return;
-  if (e.key === 'Escape') { e.stopPropagation(); closeFlow(); }
+  if (e.key === 'Escape') { e.stopPropagation(); _editing ? _exitEdit() : closeFlow(); return; }
   if (_editing) return;
   if (e.key === 'ArrowRight') { e.preventDefault(); _cycleStyle(1); }
   if (e.key === 'ArrowLeft')  { e.preventDefault(); _cycleStyle(-1); }
 }
 
+let _flashT = null;
 function _cycleStyle(dir) {
   _styleIdx = (_styleIdx + dir + VIEW_MODES.length) % VIEW_MODES.length;
   _renderStyleName();
@@ -72,7 +76,8 @@ function _cycleStyle(dir) {
   pill.classList.remove('flash');
   void pill.offsetWidth;             // restart the transition
   pill.classList.add('flash');
-  setTimeout(() => pill.classList.remove('flash'), 300);
+  clearTimeout(_flashT);
+  _flashT = setTimeout(() => pill.classList.remove('flash'), 300);
 }
 
 let _wheelAccum = 0, _wheelT = 0;
