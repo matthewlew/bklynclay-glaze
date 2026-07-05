@@ -44,3 +44,49 @@ export function midpoints(stops) {
   for (let i = 0; i < stops.length - 1; i++) out.push((stops[i].pos + stops[i + 1].pos) / 2);
   return out;
 }
+
+// ── AXIS GEOMETRY ─────────────────────────────────────────────────────────────
+// The radial/conic/turrell gradient center used by flowGradientCSS is (50%, 42%).
+const CX = 0.5, CY = 0.42;
+// Vertical inset for the linear/stripes axis so handles clear the top pill and
+// bottom hint; radial axis stops 70px short of the bottom edge.
+const LINEAR_TOP = 120, LINEAR_BOT = 120, RADIAL_BOT = 70;
+
+export function conicRingRadius(w, h) { return Math.min(w, h) * 0.33; }
+
+export function axisPoint(mode, t, w, h) {
+  if (mode === 'conic') {
+    const r = conicRingRadius(w, h), a = t * 2 * Math.PI; // 0 = top, clockwise
+    return { x: w * CX + r * Math.sin(a), y: h * CY - r * Math.cos(a) };
+  }
+  if (mode === 'radial' || mode === 'turrell') {
+    const y0 = h * CY;
+    return { x: w * CX, y: y0 + t * (h - y0 - RADIAL_BOT) };
+  }
+  return { x: w * CX, y: LINEAR_TOP + t * (h - LINEAR_TOP - LINEAR_BOT) };
+}
+
+export function axisPos(mode, x, y, w, h) {
+  if (mode === 'conic') {
+    const a = Math.atan2(x - w * CX, -(y - h * CY));
+    return (a / (2 * Math.PI) + 1) % 1;
+  }
+  if (mode === 'radial' || mode === 'turrell') {
+    const y0 = h * CY;
+    return Math.min(1, Math.max(0, (y - y0) / (h - y0 - RADIAL_BOT)));
+  }
+  return Math.min(1, Math.max(0, (y - LINEAR_TOP) / (h - LINEAR_TOP - LINEAR_BOT)));
+}
+
+export function offAxisDistance(mode, x, y, w, h) {
+  if (mode === 'conic') {
+    const dx = x - w * CX, dy = y - h * CY;
+    return Math.abs(Math.hypot(dx, dy) - conicRingRadius(w, h));
+  }
+  return Math.abs(x - w * CX);
+}
+
+// DOM windowing: which feed indices stay mounted around idx.
+export function windowRange(idx, total, span = 7) {
+  return { start: Math.max(0, idx - span), end: Math.min(total - 1, idx + span) };
+}
