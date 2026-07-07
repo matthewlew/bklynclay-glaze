@@ -220,3 +220,124 @@ function _onIndexChange() {
   while (flowHistory.length < _idx + 6) flowHistory.push(_newPalette());
   _renderWindow();
 }
+
+// ── EDIT MODE ─────────────────────────────────────────────────────────────────
+let _tapTimer = null, _lastTapT = 0;
+function _onPointerUp(e) {
+  console.log('DEBUG onPointerUp', { editing: _editing, target: e.target.className });
+  if (_editing) return;
+  if (e.target.closest('.flow-x')) return;
+  const now = performance.now();
+  if (now - _lastTapT < 300) {           // double tap → save (Task 9)
+    clearTimeout(_tapTimer); _lastTapT = 0;
+    _saveCurrent();
+    return;
+  }
+  _lastTapT = now;
+  console.log('DEBUG scheduling enterEdit');
+  _tapTimer = setTimeout(() => { console.log('DEBUG firing enterEdit'); _enterEdit(); }, 250);
+}
+
+function _current() { return flowHistory[_idx]; }
+
+function _enterEdit() {
+  if (_editing || !_open) return;
+  _editing = true;
+  $('flowFeed').style.overflow = 'hidden';
+  $('flowEditLayer').hidden = false;
+  _renderEdit();
+}
+
+function _exitEdit() {
+  if (!_editing) return;
+  _editing = false;
+  $('flowFeed').style.overflow = '';
+  const layer = $('flowEditLayer');
+  layer.hidden = true;
+  layer.innerHTML = '';
+}
+
+// Turrell renders stop pos=0 as the OUTERMOST square, so its handle must sit
+// at the screen edge (t=1 on the center→edge axis): display t = 1 - pos.
+const _dispT = (pos) => _mode() === 'turrell' ? 1 - pos : pos;
+
+function _renderEdit() {
+  const layer = $('flowEditLayer');
+  layer.innerHTML = '';
+  const w = layer.clientWidth, h = layer.clientHeight;
+  const mode = _mode();
+  const stops = _ensureStops(_current());
+
+  // axis
+  if (mode === 'conic') {
+    const r = conicRingRadius(w, h);
+    const ring = document.createElement('div');
+    ring.className = 'flow-axis-ring';
+    Object.assign(ring.style, {
+      left: (w * 0.5 - r) + 'px', top: (h * 0.42 - r) + 'px',
+      width: (2 * r) + 'px', height: (2 * r) + 'px',
+    });
+    layer.appendChild(ring);
+  } else {
+    const a0 = axisPoint(mode, 0, w, h), a1 = axisPoint(mode, 1, w, h);
+    const line = document.createElement('div');
+    line.className = 'flow-axis-line';
+    Object.assign(line.style, { left: a0.x + 'px', top: a0.y + 'px', height: (a1.y - a0.y) + 'px' });
+    layer.appendChild(line);
+  }
+
+  // handles + labels
+  stops.forEach((s, i) => {
+    const pt = axisPoint(mode, _dispT(s.pos), w, h);
+    const hEl = document.createElement('div');
+    hEl.className = 'flow-stop';
+    hEl.dataset.i = i;
+    Object.assign(hEl.style, { left: pt.x + 'px', top: pt.y + 'px', background: s.hex });
+    hEl.addEventListener('pointerdown', ev => _onStopDown(ev, i));
+    layer.appendChild(hEl);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'flow-stop-lbl';
+    // flip inward when the label would clip the screen edge
+    const flip = pt.x > w - 130;
+    Object.assign(lbl.style, flip
+      ? { right: (w - pt.x + 18) + 'px', top: pt.y + 'px' }
+      : { left: (pt.x + 18) + 'px', top: pt.y + 'px' });
+    const nm = document.createElement('span'); nm.textContent = s.name;
+    const pc = document.createElement('span'); pc.className = 'pctxt';
+    pc.textContent = Math.round(s.pos * 100) + '%';
+    lbl.appendChild(nm); lbl.appendChild(pc);
+    lbl.addEventListener('click', () => _openPicker(i));   // Task 8
+    layer.appendChild(lbl);
+  });
+
+  // + insert handles at midpoints (hidden at the 6-glaze cap)
+  if (stops.length < FLOW_MAX_STOPS) {
+    midpoints(stops).forEach(mp => {
+      const pt = axisPoint(mode, _dispT(mp), w, h);
+      const plus = document.createElement('div');
+      plus.className = 'flow-plus';
+      plus.textContent = '+';
+      Object.assign(plus.style, { left: pt.x + 'px', top: pt.y + 'px' });
+      plus.addEventListener('click', () => _openPicker(null, mp));  // Task 8
+      layer.appendChild(plus);
+    });
+  }
+
+  const hint = document.createElement('div');
+  hint.className = 'flow-hint';
+  hint.textContent = 'DRAG TO MOVE · + TO ADD · TAP TO SWAP · DRAG OFF TO REMOVE';
+  layer.appendChild(hint);
+
+  // downward swipe on the edit layer exits back to the feed
+  let sy = 0;
+  layer.addEventListener('touchstart', e => { sy = e.touches[0].clientY; }, { passive: true });
+  layer.addEventListener('touchend', e => {
+    if (e.changedTouches[0].clientY - sy > 80) _exitEdit();
+  }, { passive: true });
+}
+
+// Implemented in Task 8 (drag + picker) and Task 9 (save):
+function _onStopDown() {}
+function _openPicker() {}
+function _saveCurrent() {}

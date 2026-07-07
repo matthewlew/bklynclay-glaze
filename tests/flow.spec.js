@@ -94,3 +94,33 @@ test.describe('Flow style switching', () => {
     await expect(page.locator('#flowDots span.on')).toHaveCount(1);
   });
 });
+
+test.describe('Flow edit mode', () => {
+  test('single tap opens edit handles; Esc exits to feed (not out of Flow)', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
+    await page.locator('#flowBtn').click();
+    await page.locator('#flowFeed').click({ position: { x: 200, y: 400 } });
+    // single-tap fires after the 250ms double-tap window
+    const layer = page.locator('#flowEditLayer');
+    await expect(layer).toBeVisible();
+    const handles = page.locator('.flow-stop');
+    expect(await handles.count()).toBeGreaterThanOrEqual(2);
+    await expect(page.locator('.flow-stop-lbl').first()).toContainText('%');
+    // + insert handles between stops
+    expect(await page.locator('.flow-plus').count()).toBe(await handles.count() - 1);
+    await page.keyboard.press('Escape');
+    await expect(layer).toBeHidden();
+    await expect(page.locator('#flowView')).toBeVisible(); // still in Flow
+  });
+
+  test('conic edit mode draws the ring axis', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
+    await page.locator('#flowBtn').click();
+    await page.keyboard.press('ArrowRight'); // radial
+    await page.keyboard.press('ArrowRight'); // conic
+    await page.locator('#flowFeed').click({ position: { x: 200, y: 400 } });
+    await expect(page.locator('#flowEditLayer .flow-axis-ring')).toBeVisible();
+  });
+});
