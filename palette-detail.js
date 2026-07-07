@@ -1,7 +1,7 @@
 // ── PALETTE DETAIL PAGE ────────────────────────────────────────────────────────
 import { GLAZES, CLAY } from './glazes-data.js';
 import { saveAll } from './persistence.js';
-import { glazeCSS, galleryGradientCSS, togglePinState, applyGlaze, toHex, showToast } from './render.js';
+import { glazeCSS, galleryGradientCSS, refreshStack, togglePinState, applyGlaze, toHex, showToast } from './render.js';
 
 // ── Module state ───────────────────────────────────────────────────────────────
 let _key        = null;
@@ -260,14 +260,15 @@ function sync() {
       if (m) chip.title = `${(chip.title.split('\n')[0]||'')}\n${m.names.join(', ')}`;
     });
 
-    // Also update the gallery card's gradient for non-tiles modes so the
-    // visual in the Discover grid reflects the new proportions in real time.
-    if (mode && mode !== 'tiles') {
-      const cardCss = galleryGradientCSS(gs, clayKey, mode, ws);
+    // Also update the gallery card's visual in the Discover grid in real time.
+    if (mode) {
       const card = document.querySelector(`.card[data-key="${_key}"]`);
       if (card) {
-        const tg = card.querySelector('.tile-col.tile-gradient');
-        if (tg) tg.style.background = cardCss;
+        const colEl = card.querySelector('.tile-col');
+        if (colEl) {
+          const isCompact = card.classList.contains('compact');
+          refreshStack(colEl, gs, clayKey, isCompact ? 44 : null);
+        }
       }
     }
   }

@@ -40,8 +40,19 @@ export function sampleAt(t,glazes,ck){
   return lerp(applyGlaze(glazes[i],ck),applyGlaze(glazes[i+1],ck),s-i);
 }
 
+export function getPaletteWeights(key) {
+  if (typeof likedMeta !== 'undefined' && Array.isArray(likedMeta)) {
+    const m = likedMeta.find(x => x.key === key);
+    if (m && m.weights) return m.weights;
+  }
+  if (window._transientWeights && window._transientWeights.has(key)) {
+    return window._transientWeights.get(key);
+  }
+  return null;
+}
+
 // Like sampleAt but uses cumulative normalised weights [0..1] to position stops.
-function sampleAtWeighted(t,glazes,weights,ck){
+export function sampleAtWeighted(t,glazes,weights,ck){
   ck=ck||clayKey;
   if(!glazes||!glazes.length){const c=hexRGB(CLAY[ck]);return{r:c.r,gr:c.g,b:c.b};}
   if(glazes.length===1)return applyGlaze(glazes[0],ck);
@@ -68,8 +79,10 @@ export function glazeCSS(glazes,ck){
 // ── SVG ───────────────────────────────────────────────────────────────────────
 export function uid6(){return Math.random().toString(36).slice(2,8);}
 
-export function gradStops(glazes,ck,tf,tb,H){
-  return Array.from({length:41},(_,i)=>{const lt=i/40,gt=tf+lt*(tb-tf),c=sampleAt(gt,glazes,ck);return`<stop offset="${(lt*100).toFixed(1)}%" stop-color="rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})"/>`;}).join('');
+export function gradStops(glazes,ck,tf,tb,H,weights){
+  const useWeights = Array.isArray(weights) && weights.length === glazes.length;
+  const sampler = useWeights ? (t => sampleAtWeighted(t,glazes,weights,ck)) : (t => sampleAt(t,glazes,ck));
+  return Array.from({length:41},(_,i)=>{const lt=i/40,gt=tf+lt*(tb-tf),c=sampler(gt);return`<stop offset="${(lt*100).toFixed(1)}%" stop-color="rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)})"/>`;}).join('');
 }
 
 export function crackPat(id,ck){const cc=ck==='red'?'rgba(80,35,15,0.22)':'rgba(120,112,102,0.20)';let p='';for(let i=0;i<9;i++){const x0=(Math.random()*8).toFixed(1),y0=(Math.random()*8).toFixed(1),x1=(+x0+Math.random()*5-2.5).toFixed(1),y1=(+y0+Math.random()*5-2.5).toFixed(1),mx=((+x0+ +x1)/2+(Math.random()-.5)).toFixed(1),my=((+y0+ +y1)/2+(Math.random()-.5)).toFixed(1);p+=`<path d="M${x0},${y0}Q${mx},${my}${x1},${y1}" stroke="${cc}" stroke-width="${(0.25+Math.random()*.25).toFixed(2)}" fill="none"/>`;}return`<pattern id="${id}" width="8" height="8" patternUnits="userSpaceOnUse">${p}</pattern>`;}
@@ -80,11 +93,28 @@ export function leatherPat(id,bh){const l='#1e1e1e';return`<pattern id="${id}" w
 
 export function grogPat(id,bh){return`<pattern id="${id}" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="${bh}"/><circle cx="1.5" cy="1.5" r="0.55" fill="rgba(0,0,0,0.09)"/><circle cx="4.5" cy="3" r="0.45" fill="rgba(0,0,0,0.07)"/><circle cx="2.5" cy="5" r="0.50" fill="rgba(0,0,0,0.08)"/><circle cx="5.5" cy="5.5" r="0.35" fill="rgba(255,255,255,0.11)"/></pattern>`;}
 
-export function tileInner(glazes,ck,tf,tb,H,W){
+function getGlazeIndexAt(t, glazes, weights) {
+  if (weights && weights.length === glazes.length) {
+    let cum = 0;
+    for (let i = 0; i < glazes.length; i++) {
+      cum += weights[i] || 0;
+      if (t <= cum) return i;
+    }
+    return glazes.length - 1;
+  }
+  const s = Math.max(0, Math.min(1, t)) * (glazes.length - 1);
+  return Math.min(Math.floor(s), glazes.length - 1);
+}
+
+export function tileInner(glazes,ck,tf,tb,H,W,weights){
   const id=uid6(),gid='g'+id,clayHex=CLAY[ck];
-  const midT=(tf+tb)/2,midS=Math.max(0,Math.min(1,midT))*(glazes.length-1),midI=Math.min(Math.floor(midS),glazes.length-1);
-  const dg=glazes[midI],midC=sampleAt(midT,glazes,ck),midHex=toHex(midC.r,midC.gr,midC.b);
-  let defs=`<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="${H}" gradientUnits="userSpaceOnUse">${gradStops(glazes,ck,tf,tb,H)}</linearGradient>`;
+  const useWeights = Array.isArray(weights) && weights.length === glazes.length;
+  const midT=(tf+tb)/2;
+  const midI=getGlazeIndexAt(midT,glazes,useWeights ? weights : null);
+  const dg=glazes[midI];
+  const midC=useWeights ? sampleAtWeighted(midT,glazes,weights,ck) : sampleAt(midT,glazes,ck);
+  const midHex=toHex(midC.r,midC.gr,midC.b);
+  let defs=`<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="${H}" gradientUnits="userSpaceOnUse">${gradStops(glazes,ck,tf,tb,H,weights)}</linearGradient>`;
   let body=`<rect width="${W}" height="${H}" fill="url(#${gid})"/>`,overlay='';
   if(dg){const pid='p'+id;
     if(dg.fin==='crawl-dot'){defs+=dotPat(pid,midHex,ck);body=`<rect width="${W}" height="${H}" fill="url(#${pid})"/>`;}
@@ -105,17 +135,19 @@ export function tileInner(glazes,ck,tf,tb,H,W){
 // thinner bands instead of making cards grow taller.
 function _stackTotalHeight(tH){return 4*tH+3*TG;}
 
-export function tileSVG(ti,glazes,ck,tH){
+export function tileSVG(ti,glazes,ck,tH,weights){
   tH=tH||TH;ck=ck||clayKey;
   const TOTAL=_stackTotalHeight(tH);
   const effH=(TOTAL-(NT-1)*TG)/NT;
   const top=ti*(effH+TG),bot=top+effH,tf=top/TOTAL,tb=bot/TOTAL,W=SVG_W,H=effH;
-  return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="display:block;width:100%;border-radius:3px;" aria-hidden="true">${tileInner(glazes,ck,tf,tb,H,W)}</svg>`;
+  return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="display:block;width:100%;border-radius:3px;" aria-hidden="true">${tileInner(glazes,ck,tf,tb,H,W,weights)}</svg>`;
 }
 
 export function pairTileSVG(glazes,ck,h){
   ck=ck||clayKey;h=h||72;const W=SVG_W;
-  return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${h}" style="display:block;width:100%;border-radius:4px;" aria-hidden="true">${tileInner(glazes,ck,0,1,h,W)}</svg>`;
+  const key = glazes.map(g => g.name).join('|');
+  const weights = getPaletteWeights(key);
+  return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${h}" style="display:block;width:100%;border-radius:4px;" aria-hidden="true">${tileInner(glazes,ck,0,1,h,W,weights)}</svg>`;
 }
 
 export function swatchSVG(g,ck,h){
@@ -158,10 +190,12 @@ export function galleryGradientCSS(glazes,ck,mode,weights){
 
 export function buildStack(glazes,ck,tH){
   tH=tH||TH;
+  const key = glazes.map(g => g.name).join('|');
+  const weights = getPaletteWeights(key);
   if(galleryViewMode&&galleryViewMode!=='tiles'){
     const wrap=document.createElement('div');wrap.className='tile-col tile-gradient';
     wrap.style.height=_stackTotalHeight(tH)+'px';
-    wrap.style.background=galleryGradientCSS(glazes,ck||clayKey,galleryViewMode);
+    wrap.style.background=galleryGradientCSS(glazes,ck||clayKey,galleryViewMode,weights);
     if(galleryViewMode==='conic'){
       const ap=document.createElement('div');ap.className='conic-aperture';
       ap.style.background=CLAY[ck||clayKey];
@@ -170,14 +204,16 @@ export function buildStack(glazes,ck,tH){
     return wrap;
   }
   const col=document.createElement('div');col.className='tile-col';
-  for(let ti=0;ti<NT;ti++){const w=document.createElement('div');w.className='tile-wrap';w.innerHTML=tileSVG(ti,glazes,ck||clayKey,tH);col.appendChild(w);}
+  for(let ti=0;ti<NT;ti++){const w=document.createElement('div');w.className='tile-wrap';w.innerHTML=tileSVG(ti,glazes,ck||clayKey,tH,weights);col.appendChild(w);}
   return col;
 }
 
 export function refreshStack(col,glazes,ck,tH){
   tH=tH||TH;
+  const key = glazes.map(g => g.name).join('|');
+  const weights = getPaletteWeights(key);
   if(col.classList.contains('tile-gradient')){
-    col.style.background=galleryGradientCSS(glazes,ck||clayKey,galleryViewMode);
+    col.style.background=galleryGradientCSS(glazes,ck||clayKey,galleryViewMode,weights);
     let ap=col.querySelector('.conic-aperture');
     if(galleryViewMode==='conic'){
       if(!ap){ap=document.createElement('div');ap.className='conic-aperture';col.appendChild(ap);}
@@ -185,7 +221,7 @@ export function refreshStack(col,glazes,ck,tH){
     } else if(ap){ ap.remove(); }
     return;
   }
-  col.querySelectorAll('.tile-wrap').forEach((w,ti)=>{w.innerHTML=tileSVG(ti,glazes,ck||clayKey,tH);});
+  col.querySelectorAll('.tile-wrap').forEach((w,ti)=>{w.innerHTML=tileSVG(ti,glazes,ck||clayKey,tH,weights);});
 }
 
 export function setGalleryViewMode(mode){
