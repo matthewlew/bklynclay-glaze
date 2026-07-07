@@ -15,10 +15,10 @@ const ASSETS = [
   './icon-512.png',
 ];
 
-const isLocal = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
+const isDev = (self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1') && self.location.port !== '4173';
 
 self.addEventListener('install', e => {
-  if (isLocal) {
+  if (isDev) {
     self.skipWaiting();
     return;
   }
@@ -35,7 +35,7 @@ self.addEventListener('message', e => {
 });
 
 self.addEventListener('activate', e => {
-  if (isLocal) {
+  if (isDev) {
     e.waitUntil(
       self.registration.unregister().then(() => {
         return self.clients.matchAll();
@@ -56,7 +56,7 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  if (isLocal) return; // bypass cache, let network handle it
+  if (isDev) return; // bypass cache, let network handle it
   // Only cache same-origin GET requests
   if (e.request.method !== 'GET' || !e.request.url.startsWith(self.location.origin)) return;
   e.respondWith(

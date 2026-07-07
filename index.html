@@ -1469,10 +1469,10 @@ loadAll().catch(err => {
 
 <script>
 (function() {
-  var isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  // On dev (localhost except preview port 4173), we unregister the SW to prevent dev caching issues.
+  var isDev = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '4173';
   if ('serviceWorker' in navigator) {
-    if (isLocal) {
-      // On dev: unregister any stale service workers so they can't serve cached blank pages
+    if (isDev) {
       navigator.serviceWorker.getRegistrations().then(function(registrations) {
         registrations.forEach(function(r) { r.unregister(); });
       });
