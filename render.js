@@ -53,6 +53,7 @@ export function getPaletteWeights(key) {
 
 // Like sampleAt but uses cumulative normalised weights [0..1] to position stops.
 export function sampleAtWeighted(t,glazes,weights,ck){
+  t=Math.max(0,Math.min(1,t));
   ck=ck||clayKey;
   if(!glazes||!glazes.length){const c=hexRGB(CLAY[ck]);return{r:c.r,gr:c.g,b:c.b};}
   if(glazes.length===1)return applyGlaze(glazes[0],ck);
@@ -178,16 +179,17 @@ function gallerySqueezeBulgeSVG(glazes, ck, mode, weights) {
   const c = mode === 'squeeze' ? 0.45 : -0.45;
   const N = 15;
   const paths = [];
+  const tMin = -0.15, tMax = 1.15, tRange = tMax - tMin;
   for (let i = 0; i < N; i++) {
-    const t1 = i / N;
-    const t2 = (i + 1) / N;
-    const y1_0 = t1 * 100;
-    const y1_ctrl = (t1 + 0.5 * c * (2 * t1 - 1)) * 100;
-    const y2_0 = t2 * 100;
-    const y2_ctrl = (t2 + 0.5 * c * (2 * t2 - 1)) * 100;
+    const t1 = tMin + (i / N) * tRange;
+    const t2 = tMin + ((i + 1) / N) * tRange;
+    const y1_start = (t1 - 0.75 * c * (2 * t1 - 1)) * 100;
+    const y1_ctrl = (t1 + 1.25 * c * (2 * t1 - 1)) * 100;
+    const y2_start = (t2 - 0.75 * c * (2 * t2 - 1)) * 100;
+    const y2_ctrl = (t2 + 1.25 * c * (2 * t2 - 1)) * 100;
     const color = sampler((t1 + t2) / 2);
     const colorStr = `rgb(${Math.round(color.r)},${Math.round(color.gr)},${Math.round(color.b)})`;
-    const d = `M 0,${y1_0.toFixed(2)} Q 50,${y1_ctrl.toFixed(2)} 100,${y1_0.toFixed(2)} L 100,${y2_0.toFixed(2)} Q 50,${y2_ctrl.toFixed(2)} 0,${y2_0.toFixed(2)} Z`;
+    const d = `M -50,${y1_start.toFixed(2)} Q 50,${y1_ctrl.toFixed(2)} 150,${y1_start.toFixed(2)} L 150,${y2_start.toFixed(2)} Q 50,${y2_ctrl.toFixed(2)} -50,${y2_start.toFixed(2)} Z`;
     paths.push(`<path d='${d}' fill='${colorStr}' stroke='${colorStr}' stroke-width='0.5'/>`);
   }
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='blur'><feGaussianBlur stdDeviation='3'/></filter></defs><g filter='url(#blur)'>${paths.join('')}</g></svg>`;
