@@ -40,6 +40,23 @@ export function sampleAt(t,glazes,ck){
   return lerp(applyGlaze(glazes[i],ck),applyGlaze(glazes[i+1],ck),s-i);
 }
 
+// Like sampleAt but uses cumulative normalised weights [0..1] to position stops.
+function sampleAtWeighted(t,glazes,weights,ck){
+  ck=ck||clayKey;
+  if(!glazes||!glazes.length){const c=hexRGB(CLAY[ck]);return{r:c.r,gr:c.g,b:c.b};}
+  if(glazes.length===1)return applyGlaze(glazes[0],ck);
+  // Build cumulative breakpoints: [0, w0, w0+w1, ..., 1]
+  let cum=0;
+  const breaks=[0];
+  for(let i=0;i<glazes.length;i++){cum+=weights[i]||0;breaks.push(Math.min(1,cum));}
+  // Find segment
+  let seg=glazes.length-2;
+  for(let i=0;i<breaks.length-2;i++){if(t<=breaks[i+1]){seg=i;break;}}
+  const lo=breaks[seg],hi=breaks[seg+1];
+  const alpha=hi>lo?Math.max(0,Math.min(1,(t-lo)/(hi-lo))):0;
+  return lerp(applyGlaze(glazes[seg],ck),applyGlaze(glazes[seg+1],ck),alpha);
+}
+
 export function toHex(r,g,b){return'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
 
 export function glazeCSS(glazes,ck){
@@ -121,9 +138,11 @@ function _galleryEqualStops(glazes,ck){
   }).join(',');
 }
 
-export function galleryGradientCSS(glazes,ck,mode){
+export function galleryGradientCSS(glazes,ck,mode,weights){
   ck=ck||clayKey;
   if(!glazes||!glazes.length)return CLAY[ck];
+  // Validate weights: must be same length as glazes and sum to ~1
+  const useWeights=Array.isArray(weights)&&weights.length===glazes.length;
   if(mode==='radial')return`radial-gradient(circle,${_galleryEqualStops(glazes,ck)})`;
   if(mode==='conic'){
     const stops=glazes.map((g,i)=>{const c=applyGlaze(g,ck);const n=glazes.length;const pct=n>1?(i/(n))*100:0;return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${pct.toFixed(1)}%`;});
@@ -131,8 +150,9 @@ export function galleryGradientCSS(glazes,ck,mode){
     stops.push(`rgb(${Math.round(fc.r)},${Math.round(fc.gr)},${Math.round(fc.b)}) 100%`);
     return`conic-gradient(from 0deg,${stops.join(',')})`;
   }
-  // Vertical, matching the top-to-bottom stacking of the tile view (glazeCSS runs left-to-right).
-  const stops=Array.from({length:9},(_,i)=>{const t=i/8,c=sampleAt(t,glazes,ck);return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${Math.round(t*100)}%`;});
+  // Vertical linear — use weighted sampling when custom weights are present.
+  const sampler=useWeights?(t=>sampleAtWeighted(t,glazes,weights,ck)):(t=>sampleAt(t,glazes,ck));
+  const stops=Array.from({length:9},(_,i)=>{const t=i/8,c=sampler(t);return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${Math.round(t*100)}%`;});
   return`linear-gradient(to bottom,${stops.join(',')})`;
 }
 
@@ -728,7 +748,7 @@ export function buildSidebarChip(m,inProject){
   chip.draggable=true;
   chip.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',m.key);chip.classList.add('dragging');});
   chip.addEventListener('dragend',()=>chip.classList.remove('dragging'));
-  const strip=document.createElement('div');strip.className='lchip-strip';strip.style.background=galleryGradientCSS(glazes,clayKey,galleryViewMode);chip.appendChild(strip);
+  const strip=document.createElement('div');strip.className='lchip-strip';strip.style.background=galleryGradientCSS(glazes,clayKey,galleryViewMode,m.weights);chip.appendChild(strip);
   if(galleryViewMode==='conic'){
     const ap=document.createElement('div');ap.className='lchip-aperture';ap.style.background=CLAY[clayKey];strip.appendChild(ap);
   }

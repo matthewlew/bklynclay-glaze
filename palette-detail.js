@@ -229,10 +229,13 @@ function sync() {
   if (!m) return;
   m.names = _stops.map(s => s.name);
   m.hexes = _stops.map(s => s.hex);
+  // Persist custom stop weights so they survive close/reopen and page reload.
+  const tot = _stops.reduce((a, s) => a + s.weight, 0) || 1;
+  m.weights = _stops.map(s => s.weight / tot);
   saveAll();
   const gs = _stops.map(s => GLAZES.find(g => g.name === s.name)).filter(Boolean);
   const mode = typeof galleryViewMode !== 'undefined' ? galleryViewMode : null;
-  const css = gs.length ? galleryGradientCSS(gs, clayKey, mode) : '';
+  const css = gs.length ? galleryGradientCSS(gs, clayKey, mode, m.weights) : '';
   document.querySelectorAll(`.lchip[data-key="${_key}"]`).forEach(chip => {
     const strip = chip.querySelector('.lchip-strip');
     if (css && strip) strip.style.background = css;
@@ -299,9 +302,12 @@ function _loadKeyData(key, fallback) {
   const names = m ? (m.names || []) : (fallback?.glazes || []).map(g => g.name);
   const hexes = m ? (m.hexes || []) : (fallback?.glazes || []).map(g => g.hex);
   if (!names.length) return;
-  const w = 100 / names.length;
+  // Restore saved weights if they exist, otherwise use equal distribution.
+  const savedWeights = m?.weights;
+  const defaultW = 100 / names.length;
   names.forEach((name, i) => {
     const hex = hexes[i] || (GLAZES.find(g => g.name === name)?.hex) || '#888';
+    const w = savedWeights ? savedWeights[i] * 100 : defaultW;
     _stops.push(mkStop(name, hex, w));
   });
   const title = document.getElementById('pdTitle');
