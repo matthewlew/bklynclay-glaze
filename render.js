@@ -170,6 +170,30 @@ function _galleryEqualStops(glazes,ck){
   }).join(',');
 }
 
+function gallerySqueezeBulgeSVG(glazes, ck, mode, weights) {
+  ck = ck || clayKey;
+  if (!glazes || !glazes.length) return '';
+  const useWeights = Array.isArray(weights) && weights.length === glazes.length;
+  const sampler = useWeights ? (t => sampleAtWeighted(t, glazes, weights, ck)) : (t => sampleAt(t, glazes, ck));
+  const c = mode === 'squeeze' ? 0.45 : -0.45;
+  const N = 15;
+  const paths = [];
+  for (let i = 0; i < N; i++) {
+    const t1 = i / N;
+    const t2 = (i + 1) / N;
+    const y1_0 = t1 * 100;
+    const y1_ctrl = (t1 + 0.5 * c * (2 * t1 - 1)) * 100;
+    const y2_0 = t2 * 100;
+    const y2_ctrl = (t2 + 0.5 * c * (2 * t2 - 1)) * 100;
+    const color = sampler((t1 + t2) / 2);
+    const colorStr = `rgb(${Math.round(color.r)},${Math.round(color.gr)},${Math.round(color.b)})`;
+    const d = `M 0,${y1_0.toFixed(2)} Q 50,${y1_ctrl.toFixed(2)} 100,${y1_0.toFixed(2)} L 100,${y2_0.toFixed(2)} Q 50,${y2_ctrl.toFixed(2)} 0,${y2_0.toFixed(2)} Z`;
+    paths.push(`<path d='${d}' fill='${colorStr}' stroke='${colorStr}' stroke-width='0.5'/>`);
+  }
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='blur'><feGaussianBlur stdDeviation='3'/></filter></defs><g filter='url(#blur)'>${paths.join('')}</g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
 export function galleryGradientCSS(glazes,ck,mode,weights){
   ck=ck||clayKey;
   if(!glazes||!glazes.length)return CLAY[ck];
@@ -183,14 +207,7 @@ export function galleryGradientCSS(glazes,ck,mode,weights){
     return`conic-gradient(from 0deg,${stops.join(',')})`;
   }
   if(mode==='squeeze' || mode==='bulge'){
-    const sampler=useWeights?(t=>sampleAtWeighted(t,glazes,weights,ck)):(t=>sampleAt(t,glazes,ck));
-    const stops=Array.from({length:41},(_,i)=>{
-      const t=i/40;
-      const wt = mode === 'squeeze' ? (t - 0.15 * Math.sin(2 * Math.PI * t)) : (t + 0.15 * Math.sin(2 * Math.PI * t));
-      const c=sampler(wt);
-      return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${Math.round(t*100)}%`;
-    });
-    return`linear-gradient(to bottom,${stops.join(',')})`;
+    return gallerySqueezeBulgeSVG(glazes,ck,mode,weights);
   }
   // Vertical linear — use weighted sampling when custom weights are present.
   const sampler=useWeights?(t=>sampleAtWeighted(t,glazes,weights,ck)):(t=>sampleAt(t,glazes,ck));

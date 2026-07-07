@@ -74,30 +74,32 @@ function sampleHex(hexes, t) {
   return toHexStr(mixed);
 }
 
-export function squeezeCSS(hexes) {
-  if (hexes.length === 1) return hexes[0];
-  const n = 21;
-  const stops = [];
-  for (let i = 0; i < n; i++) {
-    const t = i / (n - 1);
-    const wt = t - 0.15 * Math.sin(2 * Math.PI * t);
-    const color = sampleHex(hexes, wt);
-    stops.push(`${color} ${(t * 100).toFixed(1)}%`);
+export function squeezeBulgeSVGDataUri(hexes, mode) {
+  if (!hexes || !hexes.length) return '';
+  const c = mode === 'squeeze' ? 0.45 : -0.45;
+  const N = 15;
+  const paths = [];
+  for (let i = 0; i < N; i++) {
+    const t1 = i / N;
+    const t2 = (i + 1) / N;
+    const y1_0 = t1 * 100;
+    const y1_ctrl = (t1 + 0.5 * c * (2 * t1 - 1)) * 100;
+    const y2_0 = t2 * 100;
+    const y2_ctrl = (t2 + 0.5 * c * (2 * t2 - 1)) * 100;
+    const colorStr = sampleHex(hexes, (t1 + t2) / 2);
+    const d = `M 0,${y1_0.toFixed(2)} Q 50,${y1_ctrl.toFixed(2)} 100,${y1_0.toFixed(2)} L 100,${y2_0.toFixed(2)} Q 50,${y2_ctrl.toFixed(2)} 0,${y2_0.toFixed(2)} Z`;
+    paths.push(`<path d='${d}' fill='${colorStr}' stroke='${colorStr}' stroke-width='0.5'/>`);
   }
-  return `linear-gradient(to bottom,${stops.join(',')})`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='blur'><feGaussianBlur stdDeviation='3'/></filter></defs><g filter='url(#blur)'>${paths.join('')}</g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+export function squeezeCSS(hexes) {
+  return squeezeBulgeSVGDataUri(hexes, 'squeeze');
 }
 
 export function bulgeCSS(hexes) {
-  if (hexes.length === 1) return hexes[0];
-  const n = 21;
-  const stops = [];
-  for (let i = 0; i < n; i++) {
-    const t = i / (n - 1);
-    const wt = t + 0.15 * Math.sin(2 * Math.PI * t);
-    const color = sampleHex(hexes, wt);
-    stops.push(`${color} ${(t * 100).toFixed(1)}%`);
-  }
-  return `linear-gradient(to bottom,${stops.join(',')})`;
+  return squeezeBulgeSVGDataUri(hexes, 'bulge');
 }
 
 // Concentric-square (Turrell-style) thumbnail, rendered as an inline SVG
@@ -127,8 +129,8 @@ export function cssForMode(mode, names, ck, reverse) {
   if (mode === 'conic') return { background: conicCSS(hexes) };
   if (mode === 'stripes') return { background: stripesCSS(hexes) };
   if (mode === 'turrell') return { background: hexes[0], backgroundImage: turrellSVGDataUri(hexes), backgroundSize: 'cover' };
-  if (mode === 'squeeze') return { background: squeezeCSS(hexes) };
-  if (mode === 'bulge') return { background: bulgeCSS(hexes) };
+  if (mode === 'squeeze') return { background: hexes[0], backgroundImage: squeezeCSS(hexes), backgroundSize: '100% 100%' };
+  if (mode === 'bulge') return { background: hexes[0], backgroundImage: bulgeCSS(hexes), backgroundSize: '100% 100%' };
   return { background: linearCSS(hexes) };
 }
 

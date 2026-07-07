@@ -148,15 +148,26 @@ export function flowGradientCSS(mode, stops, clayHex) {
     return { background: `linear-gradient(to bottom,${[...fwd, ...rev].join(',')})` };
   }
   if (mode === 'squeeze' || mode === 'bulge') {
-    const n = 21;
-    const parts = [];
-    for (let i = 0; i < n; i++) {
-      const t = i / (n - 1);
-      const wt = mode === 'squeeze' ? (t - 0.15 * Math.sin(2 * Math.PI * t)) : (t + 0.15 * Math.sin(2 * Math.PI * t));
-      const color = sampleFlowStops(stops, wt);
-      parts.push(`${color} ${(t * 100).toFixed(1)}%`);
+    const c = mode === 'squeeze' ? 0.45 : -0.45;
+    const N = 15;
+    const paths = [];
+    for (let i = 0; i < N; i++) {
+      const t1 = i / N;
+      const t2 = (i + 1) / N;
+      const y1_0 = t1 * 100;
+      const y1_ctrl = (t1 + 0.5 * c * (2 * t1 - 1)) * 100;
+      const y2_0 = t2 * 100;
+      const y2_ctrl = (t2 + 0.5 * c * (2 * t2 - 1)) * 100;
+      const color = sampleFlowStops(stops, (t1 + t2) / 2);
+      const d = `M 0,${y1_0.toFixed(2)} Q 50,${y1_ctrl.toFixed(2)} 100,${y1_0.toFixed(2)} L 100,${y2_0.toFixed(2)} Q 50,${y2_ctrl.toFixed(2)} 0,${y2_0.toFixed(2)} Z`;
+      paths.push(`<path d='${d}' fill='${color}' stroke='${color}' stroke-width='0.5'/>`);
     }
-    return { background: `linear-gradient(to bottom,${parts.join(',')})` };
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='blur'><feGaussianBlur stdDeviation='3'/></filter></defs><g filter='url(#blur)'>${paths.join('')}</g></svg>`;
+    return {
+      background: stops[0].hex,
+      backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
+      backgroundSize: '100% 100%',
+    };
   }
   if (mode === 'turrell') {
     const rects = stops.map(s => {
