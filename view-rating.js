@@ -5,7 +5,7 @@
 import { GLAZES, CLAY } from './glazes-data.js';
 import { applyGlaze, toHex } from './render.js';
 
-export const VIEW_MODES = ['linear', 'radial', 'conic', 'stripes', 'turrell'];
+export const VIEW_MODES = ['linear', 'radial', 'conic', 'stripes', 'turrell', 'squeeze', 'bulge'];
 
 function dispHex(name, ck) {
   const g = GLAZES.find(x => x.name === name);
@@ -44,6 +44,62 @@ export function stripesCSS(hexes) {
   return `linear-gradient(to bottom,${[...fwd, ...rev].join(',')})`;
 }
 
+function parseHex(h) {
+  return {
+    r: parseInt(h.slice(1, 3), 16),
+    g: parseInt(h.slice(3, 5), 16),
+    b: parseInt(h.slice(5, 7), 16)
+  };
+}
+
+function lerpColor(c1, c2, t) {
+  return {
+    r: c1.r + (c2.r - c1.r) * t,
+    g: c1.g + (c2.g - c1.g) * t,
+    b: c1.b + (c2.b - c1.b) * t
+  };
+}
+
+function toHexStr(c) {
+  return '#' + [c.r, c.g, c.b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+}
+
+function sampleHex(hexes, t) {
+  t = Math.max(0, Math.min(1, t));
+  const s = t * (hexes.length - 1);
+  const i = Math.min(Math.floor(s), hexes.length - 2);
+  const c1 = parseHex(hexes[i]);
+  const c2 = parseHex(hexes[i + 1]);
+  const mixed = lerpColor(c1, c2, s - i);
+  return toHexStr(mixed);
+}
+
+export function squeezeCSS(hexes) {
+  if (hexes.length === 1) return hexes[0];
+  const n = 21;
+  const stops = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const wt = t - 0.15 * Math.sin(2 * Math.PI * t);
+    const color = sampleHex(hexes, wt);
+    stops.push(`${color} ${(t * 100).toFixed(1)}%`);
+  }
+  return `linear-gradient(to bottom,${stops.join(',')})`;
+}
+
+export function bulgeCSS(hexes) {
+  if (hexes.length === 1) return hexes[0];
+  const n = 21;
+  const stops = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const wt = t + 0.15 * Math.sin(2 * Math.PI * t);
+    const color = sampleHex(hexes, wt);
+    stops.push(`${color} ${(t * 100).toFixed(1)}%`);
+  }
+  return `linear-gradient(to bottom,${stops.join(',')})`;
+}
+
 // Concentric-square (Turrell-style) thumbnail, rendered as an inline SVG
 // data URI so it can be dropped straight into a background-image.
 export function turrellSVGDataUri(hexes) {
@@ -71,6 +127,8 @@ export function cssForMode(mode, names, ck, reverse) {
   if (mode === 'conic') return { background: conicCSS(hexes) };
   if (mode === 'stripes') return { background: stripesCSS(hexes) };
   if (mode === 'turrell') return { background: hexes[0], backgroundImage: turrellSVGDataUri(hexes), backgroundSize: 'cover' };
+  if (mode === 'squeeze') return { background: squeezeCSS(hexes) };
+  if (mode === 'bulge') return { background: bulgeCSS(hexes) };
   return { background: linearCSS(hexes) };
 }
 

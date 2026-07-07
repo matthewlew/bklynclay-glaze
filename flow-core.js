@@ -107,6 +107,31 @@ export function windowRange(idx, total, span = 7) {
 const pct = (v) => `${(v * 100).toFixed(1)}%`;
 const stopList = (stops) => stops.map(s => `${s.hex} ${pct(s.pos)}`).join(',');
 
+function parseHex(h) {
+  return {
+    r: parseInt(h.slice(1, 3), 16),
+    g: parseInt(h.slice(3, 5), 16),
+    b: parseInt(h.slice(5, 7), 16)
+  };
+}
+
+function lerpHex(h1, h2, alpha) {
+  const c1 = parseHex(h1), c2 = parseHex(h2);
+  const r = Math.round(c1.r + (c2.r - c1.r) * alpha);
+  const g = Math.round(c1.g + (c2.g - c1.g) * alpha);
+  const b = Math.round(c1.b + (c2.b - c1.b) * alpha);
+  return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+}
+
+function sampleFlowStops(stops, t) {
+  t = Math.max(0, Math.min(1, t));
+  let i = 0;
+  while (i < stops.length - 2 && stops[i + 1].pos <= t) i++;
+  const s0 = stops[i], s1 = stops[i + 1];
+  const alpha = s1.pos > s0.pos ? Math.max(0, Math.min(1, (t - s0.pos) / (s1.pos - s0.pos))) : 0;
+  return lerpHex(s0.hex, s1.hex, alpha);
+}
+
 export function flowGradientCSS(mode, stops, clayHex) {
   if (!stops || !stops.length) return { background: clayHex || '#ccc' };
   if (stops.length === 1) return { background: stops[0].hex };
@@ -121,6 +146,17 @@ export function flowGradientCSS(mode, stops, clayHex) {
     const fwd = stops.map(s => `${s.hex} ${(s.pos * 50).toFixed(1)}%`);
     const rev = [...stops].reverse().map(s => `${s.hex} ${(50 + (1 - s.pos) * 50).toFixed(1)}%`);
     return { background: `linear-gradient(to bottom,${[...fwd, ...rev].join(',')})` };
+  }
+  if (mode === 'squeeze' || mode === 'bulge') {
+    const n = 21;
+    const parts = [];
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const wt = mode === 'squeeze' ? (t - 0.15 * Math.sin(2 * Math.PI * t)) : (t + 0.15 * Math.sin(2 * Math.PI * t));
+      const color = sampleFlowStops(stops, wt);
+      parts.push(`${color} ${(t * 100).toFixed(1)}%`);
+    }
+    return { background: `linear-gradient(to bottom,${parts.join(',')})` };
   }
   if (mode === 'turrell') {
     const rects = stops.map(s => {

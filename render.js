@@ -182,6 +182,16 @@ export function galleryGradientCSS(glazes,ck,mode,weights){
     stops.push(`rgb(${Math.round(fc.r)},${Math.round(fc.gr)},${Math.round(fc.b)}) 100%`);
     return`conic-gradient(from 0deg,${stops.join(',')})`;
   }
+  if(mode==='squeeze' || mode==='bulge'){
+    const sampler=useWeights?(t=>sampleAtWeighted(t,glazes,weights,ck)):(t=>sampleAt(t,glazes,ck));
+    const stops=Array.from({length:41},(_,i)=>{
+      const t=i/40;
+      const wt = mode === 'squeeze' ? (t - 0.15 * Math.sin(2 * Math.PI * t)) : (t + 0.15 * Math.sin(2 * Math.PI * t));
+      const c=sampler(wt);
+      return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${Math.round(t*100)}%`;
+    });
+    return`linear-gradient(to bottom,${stops.join(',')})`;
+  }
   // Vertical linear — use weighted sampling when custom weights are present.
   const sampler=useWeights?(t=>sampleAtWeighted(t,glazes,weights,ck)):(t=>sampleAt(t,glazes,ck));
   const stops=Array.from({length:9},(_,i)=>{const t=i/8,c=sampler(t);return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${Math.round(t*100)}%`;});
@@ -1926,7 +1936,7 @@ export function _buildVesselModal(ov,glazes,ck,label){
   const cvs=document.createElement('canvas');cvs.className='vm-canvas';
   cvs.width=CW*dpr;cvs.height=CH*dpr;cvs.style.width=CW+'px';cvs.style.height=CH+'px';
   rgt.appendChild(segRow(
-    [{id:'cylinder',lbl:'Jar'},{id:'squat',lbl:'Squat Jar'},{id:'bowl',lbl:'Bowl'},{id:'plate',lbl:'Plate'}],
+    [{id:'cylinder',lbl:'Jar'},{id:'squat',lbl:'Squat Jar'},{id:'squeeze',lbl:'Squeeze Jar'},{id:'bulge',lbl:'Bulge Jar'},{id:'bowl',lbl:'Bowl'},{id:'plate',lbl:'Plate'}],
     ()=>_vs.shape,v=>_vs.shape=v,cvs
   ));
   rgt.appendChild(segRow(
@@ -1993,10 +2003,15 @@ export function _buildStopEditor(glazes,cvs){
 }
 
 export function _vsample(t){
-  const{glazes,stops,ck}=_vs;
+  const{glazes,stops,ck,shape}=_vs;
   if(!glazes.length)return{r:200,gr:200,b:200};
   if(glazes.length===1)return applyGlaze(glazes[0],ck);
   t=Math.max(0,Math.min(1,t));
+  if(shape==='squeeze'){
+    t=t-0.15*Math.sin(2*Math.PI*t);
+  }else if(shape==='bulge'){
+    t=t+0.15*Math.sin(2*Math.PI*t);
+  }
   const n=stops.length;let i=0;
   while(i<n-2&&stops[i+1]<=t)i++;
   if(i>=n-1)return applyGlaze(glazes[n-1],ck);
@@ -2026,19 +2041,26 @@ export function _vCylinder(ctx,W,H){
   const clay=CLAY[ck];
   const pT=38,pB=28,vesH=H-pT-pB,cx=W/2,eH=9,N=28;
   const squat=shape==='squat';
-  const pr=yn=>squat?(0.29+0.13*Math.sin(Math.PI*yn))*W:0.31*W;
-  const topR=pr(0),botR=pr(1),maxR=squat?pr(0.5):topR;
+  const squeeze=shape==='squeeze';
+  const bulge=shape==='bulge';
+  const pr=yn=>{
+    if(squat)return(0.29+0.13*Math.sin(Math.PI*yn))*W;
+    if(squeeze)return(0.35-0.12*Math.sin(Math.PI*yn))*W;
+    if(bulge)return(0.24+0.16*Math.sin(Math.PI*yn))*W;
+    return 0.31*W;
+  };
+  const topR=pr(0),botR=pr(1),maxR=(squat||bulge)?pr(0.5):Math.max(topR,botR);
   const PTS=28;
   const sil=()=>{
     ctx.beginPath();
     ctx.moveTo(cx-topR,pT);
-    if(squat){
+    if(squat||squeeze||bulge){
       for(let i=1;i<=PTS;i++){const yn=i/PTS;ctx.lineTo(cx-pr(yn),pT+yn*vesH);}
     }else{
       ctx.lineTo(cx-botR,pT+vesH);
     }
     ctx.ellipse(cx,pT+vesH,botR,eH,0,Math.PI,0,true);
-    if(squat){
+    if(squat||squeeze||bulge){
       for(let i=PTS-1;i>=0;i--){const yn=i/PTS;ctx.lineTo(cx+pr(yn),pT+yn*vesH);}
     }else{
       ctx.lineTo(cx+topR,pT);

@@ -8,8 +8,8 @@ test.describe('Flow mode shell', () => {
     const overlay = page.locator('#flowView');
     await expect(overlay).toBeVisible();
     await expect(page.locator('#flowStyleName')).toHaveText('LINEAR');
-    // 5 style dots, first one active
-    await expect(page.locator('#flowDots span')).toHaveCount(5);
+    // 7 style dots, first one active
+    await expect(page.locator('#flowDots span')).toHaveCount(7);
     await expect(page.locator('#flowDots span.on')).toHaveCount(1);
     await page.locator('#flowClose').click();
     await expect(overlay).toBeHidden();
@@ -83,14 +83,16 @@ test.describe('Flow style switching', () => {
     await page.keyboard.press('ArrowRight');
     await expect(page.locator('#flowStyleName')).toHaveText('CONIC');
     await expect(page.locator('.flow-card[data-idx="0"] .conic-aperture')).toBeAttached();
-    // wrap: two more rights = TURRELL, one more = LINEAR again
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
+    // wrap: two more rights = TURRELL, three more = LINEAR again
+    await page.keyboard.press('ArrowRight'); // STRIPES
+    await page.keyboard.press('ArrowRight'); // TURRELL
     await expect(page.locator('#flowStyleName')).toHaveText('TURRELL');
-    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight'); // SQUEEZE
+    await page.keyboard.press('ArrowRight'); // BULGE
+    await page.keyboard.press('ArrowRight'); // LINEAR again
     await expect(page.locator('#flowStyleName')).toHaveText('LINEAR');
     await page.keyboard.press('ArrowLeft');
-    await expect(page.locator('#flowStyleName')).toHaveText('TURRELL');
+    await expect(page.locator('#flowStyleName')).toHaveText('BULGE');
     await expect(page.locator('#flowDots span.on')).toHaveCount(1);
   });
 });
