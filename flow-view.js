@@ -23,6 +23,7 @@ let _styleIdx = 0;            // index into VIEW_MODES
 let _editing = false;
 export const flowHistory = [];   // palettes, index-aligned with feed position
 window.flowHistory = flowHistory;
+let _isEdited = false;
 
 const $ = id => document.getElementById(id);
 const _mode = () => VIEW_MODES[_styleIdx];
@@ -72,6 +73,7 @@ function _onKey(e) {
   if (e.key === 'Escape') { e.stopPropagation(); _editing ? _exitEdit() : closeFlow(); return; }
   if (e.key === 's' || e.key === 'S') { e.preventDefault(); _saveCurrent(); return; }
   if (e.key === 'e' || e.key === 'E') { e.preventDefault(); _enterEdit(); return; }
+  if (e.key === 'f' || e.key === 'F') { e.preventDefault(); _flipCurrent(); return; }
   if (_editing) return;
   if (e.key === 'ArrowRight') { e.preventDefault(); _cycleStyle(1); }
   if (e.key === 'ArrowLeft')  { e.preventDefault(); _cycleStyle(-1); }
@@ -270,6 +272,10 @@ function _exitEdit() {
   const layer = $('flowEditLayer');
   layer.hidden = true;
   layer.innerHTML = '';
+  if (_isEdited) {
+    _saveCurrent();
+    _isEdited = false;
+  }
 }
 
 // Turrell renders stop pos=0 as the OUTERMOST square, so its handle must sit
@@ -390,6 +396,7 @@ function _onStopDown(e, i) {
     p.stops = res.stops; idx = res.index;
     _syncGlazesFromStops(p);
     _refreshCurrentCard();
+    _isEdited = true;
     _renderEditPositions();          // cheap reposition, no full rebuild
   };
   const onUp = ev => {
@@ -398,7 +405,12 @@ function _onStopDown(e, i) {
     const off = offAxisDistance(_mode(), ev.clientX, ev.clientY, w, h);
     if (off > REMOVE_DIST) {
       const next = removeStop(p.stops, idx);
-      if (next !== p.stops) { p.stops = next; _syncGlazesFromStops(p); _refreshCurrentCard(); }
+      if (next !== p.stops) {
+        p.stops = next;
+        _syncGlazesFromStops(p);
+        _refreshCurrentCard();
+        _isEdited = true;
+      }
     }
     _renderEdit();                   // full rebuild (labels, +, order)
   };
@@ -457,6 +469,7 @@ function _openPicker(replaceIdx, insertPos) {
       }
       _syncGlazesFromStops(p);
       _refreshCurrentCard();
+      _isEdited = true;
       picker.hidden = true;
       _renderEdit();
     });
@@ -490,6 +503,25 @@ function _saveCurrent() {
   _pulse();   // saved or already-saved: always confirm visually, never unsave
 }
 
+function _flipCurrent() {
+  const p = _current();
+  const stops = _ensureStops(p);
+  if (stops && stops.length) {
+    stops.reverse();
+    stops.forEach(s => { s.pos = 1 - s.pos; });
+    stops.sort((a, b) => a.pos - b.pos);
+    p.stops = stops;
+  }
+  p.glazes.reverse();
+  p.key = p.glazes.map(g => g.name).join('|');
+  _syncGlazesFromStops(p);
+  _refreshCurrentCard();
+  _isEdited = true;
+  if (_editing) _renderEdit();
+  _pulse();
+  showToast('Gradient flipped');
+}
+
 // ── ARC MENU ──────────────────────────────────────────────────────────────────
 const HOLD_MS = 450, HOLD_SLOP = 10;
 let _holdTimer = null, _holdX = 0, _holdY = 0, _arcOpen = false;
@@ -498,6 +530,7 @@ const ARC_ITEMS = [
   { act: 'save-proj', icon: '▤', label: 'PROJECT' },
   { act: 'pin',       icon: '✦', label: 'PIN' },
   { act: 'riff',      icon: '⟳', label: 'RIFF' },
+  { act: 'flip',      icon: '⇄', label: 'FLIP' },
 ];
 
 function _onHoldStart(e) {
@@ -562,6 +595,7 @@ function _onArcRelease(e) {
     }
   }
   if (act === 'save-proj') _openProjectPicker();
+  if (act === 'flip') _flipCurrent();
 }
 
 function _openProjectPicker() {
