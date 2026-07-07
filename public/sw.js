@@ -15,16 +15,19 @@ const ASSETS = [
   './icon-512.png',
 ];
 
+const isLocal = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
+
 self.addEventListener('install', e => {
+  if (isLocal) {
+    self.skipWaiting();
+    return;
+  }
   e.waitUntil(
     caches.open(CACHE).then(c =>
       // addAll fails if any asset 404s; use individual fetches so missing files don't block
       Promise.allSettled(ASSETS.map(url => c.add(url)))
     )
   );
-  // No skipWaiting() here — a new worker should stay in "waiting" until the
-  // user opts in (see update-banner.js), otherwise there's no window to
-  // detect an update and show the refresh banner.
 });
 
 self.addEventListener('message', e => {
@@ -32,6 +35,18 @@ self.addEventListener('message', e => {
 });
 
 self.addEventListener('activate', e => {
+  if (isLocal) {
+    e.waitUntil(
+      self.registration.unregister().then(() => {
+        return self.clients.matchAll();
+      }).then(clients => {
+        clients.forEach(client => {
+          if (client.navigate) client.navigate(client.url);
+        });
+      })
+    );
+    return;
+  }
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
@@ -41,6 +56,7 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  if (isLocal) return; // bypass cache, let network handle it
   // Only cache same-origin GET requests
   if (e.request.method !== 'GET' || !e.request.url.startsWith(self.location.origin)) return;
   e.respondWith(
@@ -55,3 +71,4 @@ self.addEventListener('fetch', e => {
     })
   );
 });
+
