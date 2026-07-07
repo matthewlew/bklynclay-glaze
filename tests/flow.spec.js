@@ -45,7 +45,7 @@ test.describe('Flow feed', () => {
     // reliably wait for the real value here.
     let histLen = 0;
     for (let i = 0; i < 20 && histLen < 9; i++) {
-      histLen = await page.evaluate(async () => (await import('/flow-view.js')).flowHistory.length);
+      histLen = await page.evaluate(() => window.flowHistory.length);
       if (histLen < 9) await page.waitForTimeout(50);
     }
     await expect(page.locator('.flow-card[data-idx="3"]')).toBeAttached();
@@ -216,7 +216,7 @@ test.describe('Flow arc menu & keys', () => {
     await page.goto('/');
     await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
     await page.locator('#flowBtn').click();
-    const keyBefore = await page.evaluate(async () => (await import('/flow-view.js')).flowHistory[0].key);
+    const keyBefore = await page.evaluate(() => window.flowHistory[0].key);
     await page.mouse.move(200, 500);
     await page.mouse.down();
     await page.waitForTimeout(550);
@@ -226,7 +226,7 @@ test.describe('Flow arc menu & keys', () => {
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.up();
     await expect(page.locator('#flowArc')).toBeHidden();
-    const keyAfter = await page.evaluate(async () => (await import('/flow-view.js')).flowHistory[0].key);
+    const keyAfter = await page.evaluate(() => window.flowHistory[0].key);
     expect(keyAfter).not.toBe(keyBefore);
   });
 

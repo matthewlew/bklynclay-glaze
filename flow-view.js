@@ -22,6 +22,7 @@ let _idx = 0;                 // current feed index
 let _styleIdx = 0;            // index into VIEW_MODES
 let _editing = false;
 export const flowHistory = [];   // palettes, index-aligned with feed position
+window.flowHistory = flowHistory;
 
 const $ = id => document.getElementById(id);
 const _mode = () => VIEW_MODES[_styleIdx];

@@ -58,24 +58,30 @@ function openDB() {
       resolve(null);
       return;
     }
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onerror = (e) => {
-      console.error("IndexedDB error:", e);
+    try {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onerror = (e) => {
+        console.error("IndexedDB error:", e);
+        useLocalStorageFallback = true;
+        resolve(null);
+      };
+      request.onsuccess = (e) => {
+        db = e.target.result;
+        resolve(db);
+      };
+      request.onupgradeneeded = (e) => {
+        const dbInstance = e.target.result;
+        STORES.forEach(s => {
+          if (!dbInstance.objectStoreNames.contains(s)) {
+            dbInstance.createObjectStore(s);
+          }
+        });
+      };
+    } catch (err) {
+      console.warn("IndexedDB open threw an error, falling back:", err);
       useLocalStorageFallback = true;
       resolve(null);
-    };
-    request.onsuccess = (e) => {
-      db = e.target.result;
-      resolve(db);
-    };
-    request.onupgradeneeded = (e) => {
-      const dbInstance = e.target.result;
-      STORES.forEach(s => {
-        if (!dbInstance.objectStoreNames.contains(s)) {
-          dbInstance.createObjectStore(s);
-        }
-      });
-    };
+    }
   });
 }
 
@@ -182,17 +188,25 @@ export async function loadAll() {
       // Load labels manually using a cursor
       const labels = {};
       await new Promise((resolve) => {
-        const trans = db.transaction(['labels'], 'readonly');
-        const store = trans.objectStore('labels');
-        store.openCursor().onsuccess = (event) => {
-          const cursor = event.target.result;
-          if (cursor) {
-            labels[cursor.key] = cursor.value;
-            cursor.continue();
-          } else {
-            resolve();
-          }
-        };
+        try {
+          const trans = db.transaction(['labels'], 'readonly');
+          trans.onerror = () => resolve();
+          const store = trans.objectStore('labels');
+          const request = store.openCursor();
+          request.onerror = () => resolve();
+          request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+              labels[cursor.key] = cursor.value;
+              cursor.continue();
+            } else {
+              resolve();
+            }
+          };
+        } catch (err) {
+          console.warn("Labels IndexedDB transaction failed:", err);
+          resolve();
+        }
       });
 
       if (allResult.palettes.length > 0 || allResult.projects.length > 0) {

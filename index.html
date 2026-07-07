@@ -1384,7 +1384,9 @@ document.addEventListener('scroll', () => closeCtxMenu(), true);
 // ── INIT ──────────────────────────────────────────────────────────────────────
 setTheme(localStorage.getItem('bklyn_theme') || 'light');
 if (window.innerWidth <= 700) setGalleryViewMode('linear');
-loadAll().then(() => {
+loadAll().catch(err => {
+  console.error("Storage loading failed, starting with default state:", err);
+}).then(() => {
   buildLeversUI();
   applyPreset('turrell');
   renderTopbarTabs();
