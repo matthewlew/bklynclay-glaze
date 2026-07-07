@@ -735,52 +735,13 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .pd-canvas{flex:1;position:relative;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none;}
 .pd-gradient-bg{position:absolute;inset:0;filter:blur(60px) saturate(1.1);transform:scale(1.15);transition:background .15s linear;will-change:background;background-position:center;background-repeat:no-repeat;}
 
-/* Stops panel — overlaid on right side of canvas (left of picker), always visible */
-.pd-stops-panel{position:absolute;right:196px;top:0;bottom:0;width:280px;border-left:1px solid rgba(255,255,255,.15);overflow:hidden;}
-.pd-stops-container{position:relative;width:100%;height:100%;}
-
-/* Individual stop block */
-.pd-block{position:absolute;left:0;right:0;overflow:hidden;transition:top .18s cubic-bezier(.2,0,.2,1),height .18s cubic-bezier(.2,0,.2,1);cursor:grab;}
-.pd-block:active{cursor:grabbing;}
-.pd-block.is-dragging{transition:none;z-index:20;box-shadow:-3px 0 18px rgba(0,0,0,.25);cursor:grabbing;}
-.pd-block.is-ghost{opacity:.18;pointer-events:none;transition:none;}
-.pd-block::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:rgba(255,255,255,.18);pointer-events:none;}
-.pd-block:first-child::after{display:none;}
-.pd-block-fill{position:absolute;inset:0;}
-.pd-block-info{position:absolute;bottom:0;left:0;right:0;padding:7px 10px;background:linear-gradient(to top,rgba(0,0,0,.4) 0%,transparent 100%);display:flex;flex-direction:column;gap:2px;}
-.pd-block-name{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.5);line-height:1.2;}
-.pd-block-fin{display:block;font-size:8px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-top:1px;}
-.pd-block-hex{font-size:9px;color:rgba(255,255,255,.4);letter-spacing:.03em;}
-/* Del button always visible at low opacity — not hidden behind hover */
-.pd-block-del{position:absolute;top:4px;right:4px;width:20px;height:20px;background:rgba(0,0,0,.3);border:none;border-radius:50%;color:rgba(255,255,255,.55);font-size:10px;line-height:20px;text-align:center;cursor:pointer;padding:0;font-family:var(--font);opacity:.45;transition:opacity .1s,background .1s;}
-.pd-block-del:hover{opacity:1;color:#fff;background:rgba(180,0,0,.75);}
-
-/* Pin badge in topbar */
-.pd-pin-badge{font-size:10px;font-weight:700;letter-spacing:.05em;padding:3px 8px;min-height:32px;display:inline-flex;align-items:center;border-radius:var(--r);border:1px solid var(--border);color:var(--ink3);background:transparent;flex-shrink:0;cursor:pointer;transition:color .15s,border-color .15s;font-family:var(--font);}
-.pd-pin-badge.is-saved{color:var(--pin-saved);border-color:var(--pin-saved-border);}
-
-/* Resize handle between blocks */
-.pd-resize{position:absolute;left:0;right:0;height:16px;z-index:30;cursor:ns-resize;display:flex;align-items:center;justify-content:center;transform:translateY(-50%);touch-action:none;}
-.pd-resize-bar{display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;padding:4px 0;}
-.pd-resize-bar span{display:block;width:18px;height:1.5px;background:rgba(255,255,255,.3);border-radius:1px;transition:background .12s;}
-.pd-resize:hover .pd-resize-bar span,.pd-resize.resizing .pd-resize-bar span{background:rgba(255,255,255,.85);}
-
-/* Drop gap indicator */
-.pd-drop-gap{position:absolute;left:0;right:0;height:0;pointer-events:none;z-index:10;overflow:visible;}
-.pd-drop-gap.open{height:44px;}
-.pd-drop-gap.open::before{content:'';position:absolute;inset:6px 4px;border:1px dashed rgba(255,255,255,.4);background:rgba(255,255,255,.07);}
-
 /* Topbar carousel nav */
 .pd-nav-btn{background:none;border:none;cursor:pointer;font-size:22px;color:var(--ink3);padding:0 4px;font-family:var(--font);line-height:1;transition:color .12s;flex-shrink:0;user-select:none;}
 .pd-nav-btn:hover{color:var(--ink);}
 .pd-nav-counter{font-size:11px;color:var(--ink3);white-space:nowrap;letter-spacing:.04em;flex-shrink:0;}
 
-/* Stops panel footer — redistribute sits at bottom of stops panel */
-.pd-stops-footer{position:absolute;bottom:0;left:0;right:0;padding:8px;display:flex;justify-content:center;background:linear-gradient(to top,rgba(0,0,0,.32) 0%,transparent 100%);pointer-events:none;z-index:40;}
-.pd-stops-footer .pd-ghost-btn{pointer-events:auto;}
-
 /* Footer controls on canvas */
-.pd-footer{position:absolute;bottom:0;left:0;right:280px;padding:10px 14px;display:flex;gap:8px;align-items:center;background:linear-gradient(to top,rgba(0,0,0,.28),transparent);pointer-events:auto;}
+.pd-footer{position:absolute;bottom:0;left:0;right:0;padding:10px 14px;display:flex;gap:8px;align-items:center;background:linear-gradient(to top,rgba(0,0,0,.28),transparent);pointer-events:auto;}
 .pd-ghost-btn{display:inline-flex;align-items:center;justify-content:center;padding:4px 12px;font-size:11px;font-weight:500;border:1px solid rgba(255,255,255,.28);border-radius:var(--r);background:rgba(0,0,0,.28);color:rgba(255,255,255,.85);cursor:pointer;font-family:var(--font);backdrop-filter:blur(6px);transition:background .12s,border-color .12s;}
 .pd-ghost-btn:hover{background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.5);color:#fff;}
 /* Hint text is decorative — no pointer, muted; redistribute only visible on mobile via canvas footer */
@@ -829,23 +790,11 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 @media(max-width:700px){
   .shortcut-key{display:none;}
   .pd-body{flex-direction:column;}
-  .pd-canvas{flex:none;height:33vh;min-height:160px;}
+  .pd-canvas{flex:1;min-height:200px;}
   .pd-footer{right:0;}
   .pd-mode-bar{right:10px;}
   .pd-footer-hint{display:none;}
   .pd-footer-redistribute{display:inline-flex;}
-
-  /* Stops strip — full-width horizontal below gradient */
-  .pd-stops-panel{position:static;width:auto;height:96px;border-left:none;border-top:1px solid rgba(255,255,255,.15);overflow-x:auto;overflow-y:hidden;background:rgba(0,0,0,.12);-webkit-overflow-scrolling:touch;flex-shrink:0;}
-  .pd-stops-footer{display:none;}
-  /* Horizontal flex layout for blocks — override JS-set top/height */
-  .pd-stops-container{position:static;display:flex;flex-direction:row;height:96px;width:max-content;}
-  .pd-block{position:relative!important;top:0!important;left:0!important;right:auto!important;bottom:auto!important;height:96px!important;width:80px!important;flex-shrink:0;transition:none!important;}
-  .pd-block-info{padding:6px 8px 6px;}
-  .pd-block-name{font-size:9px;}
-  .pd-block-fin{font-size:7px;}
-  /* Swipe hint on mobile blocks */
-  .pd-block::before{content:'⟵ ⟶';position:absolute;top:6px;left:0;right:0;text-align:center;font-size:8px;color:rgba(255,255,255,.28);letter-spacing:.1em;pointer-events:none;}
 
   /* Glaze picker — IG-reels-style horizontal carousel */
   .pd-picker{width:auto;border-left:none;border-top:1px solid var(--border);flex:none;height:82px;}
@@ -1040,6 +989,8 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
         <button class="gv-btn" data-mode="linear" onclick="setGalleryViewMode('linear')">Linear</button>
         <button class="gv-btn" data-mode="radial" onclick="setGalleryViewMode('radial')">Radial</button>
         <button class="gv-btn" data-mode="conic" onclick="setGalleryViewMode('conic')">Conic</button>
+        <button class="gv-btn" data-mode="squeeze" onclick="setGalleryViewMode('squeeze')">Squeeze</button>
+        <button class="gv-btn" data-mode="bulge" onclick="setGalleryViewMode('bulge')">Bulge</button>
       </div>
       <button class="btn" id="flowBtn" onclick="openFlow()" title="Flow — rapid gradient scroll">Flow ✦</button>
       <div class="plabel gv-desktop-only" id="tileDivisionLabel" style="margin-top:12px;">Tile Divisions</div>
@@ -1424,6 +1375,8 @@ loadAll().catch(err => {
         <button class="pd-mode-btn"        data-mode="conic"   onclick="setGradMode('conic')">Conic</button>
         <button class="pd-mode-btn"        data-mode="turrell" onclick="setGradMode('turrell')">Turrell</button>
         <button class="pd-mode-btn"        data-mode="stripes" onclick="setGradMode('stripes')">Stripes</button>
+        <button class="pd-mode-btn"        data-mode="squeeze" onclick="setGradMode('squeeze')">Squeeze</button>
+        <button class="pd-mode-btn"        data-mode="bulge"   onclick="setGradMode('bulge')">Bulge</button>
         <div class="pd-mode-sep"></div>
         <button class="pd-mode-btn hidden" id="pdFlipBtn" onclick="pdToggleReverse()">Flip</button>
         <button class="pd-mode-btn" id="pdNoiseBtn" onclick="pdToggleNoise()">Grain</button>
@@ -1433,12 +1386,7 @@ loadAll().catch(err => {
         <button class="pd-ghost-btn pd-footer-redistribute" onclick="pdRedistribute()">↔ Redistribute</button>
       </div>
     </div>
-    <div class="pd-stops-panel" id="pdStopsPanel">
-      <div class="pd-stops-container" id="pdStopsContainer"></div>
-      <div class="pd-stops-footer">
-        <button class="pd-ghost-btn" onclick="pdRedistribute()">↔ Redistribute</button>
-      </div>
-    </div>
+
     <div class="pd-picker" id="pdPicker">
       <div class="pd-picker-hd">
         <div class="pd-picker-label">All Glazes</div>
