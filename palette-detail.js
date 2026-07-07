@@ -1,7 +1,7 @@
 // ── PALETTE DETAIL PAGE ────────────────────────────────────────────────────────
 import { GLAZES, CLAY } from './glazes-data.js';
 import { saveAll } from './persistence.js';
-import { glazeCSS, galleryGradientCSS, togglePinState, applyGlaze, toHex } from './render.js';
+import { glazeCSS, galleryGradientCSS, togglePinState, applyGlaze, toHex, showToast } from './render.js';
 
 // ── Module state ───────────────────────────────────────────────────────────────
 let _key        = null;
@@ -344,7 +344,7 @@ export function setGradMode(mode) {
 export function pdToggleReverse() {
   _gradReverse = !_gradReverse;
   updateModeBar();
-  renderGradBg(_stops);
+  render();
 }
 
 export function pdToggleNoise() {
@@ -361,6 +361,7 @@ function _onKeyDown(e) {
   if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { e.preventDefault(); pdPrev(); }
   if (e.key === 'Escape') closePaletteDetail();
   if (e.key === '.') { e.preventDefault(); togglePinFromDetail(); }
+  if (e.key === 'f' || e.key === 'F') { e.preventDefault(); pdToggleReverse(); }
 }
 function _onSwipeStart(e) { _swipeStartX = e.touches[0].clientX; _swipeStartY = e.touches[0].clientY; }
 function _onSwipeEnd(e) {
@@ -489,6 +490,7 @@ function render() {
     }
   });
   renderPickerHighlights();
+  requestAnimationFrame(_renderCanvasEdit);
 }
 
 // ── Resize drag ────────────────────────────────────────────────────────────────
@@ -734,4 +736,315 @@ export function closePaletteDetail() {
   }
   _key = null; _stops = []; _drag = null; _allKeys = []; _keyIdx = -1; _navigating = false;
   _gradMode = 'linear'; _noiseOn = false; _gradReverse = false;
+}
+
+// ── DIRECT CANVAS EDITING (Integrated from Flow Mode) ──────────────────────────
+function _getCenter(w, h) {
+  const mobile = isMobile();
+  return {
+    x: mobile ? (w * 0.5) : (w * 0.5 - 140),
+    y: h * 0.5
+  };
+}
+
+function _conicRingRadius(w, h) {
+  const mobile = isMobile();
+  const visibleW = mobile ? w : w - 280;
+  return Math.min(visibleW, h) * 0.33;
+}
+
+function _axisPoint(mode, t, w, h) {
+  const ctr = _getCenter(w, h);
+  if (mode === 'conic') {
+    const r = _conicRingRadius(w, h), a = t * 2 * Math.PI; // 0 = top, clockwise
+    return { x: ctr.x + r * Math.sin(a), y: ctr.y - r * Math.cos(a) };
+  }
+  const botMargin = 70;
+  const topMargin = 70;
+  if (mode === 'radial' || mode === 'turrell') {
+    return { x: ctr.x, y: ctr.y + t * Math.max(1, h - ctr.y - botMargin) };
+  }
+  return { x: ctr.x, y: topMargin + t * Math.max(1, h - topMargin - botMargin) };
+}
+
+function _axisPos(mode, x, y, w, h) {
+  const ctr = _getCenter(w, h);
+  if (mode === 'conic') {
+    const a = Math.atan2(x - ctr.x, -(y - ctr.y));
+    return (a / (2 * Math.PI) + 1) % 1;
+  }
+  const botMargin = 70;
+  const topMargin = 70;
+  if (mode === 'radial' || mode === 'turrell') {
+    return Math.min(1, Math.max(0, (y - ctr.y) / Math.max(1, h - ctr.y - botMargin)));
+  }
+  return Math.min(1, Math.max(0, (y - topMargin) / Math.max(1, h - topMargin - botMargin)));
+}
+
+function _offAxisDistance(mode, x, y, w, h) {
+  const ctr = _getCenter(w, h);
+  if (mode === 'conic') {
+    const dx = x - ctr.x, dy = y - ctr.y;
+    return Math.abs(Math.hypot(dx, dy) - _conicRingRadius(w, h));
+  }
+  return Math.abs(x - ctr.x);
+}
+
+function _renderCanvasEdit() {
+  const layer = document.getElementById('pdEditLayer');
+  if (!layer) return;
+  layer.innerHTML = '';
+
+  const w = layer.clientWidth, h = layer.clientHeight;
+  if (!w || !h) return;
+
+  const mode = _gradMode;
+  const n = _stops.length;
+  if (n < 2) return;
+
+  // Render the axis
+  if (mode === 'conic') {
+    const r = _conicRingRadius(w, h);
+    const ctr = _getCenter(w, h);
+    const ring = document.createElement('div');
+    ring.className = 'flow-axis-ring';
+    Object.assign(ring.style, {
+      left: (ctr.x - r) + 'px',
+      top: (ctr.y - r) + 'px',
+      width: (2 * r) + 'px',
+      height: (2 * r) + 'px',
+    });
+    layer.appendChild(ring);
+  } else {
+    const a0 = _axisPoint(mode, 0, w, h), a1 = _axisPoint(mode, 1, w, h);
+    const line = document.createElement('div');
+    line.className = 'flow-axis-line';
+    Object.assign(line.style, {
+      left: a0.x + 'px',
+      top: a0.y + 'px',
+      height: (a1.y - a0.y) + 'px'
+    });
+    layer.appendChild(line);
+  }
+
+  // Calculate cumulative boundaries and midpoints
+  const tot = _stops.reduce((acc, s) => acc + s.weight, 0) || 1;
+  let running = 0;
+  const boundaries = [];
+  const midpoints = [];
+
+  _stops.forEach((s, i) => {
+    const start = running;
+    running += s.weight;
+    const end = running;
+
+    midpoints.push({
+      idx: i,
+      stop: s,
+      pos: (start + end) / 2 / tot
+    });
+
+    if (i < n - 1) {
+      boundaries.push({
+        idx: i,
+        pos: end / tot
+      });
+    }
+  });
+
+  // Render boundary handles (n-1 dividers)
+  boundaries.forEach((b) => {
+    const dispPos = _gradReverse ? (1 - b.pos) : b.pos;
+    const pt = _axisPoint(mode, dispPos, w, h);
+    const handle = document.createElement('div');
+    handle.className = 'flow-stop'; // Re-use flow handle styles
+    handle.dataset.i = b.idx;
+    Object.assign(handle.style, {
+      left: pt.x + 'px',
+      top: pt.y + 'px',
+      background: 'var(--white)',
+      border: '1.5px solid var(--ink)',
+      boxShadow: '0 1px 6px rgba(0,0,0,.3)'
+    });
+    layer.appendChild(handle);
+
+    handle.addEventListener('pointerdown', e => _onCanvasHandleDown(e, b.idx));
+  });
+
+  // Render segment labels at midpoints
+  midpoints.forEach((m) => {
+    const dispPos = _gradReverse ? (1 - m.pos) : m.pos;
+    const pt = _axisPoint(mode, dispPos, w, h);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'flow-stop-lbl'; // Re-use flow label styles
+    lbl.innerHTML = `
+      <span>${m.stop.name}</span>
+      <div class="pctxt">${Math.round(m.stop.weight)}%</div>
+    `;
+
+    if (pt.x > w - 130) {
+      lbl.style.left = '';
+      lbl.style.right = (w - pt.x + 18) + 'px';
+    } else {
+      lbl.style.right = '';
+      lbl.style.left = (pt.x + 18) + 'px';
+    }
+    lbl.style.top = pt.y + 'px';
+    layer.appendChild(lbl);
+
+    lbl.addEventListener('pointerdown', e => _onCanvasLabelDown(e, m.idx));
+  });
+}
+
+function _onCanvasHandleDown(e, idx) {
+  e.preventDefault(); e.stopPropagation();
+  const layer = document.getElementById('pdEditLayer');
+  const w = layer.clientWidth, h = layer.clientHeight;
+
+  const onMove = ev => {
+    const rect = layer.getBoundingClientRect();
+    const rx = ev.clientX - rect.left;
+    const ry = ev.clientY - rect.top;
+    const t = _axisPos(_gradMode, rx, ry, w, h);
+    const actualT = _gradReverse ? (1 - t) : t;
+
+    const tot = _stops.reduce((acc, s) => acc + s.weight, 0) || 1;
+    let running = 0;
+    const bPos = [];
+    _stops.forEach(s => {
+      running += s.weight;
+      bPos.push(running / tot);
+    });
+
+    const prevB = idx > 0 ? bPos[idx - 1] : 0;
+    const nextB = bPos[idx + 1];
+
+    const minPct = MIN_W / 100;
+    const clampedT = Math.min(nextB - minPct, Math.max(prevB + minPct, actualT));
+
+    const a = _stops[idx], b = _stops[idx + 1];
+    const targetAWeight = (clampedT - prevB) * 100;
+    const targetBWeight = (nextB - clampedT) * 100;
+
+    a.weight = targetAWeight;
+    b.weight = targetBWeight;
+
+    renderGradBg(_stops);
+    _renderCanvasEditPositions();
+
+    // Update block positions in place in Stops panel
+    const panel = document.getElementById('pdStopsPanel');
+    const panelSz = isMobile() ? panel.offsetWidth : panel.offsetHeight;
+    const pos = blockPositions(_stops, panelSz);
+    const container = document.getElementById('pdStopsContainer');
+    _stops.forEach((s, i) => {
+      const el = container.querySelector(`[data-pid="${s.id}"]`);
+      if (el) {
+        if (isMobile()) {
+          el.style.left = pos[i].start + 'px'; el.style.width = pos[i].size + 'px';
+        } else {
+          el.style.top = pos[i].start + 'px'; el.style.height = pos[i].size + 'px';
+        }
+      }
+    });
+  };
+
+  const onUp = ev => {
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    sync();
+    render();
+  };
+
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+}
+
+function _renderCanvasEditPositions() {
+  const layer = document.getElementById('pdEditLayer');
+  const w = layer.clientWidth, h = layer.clientHeight;
+  const tot = _stops.reduce((acc, s) => acc + s.weight, 0) || 1;
+  let running = 0;
+  const boundaries = [];
+  const midpoints = [];
+
+  _stops.forEach((s, i) => {
+    const start = running;
+    running += s.weight;
+    const end = running;
+    midpoints.push({ idx: i, weight: s.weight, name: s.name, pos: (start + end) / 2 / tot });
+    if (i < _stops.length - 1) {
+      boundaries.push({ idx: i, pos: end / tot });
+    }
+  });
+
+  layer.querySelectorAll('.flow-stop').forEach((el, idx) => {
+    const b = boundaries[idx];
+    if (!b) return;
+    const dispPos = _gradReverse ? (1 - b.pos) : b.pos;
+    const pt = _axisPoint(_gradMode, dispPos, w, h);
+    el.style.left = pt.x + 'px'; el.style.top = pt.y + 'px';
+  });
+
+  layer.querySelectorAll('.flow-stop-lbl').forEach((el, idx) => {
+    const m = midpoints[idx];
+    if (!m) return;
+    const dispPos = _gradReverse ? (1 - m.pos) : m.pos;
+    const pt = _axisPoint(_gradMode, dispPos, w, h);
+    el.querySelector('span').textContent = m.name;
+    el.querySelector('.pctxt').textContent = Math.round(m.weight) + '%';
+    if (pt.x > w - 130) {
+      el.style.left = ''; el.style.right = (w - pt.x + 18) + 'px';
+    } else {
+      el.style.right = ''; el.style.left = (pt.x + 18) + 'px';
+    }
+    el.style.top = pt.y + 'px';
+  });
+}
+
+function _onCanvasLabelDown(e, idx) {
+  e.preventDefault(); e.stopPropagation();
+  const layer = document.getElementById('pdEditLayer');
+  const w = layer.clientWidth, h = layer.clientHeight;
+  const stop = _stops[idx];
+
+  const REMOVE_DIST = 90;
+  const lblEl = e.currentTarget;
+
+  const onMove = ev => {
+    const rect = layer.getBoundingClientRect();
+    const rx = ev.clientX - rect.left;
+    const ry = ev.clientY - rect.top;
+    const off = _offAxisDistance(_gradMode, rx, ry, w, h);
+    lblEl.style.opacity = off > REMOVE_DIST ? '.4' : '1';
+  };
+
+  const onUp = ev => {
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    const rect = layer.getBoundingClientRect();
+    const rx = ev.clientX - rect.left;
+    const ry = ev.clientY - rect.top;
+    const off = _offAxisDistance(_gradMode, rx, ry, w, h);
+
+    if (off > REMOVE_DIST && _stops.length > 2) {
+      _stops.splice(idx, 1);
+      const newW = 100 / _stops.length;
+      _stops.forEach(s => s.weight = newW);
+      sync();
+      render();
+    } else {
+      lblEl.style.opacity = '1';
+      const tile = document.querySelector(`.pd-tile[data-glaze-name="${stop.name}"]`);
+      if (tile) {
+        tile.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        tile.classList.add('flash-active');
+        setTimeout(() => tile.classList.remove('flash-active'), 800);
+      }
+    }
+  };
+
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
 }
