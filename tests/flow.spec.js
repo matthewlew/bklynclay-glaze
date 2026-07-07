@@ -124,3 +124,141 @@ test.describe('Flow edit mode', () => {
     await expect(page.locator('#flowEditLayer .flow-axis-ring')).toBeVisible();
   });
 });
+
+test.describe('Flow edit interactions', () => {
+  async function openEdit(page) {
+    await page.goto('/');
+    await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
+    await page.locator('#flowBtn').click();
+    await page.locator('#flowFeed').click({ position: { x: 200, y: 400 } });
+    await expect(page.locator('#flowEditLayer')).toBeVisible();
+  }
+
+  test('dragging a handle along the axis changes its stop percentage', async ({ page }) => {
+    await openEdit(page);
+    const first = page.locator('.flow-stop').first();
+    const before = await page.locator('.flow-stop-lbl .pctxt').first().textContent();
+    const box = await first.boundingBox();
+    await page.mouse.move(box.x + 10, box.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 10, box.y + 180, { steps: 8 });
+    await page.mouse.up();
+    const after = await page.locator('.flow-stop-lbl .pctxt').first().textContent();
+    expect(after).not.toBe(before);
+    // gradient rewritten with the new stop
+    const bg = await page.locator('.flow-card[data-idx="0"]').evaluate(el => el.style.background);
+    const num = parseFloat(after);
+    const regex = new RegExp(num.toFixed(0) + '(\\.\\d)?%');
+    expect(bg).toMatch(regex);
+  });
+
+  test('tapping + opens the glaze picker and picking inserts a stop', async ({ page }) => {
+    await openEdit(page);
+    const n = await page.locator('.flow-stop').count();
+    await page.locator('.flow-plus').first().click();
+    await expect(page.locator('#flowPicker')).toBeVisible();
+    await page.locator('#flowPicker .flow-pick-row').first().click();
+    await expect(page.locator('#flowPicker')).toBeHidden();
+    await expect(page.locator('.flow-stop')).toHaveCount(n + 1);
+  });
+
+  test('tapping a label swaps that glaze via the picker', async ({ page }) => {
+    await openEdit(page);
+    const label = page.locator('.flow-stop-lbl span').first();
+    const oldName = await label.textContent();
+    await label.click();
+    await expect(page.locator('#flowPicker')).toBeVisible();
+    // pick a row with a different name
+    const row = page.locator(`#flowPicker .flow-pick-row:not(:has-text("${oldName}"))`).first();
+    const newName = await row.locator('.flow-pick-name').textContent();
+    await row.click();
+    await expect(page.locator('.flow-stop-lbl span').first()).toHaveText(newName);
+  });
+
+  test('dragging a handle far off the axis removes it (respecting min 2)', async ({ page }) => {
+    await openEdit(page);
+    const n = await page.locator('.flow-stop').count();
+    const first = page.locator('.flow-stop').first();
+    const box = await first.boundingBox();
+    await page.mouse.move(box.x + 10, box.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 160, box.y + 10, { steps: 8 });
+    await page.mouse.up();
+    if (n > 2) await expect(page.locator('.flow-stop')).toHaveCount(n - 1);
+    else await expect(page.locator('.flow-stop')).toHaveCount(2); // snaps back at minimum
+  });
+});
+
+test.describe('Flow save', () => {
+  test('double-click saves to likedMeta with names+hexes and pulses', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
+    await page.locator('#flowBtn').click();
+    const before = await page.evaluate(() => likedMeta.length);
+    await page.locator('#flowFeed').dblclick({ position: { x: 200, y: 400 } });
+    await expect(page.locator('#flowPulse')).toHaveClass(/show/);
+    const after = await page.evaluate(() => likedMeta.length);
+    expect(after).toBe(before + 1);
+    const meta = await page.evaluate(() => likedMeta[likedMeta.length - 1]);
+    expect(meta.names.length).toBeGreaterThanOrEqual(2);
+    expect(meta.key).toBe(meta.names.join('|'));
+    // idempotent: saving again does not duplicate or unsave
+    await page.waitForTimeout(400);
+    await page.locator('#flowFeed').dblclick({ position: { x: 200, y: 400 } });
+    expect(await page.evaluate(() => likedMeta.length)).toBe(after);
+    // edit mode did NOT open from the double-click
+    await expect(page.locator('#flowEditLayer')).toBeHidden();
+  });
+});
+
+test.describe('Flow arc menu & keys', () => {
+  test('long-press opens the arc menu; releasing on Riff replaces the palette', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
+    await page.locator('#flowBtn').click();
+    const keyBefore = await page.evaluate(async () => (await import('/flow-view.js')).flowHistory[0].key);
+    await page.mouse.move(200, 500);
+    await page.mouse.down();
+    await page.waitForTimeout(550);
+    await expect(page.locator('#flowArc')).toBeVisible();
+    const riff = page.locator('#flowArc .flow-arc-btn[data-act="riff"]');
+    const box = await riff.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.up();
+    await expect(page.locator('#flowArc')).toBeHidden();
+    const keyAfter = await page.evaluate(async () => (await import('/flow-view.js')).flowHistory[0].key);
+    expect(keyAfter).not.toBe(keyBefore);
+  });
+
+  test('releasing outside the arc cancels; S key saves', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
+    await page.locator('#flowBtn').click();
+    await page.mouse.move(200, 500);
+    await page.mouse.down();
+    await page.waitForTimeout(550);
+    await expect(page.locator('#flowArc')).toBeVisible();
+    await page.mouse.move(200, 200);
+    await page.mouse.up();
+    await expect(page.locator('#flowArc')).toBeHidden();
+    const before = await page.evaluate(() => likedMeta.length);
+    await page.keyboard.press('s');
+    expect(await page.evaluate(() => likedMeta.length)).toBe(before + 1);
+  });
+});
+
+test('Flow renders on red clay without errors', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', err => errors.push(err.message));
+  await page.goto('/');
+  await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
+  await page.locator('.clay-btn.red').click();
+  await page.locator('#flowBtn').click();
+  await expect(page.locator('#flowView')).toBeVisible();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight'); // conic — aperture must take red clay color
+  const apBg = await page.locator('.flow-card[data-idx="0"] .conic-aperture')
+    .evaluate(el => el.style.background);
+  expect(apBg).not.toBe('');
+  expect(errors).toEqual([]);
+});

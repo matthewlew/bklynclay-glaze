@@ -923,6 +923,31 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   background:var(--flow-chrome);backdrop-filter:blur(8px);cursor:pointer;}
 .flow-hint{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);left:0;right:0;
   text-align:center;font-size:9px;letter-spacing:.2em;color:var(--flow-text-dim);}
+.flow-picker{position:absolute;left:12px;right:12px;bottom:12px;max-height:46%;overflow-y:auto;
+  z-index:6;border-radius:16px;background:var(--flow-chrome-strong);backdrop-filter:blur(20px);padding:10px;}
+.flow-picker[hidden]{display:none;}
+.flow-pick-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;
+  color:var(--flow-text);font-size:13px;cursor:pointer;}
+.flow-pick-row:hover{background:var(--flow-chrome);}
+.flow-pick-row i{width:16px;height:16px;border-radius:50%;flex:none;}
+.flow-pick-fin{margin-left:auto;color:var(--flow-text-dim);font-size:11px;}
+.flow-pulse{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) scale(.6);
+  z-index:5;font-size:52px;color:var(--white);opacity:0;pointer-events:none;
+  text-shadow:0 0 24px var(--flow-text-dim);}
+.flow-pulse.show{animation:flowPulse .7s ease-out;}
+@keyframes flowPulse{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.6);}
+  25%{opacity:.9;transform:translate(-50%,-50%) scale(1.15);}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.5);}
+}
+.flow-arc{position:absolute;inset:0;z-index:7;}
+.flow-arc[hidden]{display:none;}
+.flow-arc-btn{position:absolute;width:52px;height:52px;border-radius:50%;
+  transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;
+  justify-content:center;background:var(--card);color:var(--ink);font-size:17px;
+  box-shadow:0 6px 18px var(--flow-chrome-strong);}
+.flow-arc-btn small{font-size:6.5px;letter-spacing:.12em;color:var(--ink3);margin-top:1px;}
+.flow-arc-btn.hot{outline:3px solid var(--flow-active);}
 </style>
 </head>
 <body>
@@ -1434,6 +1459,9 @@ loadAll().then(() => {
   </div>
   <button class="flow-x" id="flowClose" aria-label="Close Flow" onclick="closeFlow()">✕</button>
   <div class="flow-edit-layer" id="flowEditLayer" hidden></div>
+  <div class="flow-picker" id="flowPicker" hidden></div>
+  <div class="flow-pulse" id="flowPulse" aria-hidden="true">✦</div>
+  <div class="flow-arc" id="flowArc" hidden></div>
 </div>
 
 <script>

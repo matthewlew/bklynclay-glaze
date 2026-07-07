@@ -197,6 +197,7 @@ test('opening a palette detail from a conic gallery view opens in conic mode', a
 test('detail view swatch color matches the gallery-computed clay-adjusted color', async ({ page }) => {
   await page.goto('/');
   await page.locator('.clay-btn.red').click();
+  await expect(page.locator('.clay-btn.red')).toHaveClass(/on/);
   await page.locator('.card').first().click();
   await expect(page.locator('#paletteDetail')).toHaveClass(/open/);
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.0
+- Flow mode: full-screen rapid gradient scroll (Flow ✦ button in Discover)
+  - Vertical scroll-snap feed of endlessly generated palettes with scroll-back history
+  - Horizontal swipe / ←→ / Shift+scroll cycles linear/radial/conic/stripes/turrell
+  - Tap for on-gradient stop-handle editing (drag to move/swap, + to add, drag-off to remove)
+  - Double-tap or S to save; long-press arc menu: Save to project / Pin / Riff
+
 ## [Unreleased]
 
 ## [1.3.0] — 2026-07-03

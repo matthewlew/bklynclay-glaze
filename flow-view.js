@@ -7,12 +7,14 @@
 import { VIEW_MODES } from './view-rating.js';
 import { GLAZES, CLAY } from './glazes-data.js';
 import {
-  generatePalette, generateBandingPalette, withKey, mkid,
-  applyGlaze, toHex,
+  generatePalette, generateBandingPalette, withKey, mkid, getPool, doRiff,
+  applyGlaze, toHex, showToast, renderSidebar, renderTopbarTabs, updateCount,
 } from './render.js';
+import { saveAll } from './persistence.js';
 import {
-  equalStops, windowRange, flowGradientCSS,
-  axisPoint, midpoints, conicRingRadius, FLOW_MAX_STOPS,
+  equalStops, moveStop, insertStop, removeStop, replaceStopHex, midpoints,
+  axisPoint, axisPos, offAxisDistance, conicRingRadius, windowRange,
+  flowGradientCSS, FLOW_MAX_STOPS,
 } from './flow-core.js';
 
 let _open = false;
@@ -43,6 +45,9 @@ export function openFlow() {
   feed.addEventListener('touchstart', _onTouchStart, { passive: true });
   feed.addEventListener('touchend', _onTouchEnd, { passive: true });
   feed.addEventListener('pointerup', _onPointerUp);
+  feed.addEventListener('pointerdown', _onHoldStart);
+  feed.addEventListener('pointermove', _onHoldMove);
+  feed.addEventListener('pointercancel', _onHoldCancel);
 }
 
 export function closeFlow() {
@@ -56,11 +61,16 @@ export function closeFlow() {
   $('flowFeed').removeEventListener('touchstart', _onTouchStart);
   $('flowFeed').removeEventListener('touchend', _onTouchEnd);
   $('flowFeed').removeEventListener('pointerup', _onPointerUp);
+  $('flowFeed').removeEventListener('pointerdown', _onHoldStart);
+  $('flowFeed').removeEventListener('pointermove', _onHoldMove);
+  $('flowFeed').removeEventListener('pointercancel', _onHoldCancel);
 }
 
 function _onKey(e) {
   if (!_open) return;
   if (e.key === 'Escape') { e.stopPropagation(); _editing ? _exitEdit() : closeFlow(); return; }
+  if (e.key === 's' || e.key === 'S') { e.preventDefault(); _saveCurrent(); return; }
+  if (e.key === 'e' || e.key === 'E') { e.preventDefault(); _enterEdit(); return; }
   if (_editing) return;
   if (e.key === 'ArrowRight') { e.preventDefault(); _cycleStyle(1); }
   if (e.key === 'ArrowLeft')  { e.preventDefault(); _cycleStyle(-1); }
@@ -224,18 +234,18 @@ function _onIndexChange() {
 // ── EDIT MODE ─────────────────────────────────────────────────────────────────
 let _tapTimer = null, _lastTapT = 0;
 function _onPointerUp(e) {
-  console.log('DEBUG onPointerUp', { editing: _editing, target: e.target.className });
+  clearTimeout(_holdTimer);
+  if (_arcOpen) return;
   if (_editing) return;
   if (e.target.closest('.flow-x')) return;
   const now = performance.now();
-  if (now - _lastTapT < 300) {           // double tap → save (Task 9)
+  if (_lastTapT && now - _lastTapT < 300) {           // double tap → save (Task 9)
     clearTimeout(_tapTimer); _lastTapT = 0;
     _saveCurrent();
     return;
   }
   _lastTapT = now;
-  console.log('DEBUG scheduling enterEdit');
-  _tapTimer = setTimeout(() => { console.log('DEBUG firing enterEdit'); _enterEdit(); }, 250);
+  _tapTimer = setTimeout(() => _enterEdit(), 250);
 }
 
 function _current() { return flowHistory[_idx]; }
@@ -337,7 +347,245 @@ function _renderEdit() {
   }, { passive: true });
 }
 
-// Implemented in Task 8 (drag + picker) and Task 9 (save):
-function _onStopDown() {}
-function _openPicker() {}
-function _saveCurrent() {}
+function _syncGlazesFromStops(p) {
+  p.glazes = p.stops.map(s => GLAZES.find(g => g.name === s.name)).filter(Boolean);
+  Object.assign(p, withKey(p));
+}
+
+function _refreshCurrentCard() {
+  const el = _mounted.get(_idx);
+  if (!el) return;
+  _applyCardStyle(el, _current());
+  el.querySelector('.flow-names')?.replaceWith(_buildNames(_current()));
+}
+
+// ── EDIT: DRAG ────────────────────────────────────────────────────────────────
+const REMOVE_DIST = 90;   // px off-axis to remove a stop
+
+const _dragPos = (x, y, w, h) => {
+  const t = axisPos(_mode(), x, y, w, h);
+  return _mode() === 'turrell' ? 1 - t : t;
+};
+
+function _onStopDown(e, i) {
+  e.preventDefault();
+  const layer = $('flowEditLayer');
+  const w = layer.clientWidth, h = layer.clientHeight;
+  const p = _current();
+  let idx = i;
+  const hEl = layer.querySelector(`.flow-stop[data-i="${i}"]`);
+  hEl.classList.add('active');
+  hEl.setPointerCapture(e.pointerId);
+
+  const onMove = ev => {
+    const off = offAxisDistance(_mode(), ev.clientX, ev.clientY, w, h);
+    hEl.style.opacity = off > REMOVE_DIST ? '.4' : '1';
+    const t = _dragPos(ev.clientX, ev.clientY, w, h);
+    const res = moveStop(p.stops, idx, t);
+    p.stops = res.stops; idx = res.index;
+    _syncGlazesFromStops(p);
+    _refreshCurrentCard();
+    _renderEditPositions();          // cheap reposition, no full rebuild
+  };
+  const onUp = ev => {
+    hEl.removeEventListener('pointermove', onMove);
+    hEl.removeEventListener('pointerup', onUp);
+    const off = offAxisDistance(_mode(), ev.clientX, ev.clientY, w, h);
+    if (off > REMOVE_DIST) {
+      const next = removeStop(p.stops, idx);
+      if (next !== p.stops) { p.stops = next; _syncGlazesFromStops(p); _refreshCurrentCard(); }
+    }
+    _renderEdit();                   // full rebuild (labels, +, order)
+  };
+  hEl.addEventListener('pointermove', onMove);
+  hEl.addEventListener('pointerup', onUp);
+}
+
+// Reposition handles/labels in place during a drag (rebuild-free).
+function _renderEditPositions() {
+  const layer = $('flowEditLayer');
+  const w = layer.clientWidth, h = layer.clientHeight;
+  const stops = _current().stops;
+  layer.querySelectorAll('.flow-stop').forEach((el, domIdx) => {
+    const s = stops[domIdx];
+    if (!s) return;
+    const pt = axisPoint(_mode(), _dispT(s.pos), w, h);
+    el.style.left = pt.x + 'px'; el.style.top = pt.y + 'px'; el.style.background = s.hex;
+  });
+  layer.querySelectorAll('.flow-stop-lbl').forEach((el, domIdx) => {
+    const s = stops[domIdx];
+    if (!s) return;
+    const pt = axisPoint(_mode(), _dispT(s.pos), w, h);
+    el.querySelector('span').textContent = s.name;
+    el.querySelector('.pctxt').textContent = Math.round(s.pos * 100) + '%';
+    if (pt.x > w - 130) { el.style.left = ''; el.style.right = (w - pt.x + 18) + 'px'; }
+    else { el.style.right = ''; el.style.left = (pt.x + 18) + 'px'; }
+    el.style.top = pt.y + 'px';
+  });
+}
+
+// ── EDIT: PICKER (add + swap) ─────────────────────────────────────────────────
+function _openPicker(replaceIdx, insertPos) {
+  const picker = $('flowPicker');
+  picker.innerHTML = '';
+  getPool().forEach(g => {
+    const row = document.createElement('div');
+    row.className = 'flow-pick-row';
+    const dot = document.createElement('i');
+    const c = applyGlaze(g, clayKey);
+    dot.style.background = toHex(c.r, c.gr, c.b);
+    const nm = document.createElement('span');
+    nm.className = 'flow-pick-name';
+    nm.textContent = g.name;
+    const fin = document.createElement('span');
+    fin.className = 'flow-pick-fin';
+    fin.textContent = g.fin;
+    row.appendChild(dot); row.appendChild(nm); row.appendChild(fin);
+    row.addEventListener('click', () => {
+      const p = _current();
+      const hex = toHex(c.r, c.gr, c.b);
+      if (replaceIdx !== null && replaceIdx !== undefined) {
+        p.stops = replaceStopHex(p.stops, replaceIdx, hex);
+        p.stops[replaceIdx].name = g.name;
+      } else {
+        p.stops = insertStop(p.stops, insertPos, { name: g.name, hex });
+      }
+      _syncGlazesFromStops(p);
+      _refreshCurrentCard();
+      picker.hidden = true;
+      _renderEdit();
+    });
+    picker.appendChild(row);
+  });
+  picker.hidden = false;
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────────────────
+function _pulse() {
+  const el = $('flowPulse');
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+
+function _saveCurrent() {
+  const p = _current();
+  if (!likedKeys.has(p.key)) {
+    likedKeys.add(p.key);
+    if (!likedMeta.find(m => m.key === p.key)) {
+      const meta = {
+        key: p.key, label: p.label, feeling: '', tag: p.tag,
+        names: p.glazes.map(g => g.name), hexes: p.glazes.map(g => g.hex),
+      };
+      if (activeContext !== 'global') meta.projectId = activeContext;
+      likedMeta.push(meta);
+    }
+    saveAll(); renderSidebar(); renderTopbarTabs(); updateCount();
+  }
+  _pulse();   // saved or already-saved: always confirm visually, never unsave
+}
+
+// ── ARC MENU ──────────────────────────────────────────────────────────────────
+const HOLD_MS = 450, HOLD_SLOP = 10;
+let _holdTimer = null, _holdX = 0, _holdY = 0, _arcOpen = false;
+
+const ARC_ITEMS = [
+  { act: 'save-proj', icon: '▤', label: 'PROJECT' },
+  { act: 'pin',       icon: '✦', label: 'PIN' },
+  { act: 'riff',      icon: '⟳', label: 'RIFF' },
+];
+
+function _onHoldStart(e) {
+  if (_editing || _arcOpen) return;
+  _holdX = e.clientX; _holdY = e.clientY;
+  _holdTimer = setTimeout(() => _openArc(e.clientX, e.clientY), HOLD_MS);
+}
+function _onHoldMove(e) {
+  if (_arcOpen) { _updateArcHot(e.clientX, e.clientY); return; }
+  if (Math.hypot(e.clientX - _holdX, e.clientY - _holdY) > HOLD_SLOP) clearTimeout(_holdTimer);
+}
+function _onHoldCancel() { clearTimeout(_holdTimer); }
+
+function _openArc(x, y) {
+  if (navigator.vibrate) navigator.vibrate(30);
+  _arcOpen = true;
+  clearTimeout(_tapTimer);   // a hold is not a tap
+  const arc = $('flowArc');
+  arc.innerHTML = '';
+  const w = arc.clientWidth || window.innerWidth;
+  // fan the three buttons on a quarter arc opening toward screen center
+  const toLeft = x > w / 2 ? -1 : 1;
+  ARC_ITEMS.forEach((item, i) => {
+    const a = (Math.PI / 2) * (i / (ARC_ITEMS.length - 1)) - Math.PI / 2; // -90°..0°
+    const bx = x + toLeft * 96 * Math.cos(a), by = y + 96 * Math.sin(a);
+    const btn = document.createElement('div');
+    btn.className = 'flow-arc-btn';
+    btn.dataset.act = item.act;
+    btn.innerHTML = `${item.icon}<small>${item.label}</small>`;
+    Object.assign(btn.style, { left: bx + 'px', top: by + 'px' });
+    arc.appendChild(btn);
+  });
+  arc.hidden = false;
+  document.addEventListener('pointerup', _onArcRelease, { once: true });
+}
+
+function _updateArcHot(x, y) {
+  $('flowArc').querySelectorAll('.flow-arc-btn').forEach(btn => {
+    const r = btn.getBoundingClientRect();
+    const hit = x >= r.left - 8 && x <= r.right + 8 && y >= r.top - 8 && y <= r.bottom + 8;
+    btn.classList.toggle('hot', hit);
+  });
+}
+
+function _onArcRelease(e) {
+  const arc = $('flowArc');
+  _updateArcHot(e.clientX, e.clientY);
+  const hot = arc.querySelector('.flow-arc-btn.hot');
+  arc.hidden = true; arc.innerHTML = ''; _arcOpen = false;
+  _lastTapT = 0; clearTimeout(_tapTimer);   // swallow the tap this release would fire
+  if (!hot) return;
+  const act = hot.dataset.act;
+  if (act === 'pin') _saveCurrent();
+  if (act === 'riff') {
+    const riffedList = doRiff(_current());
+    const riffed = riffedList.find(r => r.key !== _current().key) || riffedList[0];
+    if (riffed) {
+      delete riffed.stops;
+      flowHistory[_idx] = riffed;
+      _refreshCurrentCard();
+      showToast('Riffed');
+    }
+  }
+  if (act === 'save-proj') _openProjectPicker();
+}
+
+function _openProjectPicker() {
+  const picker = $('flowPicker');
+  picker.innerHTML = '';
+  if (!projects.length) { showToast('No boards yet — create one in the sidebar'); return; }
+  projects.forEach(proj => {
+    const row = document.createElement('div');
+    row.className = 'flow-pick-row';
+    const nm = document.createElement('span');
+    nm.className = 'flow-pick-name';
+    nm.textContent = proj.name;
+    row.appendChild(nm);
+    row.addEventListener('click', () => {
+      const p = _current();
+      likedKeys.add(p.key);
+      let meta = likedMeta.find(m => m.key === p.key);
+      if (!meta) {
+        meta = { key: p.key, label: p.label, feeling: '', tag: p.tag,
+                 names: p.glazes.map(g => g.name), hexes: p.glazes.map(g => g.hex) };
+        likedMeta.push(meta);
+      }
+      meta.projectId = proj.id;
+      saveAll(); renderSidebar(); renderTopbarTabs(); updateCount();
+      picker.hidden = true;
+      _pulse();
+      showToast(`Saved to "${proj.name}"`);
+    });
+    picker.appendChild(row);
+  });
+  picker.hidden = false;
+}
