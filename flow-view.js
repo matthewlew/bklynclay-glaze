@@ -154,12 +154,16 @@ function _ensureStops(p) {
 let _mounted = new Map();  // feed index -> card element
 
 function _applyCardStyle(el, p) {
+  el.style.background = '';
+  el.style.backgroundImage = '';
+  el.style.backgroundSize = '';
+  el.style.backgroundPosition = '';
+  el.style.backgroundRepeat = '';
+  el.style.backgroundColor = '';
+
   const css = flowGradientCSS(_mode(), _ensureStops(p), CLAY[clayKey]);
-  el.style.backgroundImage = css.backgroundImage || '';
-  el.style.backgroundSize = css.backgroundSize || '';
-  el.style.background = css.background;
-  if (css.backgroundImage) el.style.backgroundImage = css.backgroundImage;
-  if (css.backgroundSize) el.style.backgroundSize = css.backgroundSize;
+  Object.assign(el.style, css);
+
   let ap = el.querySelector('.conic-aperture');
   if (_mode() === 'conic') {
     if (!ap) { ap = document.createElement('div'); ap.className = 'conic-aperture'; el.appendChild(ap); }
