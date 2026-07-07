@@ -184,7 +184,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .card.liked{border-color:var(--acc);}
 
 .tile-col{display:flex;flex-direction:column;gap:1px;padding:7px 7px 0;}
-.tile-gradient{border-radius:3px;position:relative;}
+.tile-gradient{border-radius:3px;position:relative;background-position:center;background-repeat:no-repeat;}
 .conic-aperture{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36%;aspect-ratio:1;border-radius:50%;box-shadow:0 0 0 1.5px rgba(0,0,0,.08);}
 .tile-wrap{display:block;line-height:0;font-size:0;}
 .card-footer{padding:7px 9px 9px;position:absolute;bottom:0;left:0;right:0;background:rgba(255,255,255,.70);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);border-top:1px solid rgba(0,0,0,.06);opacity:0;transition:opacity .20s ease;z-index:2;}
@@ -733,7 +733,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 
 /* Canvas — full blurred gradient */
 .pd-canvas{flex:1;position:relative;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none;}
-.pd-gradient-bg{position:absolute;inset:0;filter:blur(60px) saturate(1.1);transform:scale(1.15);transition:background .15s linear;will-change:background;}
+.pd-gradient-bg{position:absolute;inset:0;filter:blur(60px) saturate(1.1);transform:scale(1.15);transition:background .15s linear;will-change:background;background-position:center;background-repeat:no-repeat;}
 
 /* Stops panel — overlaid on right side of canvas (left of picker), always visible */
 .pd-stops-panel{position:absolute;right:196px;top:0;bottom:0;width:280px;border-left:1px solid rgba(255,255,255,.15);overflow:hidden;}
@@ -896,7 +896,7 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .flow-feed{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;
   scroll-snap-type:y mandatory;scrollbar-width:none;}
 .flow-feed::-webkit-scrollbar{display:none;}
-.flow-card{height:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;}
+.flow-card{height:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;background-position:center;background-repeat:no-repeat;}
 .flow-card .conic-aperture{top:42%;}
 .flow-names{position:absolute;left:20px;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);
   color:var(--white);transition:opacity .25s;z-index:2;}
