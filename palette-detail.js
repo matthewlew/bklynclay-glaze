@@ -17,6 +17,10 @@ let _gradMode   = 'linear';
 let _noiseOn    = false;
 let _gradReverse = false;
 
+// Session-level cache so unpinned palettes also remember custom stop weights
+// while the page is open. Survives close/reopen of the detail panel.
+const _transientWeights = new Map();
+
 const MIN_W = 6;
 
 function mkStop(name, hex, w) { return {id: _nid++, name, hex, weight: w}; }
@@ -225,27 +229,50 @@ function tentativeOrder(srcIdx, insertBefore) {
 
 // ── Sync ───────────────────────────────────────────────────────────────────────
 function sync() {
-  const m = likedMeta.find(x => x.key === _key);
-  if (!m) return;
-  m.names = _stops.map(s => s.name);
-  m.hexes = _stops.map(s => s.hex);
-  // Persist custom stop weights so they survive close/reopen and page reload.
+  // Compute normalised weights for the current stop array.
   const tot = _stops.reduce((a, s) => a + s.weight, 0) || 1;
-  m.weights = _stops.map(s => s.weight / tot);
-  saveAll();
-  const gs = _stops.map(s => GLAZES.find(g => g.name === s.name)).filter(Boolean);
+  const ws  = _stops.map(s => s.weight / tot);
+
+  // Always cache in the transient map — works for both pinned and unpinned palettes.
+  _transientWeights.set(_key, ws);
+
+  // If the palette is pinned, also persist names/hexes/weights to storage.
+  const m = likedMeta.find(x => x.key === _key);
+  if (m) {
+    m.names   = _stops.map(s => s.name);
+    m.hexes   = _stops.map(s => s.hex);
+    m.weights = ws;
+    saveAll();
+  }
+
+  // Update every sidebar chip gradient to reflect the new weights.
+  const gs   = _stops.map(s => GLAZES.find(g => g.name === s.name)).filter(Boolean);
   const mode = typeof galleryViewMode !== 'undefined' ? galleryViewMode : null;
-  const css = gs.length ? galleryGradientCSS(gs, clayKey, mode, m.weights) : '';
-  document.querySelectorAll(`.lchip[data-key="${_key}"]`).forEach(chip => {
-    const strip = chip.querySelector('.lchip-strip');
-    if (css && strip) strip.style.background = css;
-    let ap = chip.querySelector('.lchip-aperture');
-    if (mode === 'conic') {
-      if (!ap && strip) { ap = document.createElement('div'); ap.className = 'lchip-aperture'; ap.style.background = CLAY[clayKey]; strip.appendChild(ap); }
-    } else if (ap) { ap.remove(); }
-    chip.title = `${(chip.title.split('\n')[0]||'')}\n${m.names.join(', ')}`;
-  });
+  if (gs.length) {
+    const chipCss = galleryGradientCSS(gs, clayKey, mode, ws);
+    document.querySelectorAll(`.lchip[data-key="${_key}"]`).forEach(chip => {
+      const strip = chip.querySelector('.lchip-strip');
+      if (chipCss && strip) strip.style.background = chipCss;
+      let ap = chip.querySelector('.lchip-aperture');
+      if (mode === 'conic') {
+        if (!ap && strip) { ap = document.createElement('div'); ap.className = 'lchip-aperture'; ap.style.background = CLAY[clayKey]; strip.appendChild(ap); }
+      } else if (ap) { ap.remove(); }
+      if (m) chip.title = `${(chip.title.split('\n')[0]||'')}\n${m.names.join(', ')}`;
+    });
+
+    // Also update the gallery card's gradient for non-tiles modes so the
+    // visual in the Discover grid reflects the new proportions in real time.
+    if (mode && mode !== 'tiles') {
+      const cardCss = galleryGradientCSS(gs, clayKey, mode, ws);
+      const card = document.querySelector(`.card[data-key="${_key}"]`);
+      if (card) {
+        const tg = card.querySelector('.tile-col.tile-gradient');
+        if (tg) tg.style.background = cardCss;
+      }
+    }
+  }
 }
+
 
 // ── Nav counter ────────────────────────────────────────────────────────────────
 function updateNav() {
@@ -302,8 +329,8 @@ function _loadKeyData(key, fallback) {
   const names = m ? (m.names || []) : (fallback?.glazes || []).map(g => g.name);
   const hexes = m ? (m.hexes || []) : (fallback?.glazes || []).map(g => g.hex);
   if (!names.length) return;
-  // Restore saved weights if they exist, otherwise use equal distribution.
-  const savedWeights = m?.weights;
+  // Restore weights: likedMeta (survives reload) > transient map (session) > equal fallback.
+  const savedWeights = m?.weights || _transientWeights.get(key);
   const defaultW = 100 / names.length;
   names.forEach((name, i) => {
     const hex = hexes[i] || (GLAZES.find(g => g.name === name)?.hex) || '#888';
