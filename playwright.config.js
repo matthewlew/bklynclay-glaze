@@ -8,11 +8,12 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:5188',
     trace: 'on-first-retry',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /pwa-preview\.spec\.js/ },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] }, testIgnore: /pwa-preview\.spec\.js/ },
     {
       name: 'preview',
       testMatch: /pwa-preview\.spec\.js/,
@@ -21,8 +22,8 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'npm run dev',
-      url: 'http://localhost:5173',
+      command: 'npm run dev -- --port 5188',
+      url: 'http://localhost:5188',
       reuseExistingServer: !process.env.CI,
       timeout: 30000,
     },
