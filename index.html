@@ -1468,7 +1468,7 @@ loadAll().catch(err => {
 </div>
 
 <script>
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && window.location.port !== '5173') {
   navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
 }
 </script>

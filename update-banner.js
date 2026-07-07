@@ -26,6 +26,8 @@ function hideBanner() {
 export function initUpdateBanner() {
   if (!('serviceWorker' in navigator)) return;
 
+  let hasController = !!navigator.serviceWorker.controller;
+
   navigator.serviceWorker.ready.then(registration => {
     const notifyIfWaiting = () => {
       if (registration.waiting) {
@@ -46,6 +48,10 @@ export function initUpdateBanner() {
   });
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hasController) {
+      hasController = true;
+      return;
+    }
     if (reloadPending) return;
     if (isDirty()) {
       // Defer: don't yank the page mid-edit. Re-check shortly, and also
