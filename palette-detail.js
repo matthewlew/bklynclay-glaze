@@ -1,7 +1,7 @@
 // ── PALETTE DETAIL PAGE ────────────────────────────────────────────────────────
 import { GLAZES, CLAY } from './glazes-data.js';
 import { saveAll } from './persistence.js';
-import { glazeCSS, galleryGradientCSS, refreshStack, togglePinState, applyGlaze, toHex, showToast } from './render.js';
+import { glazeCSS, galleryGradientCSS, refreshStack, togglePinState, applyGlaze, toHex, showToast, sampleAt, sampleAtWeighted } from './render.js';
 
 // ── Module state ───────────────────────────────────────────────────────────────
 let _key        = null;
@@ -136,6 +136,38 @@ function _stripesCss(arr) {
   return `linear-gradient(to bottom,${[...fwd,...rev].join(',')})`;
 }
 
+function _squeezeCss(arr) {
+  if (arr.length === 1) return _dispHex(arr[0]);
+  const gs = arr.map(s => GLAZES.find(g => g.name === s.name)).filter(Boolean);
+  const ws = _weights(arr);
+  const ck = typeof clayKey !== 'undefined' ? clayKey : 'white';
+  const n = 21;
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const wt = t - 0.15 * Math.sin(2 * Math.PI * t);
+    const c = sampleAtWeighted(wt, gs, ws, ck);
+    pts.push(`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${(t * 100).toFixed(1)}%`);
+  }
+  return `linear-gradient(to bottom,${pts.join(',')})`;
+}
+
+function _bulgeCss(arr) {
+  if (arr.length === 1) return _dispHex(arr[0]);
+  const gs = arr.map(s => GLAZES.find(g => g.name === s.name)).filter(Boolean);
+  const ws = _weights(arr);
+  const ck = typeof clayKey !== 'undefined' ? clayKey : 'white';
+  const n = 21;
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const wt = t + 0.15 * Math.sin(2 * Math.PI * t);
+    const c = sampleAtWeighted(wt, gs, ws, ck);
+    pts.push(`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${(t * 100).toFixed(1)}%`);
+  }
+  return `linear-gradient(to bottom,${pts.join(',')})`;
+}
+
 function _turrellSVG(arr) {
   if (!arr.length) return '';
   const n = arr.length;
@@ -203,6 +235,11 @@ function renderGradBg(arr) {
     el.style.filter    = 'none';
     el.style.transform = 'none';
     el.style.background = _stripesCss(dispArr);
+  } else if (_gradMode === 'squeeze' || _gradMode === 'bulge') {
+    const dispArr = _gradReverse ? [...arr].reverse() : arr;
+    el.style.filter    = 'none';
+    el.style.transform = 'none';
+    el.style.background = _gradMode === 'squeeze' ? _squeezeCss(dispArr) : _bulgeCss(dispArr);
   } else {
     // Linear — true gradient, no blur so transitions read accurately
     const dispArr = _gradReverse ? [...arr].reverse() : arr;
@@ -410,10 +447,8 @@ function _onSwipeEnd(e) {
 function render() {
   const container = document.getElementById('pdStopsContainer');
   const panel     = document.getElementById('pdStopsPanel');
-  if (!container || !panel) return;
-
   const mobile  = isMobile();
-  const panelSz = mobile ? panel.offsetWidth : panel.offsetHeight;
+  const panelSz = panel ? (mobile ? panel.offsetWidth : panel.offsetHeight) : 0;
 
   let dispOrder, ghostId = null;
   if (_drag?.type === 'stop') {
@@ -432,97 +467,99 @@ function render() {
     renderGradBg(_stops);
   }
 
-  const pos = blockPositions(dispOrder, panelSz);
-  const existing = {};
-  container.querySelectorAll('.pd-block[data-pid]').forEach(el => { existing[el.dataset.pid] = el; });
-  const used = new Set();
-  const updates = [];
+  if (container && panel) {
+    const pos = blockPositions(dispOrder, panelSz);
+    const existing = {};
+    container.querySelectorAll('.pd-block[data-pid]').forEach(el => { existing[el.dataset.pid] = el; });
+    const used = new Set();
+    const updates = [];
 
-  dispOrder.forEach((s, i) => {
-    const k = String(s.id);
-    used.add(k);
-    let el = existing[k];
-    if (!el) {
-      el = document.createElement('div');
-      el.className = 'pd-block';
-      el.dataset.pid = k;
-      const glaze = GLAZES.find(g => g.name === s.name);
-      const fin   = _finLabel(glaze);
-      el.innerHTML = `
-        <div class="pd-block-fill" style="background:${_dispHex(s)}"></div>
-        <div class="pd-block-info">
-          <div class="pd-block-name">${s.name}<span class="pd-block-fin">${fin}</span></div>
-          <div class="pd-block-hex">${s.hex}</div>
-        </div>
-        <button class="pd-block-del" title="Remove">✕</button>`;
-      container.appendChild(el);
-      el.querySelector('.pd-block-del').addEventListener('mousedown', e => e.stopPropagation());
-      el.querySelector('.pd-block-del').addEventListener('click', e => {
-        e.stopPropagation();
-        const idx = _stops.findIndex(st => st.id === s.id);
-        if (idx > -1) {
-          _stops.splice(idx, 1);
-          if (_stops.length) { const w = 100/_stops.length; _stops.forEach(s => s.weight = w); }
-          sync(); render();
+    dispOrder.forEach((s, i) => {
+      const k = String(s.id);
+      used.add(k);
+      let el = existing[k];
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'pd-block';
+        el.dataset.pid = k;
+        const glaze = GLAZES.find(g => g.name === s.name);
+        const fin   = _finLabel(glaze);
+        el.innerHTML = `
+          <div class="pd-block-fill" style="background:${_dispHex(s)}"></div>
+          <div class="pd-block-info">
+            <div class="pd-block-name">${s.name}<span class="pd-block-fin">${fin}</span></div>
+            <div class="pd-block-hex">${s.hex}</div>
+          </div>
+          <button class="pd-block-del" title="Remove">✕</button>`;
+        container.appendChild(el);
+        el.querySelector('.pd-block-del').addEventListener('mousedown', e => e.stopPropagation());
+        el.querySelector('.pd-block-del').addEventListener('click', e => {
+          e.stopPropagation();
+          const idx = _stops.findIndex(st => st.id === s.id);
+          if (idx > -1) {
+            _stops.splice(idx, 1);
+            if (_stops.length) { const w = 100/_stops.length; _stops.forEach(s => s.weight = w); }
+            sync(); render();
+          }
+        });
+        el.addEventListener('mousedown', e => onBlockDown(e, s));
+        el.addEventListener('touchstart', e => onBlockDown(e, s), {passive: false});
+      }
+      const isGhost = _drag?.type === 'stop' && s.id === ghostId;
+      el.classList.toggle('is-ghost', isGhost);
+      if (!isGhost) el.classList.remove('is-dragging');
+      updates.push({el, p: pos[i], s});
+    });
+
+    Object.keys(existing).forEach(k => { if (!used.has(k)) existing[k].remove(); });
+
+    container.querySelectorAll('.pd-drop-gap').forEach(e => e.remove());
+    if (_drag?.insertBefore != null) {
+      const gapPos = pos[_drag.insertBefore];
+      const gap = document.createElement('div');
+      gap.className = 'pd-drop-gap open';
+      if (mobile) gap.style.left = (gapPos?.start ?? panelSz) + 'px';
+      else         gap.style.top  = (gapPos?.start ?? panelSz) + 'px';
+      container.appendChild(gap);
+    }
+
+    container.querySelectorAll('.pd-resize').forEach(e => e.remove());
+    if (!mobile && (!_drag || _drag.type === 'resize')) {
+      pos.forEach((p, i) => {
+        if (i === dispOrder.length - 1) return;
+        const h = document.createElement('div');
+        h.className = 'pd-resize';
+        h.style.top = (p.start + p.size) + 'px';
+        h.innerHTML = '<div class="pd-resize-bar"><span></span><span></span></div>';
+        container.appendChild(h);
+        h.addEventListener('mousedown', e => onResizeDown(e, i));
+        h.addEventListener('touchstart', e => onResizeDown(e, i), {passive: false});
+      });
+    }
+
+    requestAnimationFrame(() => {
+      updates.forEach(({el, p}) => {
+        if (mobile) {
+          el.style.top='0'; el.style.bottom='0';
+          el.style.left=p.start+'px'; el.style.width=p.size+'px'; el.style.height='';
+        } else {
+          el.style.top=p.start+'px'; el.style.height=p.size+'px'; el.style.left=''; el.style.width='';
         }
       });
-      el.addEventListener('mousedown', e => onBlockDown(e, s));
-      el.addEventListener('touchstart', e => onBlockDown(e, s), {passive: false});
-    }
-    const isGhost = _drag?.type === 'stop' && s.id === ghostId;
-    el.classList.toggle('is-ghost', isGhost);
-    if (!isGhost) el.classList.remove('is-dragging');
-    updates.push({el, p: pos[i], s});
-  });
-
-  Object.keys(existing).forEach(k => { if (!used.has(k)) existing[k].remove(); });
-
-  container.querySelectorAll('.pd-drop-gap').forEach(e => e.remove());
-  if (_drag?.insertBefore != null) {
-    const gapPos = pos[_drag.insertBefore];
-    const gap = document.createElement('div');
-    gap.className = 'pd-drop-gap open';
-    if (mobile) gap.style.left = (gapPos?.start ?? panelSz) + 'px';
-    else         gap.style.top  = (gapPos?.start ?? panelSz) + 'px';
-    container.appendChild(gap);
-  }
-
-  container.querySelectorAll('.pd-resize').forEach(e => e.remove());
-  if (!mobile && (!_drag || _drag.type === 'resize')) {
-    pos.forEach((p, i) => {
-      if (i === dispOrder.length - 1) return;
-      const h = document.createElement('div');
-      h.className = 'pd-resize';
-      h.style.top = (p.start + p.size) + 'px';
-      h.innerHTML = '<div class="pd-resize-bar"><span></span><span></span></div>';
-      container.appendChild(h);
-      h.addEventListener('mousedown', e => onResizeDown(e, i));
-      h.addEventListener('touchstart', e => onResizeDown(e, i), {passive: false});
-    });
-  }
-
-  requestAnimationFrame(() => {
-    updates.forEach(({el, p}) => {
-      if (mobile) {
-        el.style.top='0'; el.style.bottom='0';
-        el.style.left=p.start+'px'; el.style.width=p.size+'px'; el.style.height='';
-      } else {
-        el.style.top=p.start+'px'; el.style.height=p.size+'px'; el.style.left=''; el.style.width='';
+      if (_drag?.type === 'stop' && !mobile) {
+        const dragEl = container.querySelector(`[data-pid="${_drag.id}"]`);
+        if (dragEl) {
+          const rect = panel.getBoundingClientRect();
+          const relY = _drag.currentY - rect.top;
+          const tot  = _stops.reduce((a,s) => a + s.weight, 0) || 1;
+          const h    = (_stops.find(s => s.id === _drag.id)?.weight / tot) * panelSz || 60;
+          dragEl.classList.remove('is-ghost'); dragEl.classList.add('is-dragging');
+          dragEl.style.top = (relY - _drag.grabOffset) + 'px';
+          dragEl.style.height = h + 'px'; dragEl.style.transition = 'none';
+        }
       }
     });
-    if (_drag?.type === 'stop' && !mobile) {
-      const dragEl = container.querySelector(`[data-pid="${_drag.id}"]`);
-      if (dragEl) {
-        const rect = panel.getBoundingClientRect();
-        const relY = _drag.currentY - rect.top;
-        const tot  = _stops.reduce((a,s) => a + s.weight, 0) || 1;
-        const h    = (_stops.find(s => s.id === _drag.id)?.weight / tot) * panelSz || 60;
-        dragEl.classList.remove('is-ghost'); dragEl.classList.add('is-dragging');
-        dragEl.style.top = (relY - _drag.grabOffset) + 'px';
-        dragEl.style.height = h + 'px'; dragEl.style.transition = 'none';
-      }
-    }
-  });
+  }
   renderPickerHighlights();
   requestAnimationFrame(_renderCanvasEdit);
 }
@@ -724,7 +761,7 @@ export function openPaletteDetail(key, fallback) {
     _gradMode = pref.mode;
     _gradReverse = !!pref.reverse;
   } else {
-    const modeMap = {linear:'linear', radial:'radial', conic:'conic'};
+    const modeMap = {linear:'linear', radial:'radial', conic:'conic', stripes:'stripes', turrell:'turrell', squeeze:'squeeze', bulge:'bulge'};
     _gradMode = modeMap[typeof galleryViewMode !== 'undefined' ? galleryViewMode : null] || 'linear';
     _gradReverse = false;
   }
@@ -830,7 +867,13 @@ function _renderCanvasEdit() {
   layer.innerHTML = '';
 
   const w = layer.clientWidth, h = layer.clientHeight;
-  if (!w || !h) return;
+  if (!w || !h) {
+    const overlay = document.getElementById('paletteDetail');
+    if (overlay && overlay.classList.contains('open')) {
+      requestAnimationFrame(_renderCanvasEdit);
+    }
+    return;
+  }
 
   const mode = _gradMode;
   const n = _stops.length;

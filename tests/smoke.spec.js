@@ -116,6 +116,7 @@ test('rename dialog stays a bottom sheet on mobile', async ({ page }) => {
 
 test('dragging a project tab reorders the topbar tabs', async ({ page }) => {
   await page.goto('/');
+  await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
   await page.locator('.sb-new-proj-btn').click();
   await expect(page.locator('.ttab[data-proj-id]')).toHaveCount(1, { timeout: 3000 });
   await page.locator('.sb-new-proj-btn').click();
@@ -140,6 +141,7 @@ test('dragging a project tab reorders the topbar tabs', async ({ page }) => {
 
 test('project reorder persists across reload', async ({ page }) => {
   await page.goto('/');
+  await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
   await page.locator('.sb-new-proj-btn').click();
   await expect(page.locator('.ttab[data-proj-id]')).toHaveCount(1, { timeout: 3000 });
   await page.locator('.sb-new-proj-btn').click();
@@ -196,8 +198,6 @@ test('opening a palette detail from a conic gallery view opens in conic mode', a
 });
 
 test('detail view swatch color matches the gallery-computed clay-adjusted color', async ({ page }) => {
-  page.on('console', msg => console.log('PAGE LOG:', msg.text()));
-  page.on('pageerror', err => console.log('PAGE ERROR:', err.stack || err.message));
   await page.goto('/');
   await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
   await page.locator('.clay-btn.red').click();
