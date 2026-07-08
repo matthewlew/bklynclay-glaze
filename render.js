@@ -30,7 +30,54 @@ export function applyGlaze(g,ck){
   return{r,gr,b};
 }
 
-export function lerp(a,b,t){t=Math.max(0,Math.min(1,t));return{r:a.r+(b.r-a.r)*t,gr:a.gr+(b.gr-a.gr)*t,b:a.b+(b.b-a.b)*t};}
+export function rgbToOklab(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const lR = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+  const lG = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+  const lB = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+  const l = 0.4122214708 * lR + 0.5363325363 * lG + 0.0514459929 * lB;
+  const m = 0.2119034982 * lR + 0.6806995451 * lG + 0.1073969566 * lB;
+  const s = 0.0883024619 * lR + 0.2817188376 * lG + 0.6299787005 * lB;
+  const l_ = Math.cbrt(l);
+  const m_ = Math.cbrt(m);
+  const s_ = Math.cbrt(s);
+  const L = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
+  const a_val = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
+  const b_val = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_;
+  return { L, a: a_val, b: b_val };
+}
+
+export function oklabToRgb(L, a, b_val) {
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b_val;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b_val;
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b_val;
+  const l = l_ * l_ * l_;
+  const m = m_ * m_ * m_;
+  const s = s_ * s_ * s_;
+  const lR = 4.0767416621 * l - 3.3077115913 * m + 0.2309699294 * s;
+  const lG = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  const lB = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+  const r = lR > 0.0031308 ? 1.055 * Math.pow(lR, 1/2.4) - 0.055 : 12.92 * lR;
+  const g = lG > 0.0031308 ? 1.055 * Math.pow(lG, 1/2.4) - 0.055 : 12.92 * lG;
+  const b = lB > 0.0031308 ? 1.055 * Math.pow(lB, 1/2.4) - 0.055 : 12.92 * lB;
+  return {
+    r: Math.max(0, Math.min(255, Math.round(r * 255))),
+    g: Math.max(0, Math.min(255, Math.round(g * 255))),
+    b: Math.max(0, Math.min(255, Math.round(b * 255)))
+  };
+}
+
+export function lerp(a,b,t){
+  t=Math.max(0,Math.min(1,t));
+  const easedT = t * t * (3 - 2 * t);
+  const c1 = rgbToOklab(a.r, a.gr, a.b);
+  const c2 = rgbToOklab(b.r, b.gr, b.b);
+  const L = c1.L + (c2.L - c1.L) * easedT;
+  const la = c1.a + (c2.a - c1.a) * easedT;
+  const lb = c1.b + (c2.b - c1.b) * easedT;
+  const rgb = oklabToRgb(L, la, lb);
+  return {r:rgb.r,gr:rgb.g,b:rgb.b};
+}
 
 export function sampleAt(t,glazes,ck){
   ck=ck||clayKey;

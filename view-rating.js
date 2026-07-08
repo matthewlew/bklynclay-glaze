@@ -3,7 +3,7 @@
 // gradient CSS per view mode/reverse combo, and summarizing rating logs.
 // No DOM, no global state.
 import { GLAZES, CLAY } from './glazes-data.js';
-import { applyGlaze, toHex } from './render.js';
+import { applyGlaze, toHex, rgbToOklab, oklabToRgb } from './render.js';
 
 export const VIEW_MODES = ['linear', 'radial', 'conic', 'stripes', 'turrell', 'squeeze', 'bulge', 'wada', 'flavin', 'mondrian'];
 
@@ -53,11 +53,15 @@ function parseHex(h) {
 }
 
 function lerpColor(c1, c2, t) {
-  return {
-    r: c1.r + (c2.r - c1.r) * t,
-    g: c1.g + (c2.g - c1.g) * t,
-    b: c1.b + (c2.b - c1.b) * t
-  };
+  t = Math.max(0, Math.min(1, t));
+  const easedT = t * t * (3 - 2 * t);
+  const lab1 = rgbToOklab(c1.r, c1.g, c1.b);
+  const lab2 = rgbToOklab(c2.r, c2.g, c2.b);
+  const L = lab1.L + (lab2.L - lab1.L) * easedT;
+  const la = lab1.a + (lab2.a - lab1.a) * easedT;
+  const lb = lab1.b + (lab2.b - lab1.b) * easedT;
+  const rgb = oklabToRgb(L, la, lb);
+  return { r: rgb.r, g: rgb.g, b: rgb.b };
 }
 
 function toHexStr(c) {
