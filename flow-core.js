@@ -154,7 +154,7 @@ function oklabToRgb(L, a, b_val) {
 
 function lerpHex(h1, h2, alpha) {
   alpha = Math.max(0, Math.min(1, alpha));
-  const easedAlpha = alpha * alpha * (3 - 2 * alpha);
+  const easedAlpha = alpha * alpha * alpha * (alpha * (alpha * 6 - 15) + 10);
   const c1 = parseHex(h1), c2 = parseHex(h2);
   const lab1 = rgbToOklab(c1.r, c1.g, c1.b);
   const lab2 = rgbToOklab(c2.r, c2.g, c2.b);

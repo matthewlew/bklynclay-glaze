@@ -1,7 +1,7 @@
 // ── PALETTE DETAIL PAGE ────────────────────────────────────────────────────────
 import { GLAZES, CLAY } from './glazes-data.js';
 import { saveAll } from './persistence.js';
-import { glazeCSS, galleryGradientCSS, refreshStack, togglePinState, applyGlaze, toHex, showToast, sampleAt, sampleAtWeighted } from './render.js';
+import { glazeCSS, galleryGradientCSS, refreshStack, togglePinState, applyGlaze, toHex, showToast, sampleAt, sampleAtWeighted, hexRGB, rgbToOklab, oklabToRgb } from './render.js';
 
 // ── Module state ───────────────────────────────────────────────────────────────
 let _key        = null;
@@ -99,18 +99,67 @@ function _weights(arr) {
   return arr.map(s => s.weight / tot);
 }
 
+function lerpLinearOklab(c1, c2, alpha) {
+  const lab1 = rgbToOklab(c1.r, c1.g, c1.b);
+  const lab2 = rgbToOklab(c2.r, c2.g, c2.b);
+  const L = lab1.L + (lab2.L - lab1.L) * alpha;
+  const la = lab1.a + (lab2.a - lab1.a) * alpha;
+  const lb = lab1.b + (lab2.b - lab1.b) * alpha;
+  const rgb = oklabToRgb(L, la, lb);
+  return { r: rgb.r, gr: rgb.g, b: rgb.b };
+}
+
+function _sampleAtWeighted(t, arr) {
+  t = Math.max(0, Math.min(1, t));
+  if (arr.length === 1) {
+    const c = hexRGB(_dispHex(arr[0]));
+    return { r: c.r, gr: c.g, b: c.b };
+  }
+  const ws = _weights(arr);
+  let cum = 0;
+  const breaks = [0];
+  for (let i = 0; i < arr.length; i++) {
+    cum += ws[i];
+    breaks.push(Math.min(1, cum));
+  }
+  let seg = arr.length - 2;
+  for (let i = 0; i < breaks.length - 2; i++) {
+    if (t <= breaks[i+1]) {
+      seg = i;
+      break;
+    }
+  }
+  const lo = breaks[seg], hi = breaks[seg+1];
+  const alpha = hi > lo ? Math.max(0, Math.min(1, (t - lo) / (hi - lo))) : 0;
+  
+  const c1 = hexRGB(_dispHex(arr[seg]));
+  const c2 = hexRGB(_dispHex(arr[seg+1]));
+  return lerpLinearOklab(c1, c2, alpha);
+}
+
 function _linearCss(arr) {
   if (arr.length === 1) return _dispHex(arr[0]);
-  const ws = _weights(arr); let pct = 0;
-  const pts = arr.map((s,i) => { const st=pct; pct+=ws[i]*100; return `${_dispHex(s)} ${((st+pct)/2).toFixed(1)}%`; });
+  const numStops = 17;
+  const pts = [];
+  for (let k = 0; k < numStops; k++) {
+    const t = k / (numStops - 1);
+    const easedT = t * t * t * (t * (t * 6 - 15) + 10);
+    const c = _sampleAtWeighted(easedT, arr);
+    pts.push(`${toHex(c.r, c.gr, c.b)} ${(t * 100).toFixed(1)}%`);
+  }
   return `linear-gradient(to bottom,${pts.join(',')})`;
 }
 
 function _radialCss(arr) {
   if (arr.length === 1) return _dispHex(arr[0]);
-  const ws = _weights(arr); let pct = 0;
-  const pts = arr.map((s,i) => { const st=pct; pct+=ws[i]*100; return `${_dispHex(s)} ${((st+pct)/2).toFixed(1)}%`; });
-  // Shift center left on desktop to account for 280px stops panel
+  const numStops = 17;
+  const pts = [];
+  for (let k = 0; k < numStops; k++) {
+    const t = k / (numStops - 1);
+    const easedT = t * t * t * (t * (t * 6 - 15) + 10);
+    const c = _sampleAtWeighted(easedT, arr);
+    pts.push(`${toHex(c.r, c.gr, c.b)} ${(t * 100).toFixed(1)}%`);
+  }
   const cx = isMobile() ? '50%' : 'calc(50% - 140px)';
   return `radial-gradient(ellipse at ${cx} 50%,${pts.join(',')})`;
 }
@@ -127,13 +176,21 @@ function _conicCss(arr) {
 
 function _stripesCss(arr) {
   if (arr.length === 1) return _dispHex(arr[0]);
-  // Mirror the gradient: forward 0-50%, backward 50-100% — smooth seam at both ends
-  const ws = _weights(arr);
-  let pct = 0;
-  const fwd = arr.map((s,i) => { const st=pct; pct+=ws[i]*50; return `${_dispHex(s)} ${((st+pct)/2).toFixed(1)}%`; });
-  pct = 50;
-  const rev = [...arr].reverse().map((s,i) => { const wi=arr.length-1-i; const st=pct; pct+=ws[wi]*50; return `${_dispHex(s)} ${((st+pct)/2).toFixed(1)}%`; });
-  return `linear-gradient(to bottom,${[...fwd,...rev].join(',')})`;
+  const numStops = 17;
+  const pts = [];
+  for (let k = 0; k < numStops; k++) {
+    const t = k / (numStops - 1);
+    const easedT = t * t * t * (t * (t * 6 - 15) + 10);
+    const c = _sampleAtWeighted(easedT, arr);
+    pts.push(`${toHex(c.r, c.gr, c.b)} ${(t * 50).toFixed(1)}%`);
+  }
+  for (let k = 0; k < numStops; k++) {
+    const t = k / (numStops - 1);
+    const easedT = t * t * t * (t * (t * 6 - 15) + 10);
+    const c = _sampleAtWeighted(1 - easedT, arr);
+    pts.push(`${toHex(c.r, c.gr, c.b)} ${(50 + t * 50).toFixed(1)}%`);
+  }
+  return `linear-gradient(to bottom,${pts.join(',')})`;
 }
 
 function _squeezeBulgeSvg(arr, mode) {

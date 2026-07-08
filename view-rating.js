@@ -54,12 +54,11 @@ function parseHex(h) {
 
 function lerpColor(c1, c2, t) {
   t = Math.max(0, Math.min(1, t));
-  const easedT = t * t * (3 - 2 * t);
   const lab1 = rgbToOklab(c1.r, c1.g, c1.b);
   const lab2 = rgbToOklab(c2.r, c2.g, c2.b);
-  const L = lab1.L + (lab2.L - lab1.L) * easedT;
-  const la = lab1.a + (lab2.a - lab1.a) * easedT;
-  const lb = lab1.b + (lab2.b - lab1.b) * easedT;
+  const L = lab1.L + (lab2.L - lab1.L) * t;
+  const la = lab1.a + (lab2.a - lab1.a) * t;
+  const lb = lab1.b + (lab2.b - lab1.b) * t;
   const rgb = oklabToRgb(L, la, lb);
   return { r: rgb.r, g: rgb.g, b: rgb.b };
 }
@@ -69,8 +68,9 @@ function toHexStr(c) {
 }
 
 function sampleHex(hexes, t) {
-  t = Math.max(0, Math.min(1, t));
-  const s = t * (hexes.length - 1);
+  const gt = Math.max(0, Math.min(1, t));
+  const easedT = gt * gt * gt * (gt * (gt * 6 - 15) + 10);
+  const s = easedT * (hexes.length - 1);
   const i = Math.min(Math.floor(s), hexes.length - 2);
   const c1 = parseHex(hexes[i]);
   const c2 = parseHex(hexes[i + 1]);

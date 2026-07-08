@@ -69,12 +69,11 @@ export function oklabToRgb(L, a, b_val) {
 
 export function lerp(a,b,t){
   t=Math.max(0,Math.min(1,t));
-  const easedT = t * t * (3 - 2 * t);
   const c1 = rgbToOklab(a.r, a.gr, a.b);
   const c2 = rgbToOklab(b.r, b.gr, b.b);
-  const L = c1.L + (c2.L - c1.L) * easedT;
-  const la = c1.a + (c2.a - c1.a) * easedT;
-  const lb = c1.b + (c2.b - c1.b) * easedT;
+  const L = c1.L + (c2.L - c1.L) * t;
+  const la = c1.a + (c2.a - c1.a) * t;
+  const lb = c1.b + (c2.b - c1.b) * t;
   const rgb = oklabToRgb(L, la, lb);
   return {r:rgb.r,gr:rgb.g,b:rgb.b};
 }
@@ -83,7 +82,9 @@ export function sampleAt(t,glazes,ck){
   ck=ck||clayKey;
   if(!glazes||!glazes.length){const c=hexRGB(CLAY[ck]);return{r:c.r,gr:c.g,b:c.b};}
   if(glazes.length===1)return applyGlaze(glazes[0],ck);
-  const s=Math.max(0,Math.min(1,t))*(glazes.length-1),i=Math.min(Math.floor(s),glazes.length-2);
+  const gt = Math.max(0,Math.min(1,t));
+  const easedT = gt * gt * gt * (gt * (gt * 6 - 15) + 10);
+  const s=easedT*(glazes.length-1),i=Math.min(Math.floor(s),glazes.length-2);
   return lerp(applyGlaze(glazes[i],ck),applyGlaze(glazes[i+1],ck),s-i);
 }
 
@@ -100,7 +101,8 @@ export function getPaletteWeights(key) {
 
 // Like sampleAt but uses cumulative normalised weights [0..1] to position stops.
 export function sampleAtWeighted(t,glazes,weights,ck){
-  t=Math.max(0,Math.min(1,t));
+  const gt=Math.max(0,Math.min(1,t));
+  const easedT = gt * gt * gt * (gt * (gt * 6 - 15) + 10);
   ck=ck||clayKey;
   if(!glazes||!glazes.length){const c=hexRGB(CLAY[ck]);return{r:c.r,gr:c.g,b:c.b};}
   if(glazes.length===1)return applyGlaze(glazes[0],ck);
@@ -110,9 +112,9 @@ export function sampleAtWeighted(t,glazes,weights,ck){
   for(let i=0;i<glazes.length;i++){cum+=weights[i]||0;breaks.push(Math.min(1,cum));}
   // Find segment
   let seg=glazes.length-2;
-  for(let i=0;i<breaks.length-2;i++){if(t<=breaks[i+1]){seg=i;break;}}
+  for(let i=0;i<breaks.length-2;i++){if(easedT<=breaks[i+1]){seg=i;break;}}
   const lo=breaks[seg],hi=breaks[seg+1];
-  const alpha=hi>lo?Math.max(0,Math.min(1,(t-lo)/(hi-lo))):0;
+  const alpha=hi>lo?Math.max(0,Math.min(1,(easedT-lo)/(hi-lo))):0;
   return lerp(applyGlaze(glazes[seg],ck),applyGlaze(glazes[seg+1],ck),alpha);
 }
 
