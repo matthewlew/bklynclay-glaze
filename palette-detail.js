@@ -444,8 +444,11 @@ function _loadKeyData(key, fallback) {
     const w = savedWeights ? savedWeights[i] * 100 : defaultW;
     _stops.push(mkStop(name, hex, w));
   });
+  const nameVal = (typeof labelStore !== 'undefined' ? labelStore[key] : null) || m?.label || fallback?.label || 'Palette';
   const title = document.getElementById('pdTitle');
-  if (title) title.value = (typeof labelStore !== 'undefined' ? labelStore[key] : null) || m?.label || fallback?.label || 'Palette';
+  if (title) title.value = nameVal;
+  const gradTitle = document.getElementById('pdGradientTitle');
+  if (gradTitle) gradTitle.value = nameVal;
   renderGradBg(_stops);
 }
 
@@ -1199,30 +1202,39 @@ function _onCanvasLabelDown(e, idx) {
 if (typeof document !== 'undefined') {
   const setupTitleListener = () => {
     const titleInput = document.getElementById('pdTitle');
+    const gradTitleInput = document.getElementById('pdGradientTitle');
+    
+    const handleInput = (sourceEl, targetEl) => {
+      if (!_key) return;
+      const val = sourceEl.value.trim() || 'Palette';
+      
+      if (targetEl) targetEl.value = sourceEl.value;
+      
+      // Save to labelStore
+      if (typeof labelStore !== 'undefined') {
+        labelStore[_key] = val;
+      }
+      
+      // Update likedMeta if pinned
+      const m = likedMeta.find(x => x.key === _key);
+      if (m) {
+        m.label = val;
+      }
+      
+      // Save changes
+      saveAll();
+      
+      // Refresh UI components
+      window.renderSidebar?.();
+      window.renderSavedSection?.();
+      window.renderGallery?.();
+    };
+
     if (titleInput) {
-      titleInput.addEventListener('input', () => {
-        if (!_key) return;
-        const val = titleInput.value.trim() || 'Palette';
-        
-        // Save to labelStore
-        if (typeof labelStore !== 'undefined') {
-          labelStore[_key] = val;
-        }
-        
-        // Update likedMeta if pinned
-        const m = likedMeta.find(x => x.key === _key);
-        if (m) {
-          m.label = val;
-        }
-        
-        // Save changes
-        saveAll();
-        
-        // Refresh UI components
-        window.renderSidebar?.();
-        window.renderSavedSection?.();
-        window.renderGallery?.();
-      });
+      titleInput.addEventListener('input', () => handleInput(titleInput, gradTitleInput));
+    }
+    if (gradTitleInput) {
+      gradTitleInput.addEventListener('input', () => handleInput(gradTitleInput, titleInput));
     }
   };
   

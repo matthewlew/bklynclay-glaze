@@ -829,8 +829,16 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .pd-tile:not(.in-stops){opacity:.65;}
 .pd-tile:not(.in-stops):hover{opacity:1;}
 
+/* Floating gradient title overlay */
+.pd-gradient-title-container{position:absolute;top:48px;left:50%;transform:translateX(-50%);z-index:30;display:flex;align-items:center;pointer-events:auto;}
+.pd-gradient-title{background:rgba(0,0,0,.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:12px;font-weight:700;font-family:var(--font);letter-spacing:.08em;text-transform:uppercase;padding:5px 16px;border-radius:20px;text-align:center;outline:none;width:180px;transition:background .2s,border-color .2s,width .2s,box-shadow .2s;box-shadow:0 4px 16px rgba(0,0,0,.2);text-shadow:0 1px 3px rgba(0,0,0,.55);}
+.pd-gradient-title:hover{background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.3);}
+.pd-gradient-title:focus{background:rgba(0,0,0,.75);border-color:rgba(255,255,255,.55);width:220px;box-shadow:0 6px 20px rgba(0,0,0,.35);}
+.pd-gradient-title::placeholder{color:rgba(255,255,255,.45);}
+
 /* ── Mobile ─────────────────────────────────────────────────────────────────── */
 @media(max-width:700px){
+  .pd-gradient-title-container{top:76px;}
   .shortcut-key{display:none;}
   .pd-body{flex-direction:column;}
   .pd-canvas{flex:1;min-height:200px;}
@@ -1691,6 +1699,10 @@ loadAll().catch(err => {
       <div id="pdEditLayer" class="flow-edit-layer"></div>
       <div class="conic-aperture hidden" id="pdConicAperture"></div>
       <div id="pdNoiseOverlay"></div>
+      <!-- Floating glassmorphic gradient title overlay -->
+      <div class="pd-gradient-title-container">
+        <input id="pdGradientTitle" class="pd-gradient-title" type="text" autocomplete="off" placeholder="Palette Name">
+      </div>
       <div class="pd-mode-bar">
         <button class="pd-mode-btn active" data-mode="linear"  onclick="setGradMode('linear')">Linear</button>
         <button class="pd-mode-btn"        data-mode="radial"  onclick="setGradMode('radial')">Radial</button>
