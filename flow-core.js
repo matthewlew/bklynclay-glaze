@@ -132,9 +132,119 @@ function sampleFlowStops(stops, t) {
   return lerpHex(s0.hex, s1.hex, alpha);
 }
 
+export function wadaFlowSVG(stops, clayHex) {
+  if (!stops || !stops.length) return '';
+  const W = 100, H = 100;
+  const rowCount = 8;
+  const rowH = H / rowCount;
+  let bricksHtml = '';
+  let brickCount = 0;
+  for (let r = 0; r < rowCount; r++) {
+    const y = r * rowH;
+    const isOdd = r % 2 === 1;
+    if (!isOdd) {
+      const w = 50;
+      for (let c = 0; c < 2; c++) {
+        const x = c * w;
+        const color = stops[brickCount % stops.length].hex;
+        brickCount++;
+        bricksHtml += `<rect x="${x}" y="${y}" width="${w}" height="${rowH}" fill="${color}" stroke="${clayHex}" stroke-width="1.2" />`;
+      }
+    } else {
+      const cols = [{ x: 0, w: 25 }, { x: 25, w: 50 }, { x: 75, w: 25 }];
+      for (let c = 0; c < 3; c++) {
+        const { x, w } = cols[c];
+        const color = stops[brickCount % stops.length].hex;
+        brickCount++;
+        bricksHtml += `<rect x="${x}" y="${y}" width="${w}" height="${rowH}" fill="${color}" stroke="${clayHex}" stroke-width="1.2" />`;
+      }
+    }
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bricksHtml}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+export function flavinFlowSVG(stops, clayHex) {
+  if (!stops || !stops.length) return '';
+  const W = 100, H = 100;
+  const N = stops.length;
+  let tubesHtml = '';
+  const id = Math.random().toString(36).slice(2, 8);
+  for (let i = 0; i < N; i++) {
+    const color = stops[i].hex;
+    const cx = (i + 0.5) * (W / N);
+    tubesHtml += `<rect x="${cx - 5}" y="12" width="10" height="76" rx="1.5" ry="1.5" fill="${color}" opacity="0.32" filter="url(#flow-flavin-blur-wide-${id})" />`;
+    tubesHtml += `<rect x="${cx - 2.5}" y="12" width="5" height="76" rx="1.2" ry="1.2" fill="${color}" opacity="0.75" filter="url(#flow-flavin-blur-med-${id})" />`;
+    tubesHtml += `<rect x="${cx - 0.75}" y="12.5" width="1.5" height="75" rx="0.75" ry="0.75" fill="#ffffff" opacity="0.95" />`;
+    tubesHtml += `<rect x="${cx - 2}" y="8" width="4" height="4" fill="#282828" stroke="#444" stroke-width="0.3" />`;
+    tubesHtml += `<rect x="${cx - 2}" y="88" width="4" height="4" fill="#282828" stroke="#444" stroke-width="0.3" />`;
+  }
+  const defs = `
+    <filter id="flow-flavin-blur-wide-${id}" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="5.5" />
+    </filter>
+    <filter id="flow-flavin-blur-med-${id}" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="1.8" />
+    </filter>
+  `;
+  const wallBg = clayHex === '#8a4b38' || clayHex === '#8a4a35' ? '#221410' : '#161514';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs>${defs}</defs><rect width="${W}" height="${H}" fill="${wallBg}"/>${tubesHtml}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+export function mondrianFlowSVG(stops) {
+  if (!stops || !stops.length) return '';
+  const W = 100, H = 100;
+  const N = stops.length;
+  let layout = [];
+  if (N === 2) {
+    layout = [{ x: 0, y: 0, w: 100, h: 58 }, { x: 0, y: 58, w: 100, h: 42 }];
+  } else if (N === 3) {
+    layout = [{ x: 0, y: 0, w: 65, h: 65 }, { x: 65, y: 0, w: 35, h: 65 }, { x: 0, y: 65, w: 100, h: 35 }];
+  } else if (N === 4) {
+    layout = [{ x: 0, y: 0, w: 68, h: 68 }, { x: 68, y: 0, w: 32, h: 45 }, { x: 68, y: 45, w: 32, h: 55 }, { x: 0, y: 68, w: 68, h: 32 }];
+  } else if (N === 5) {
+    layout = [{ x: 0, y: 0, w: 45, h: 50 }, { x: 45, y: 0, w: 55, h: 32 }, { x: 45, y: 32, w: 55, h: 68 }, { x: 0, y: 50, w: 25, h: 50 }, { x: 25, y: 50, w: 20, h: 50 }];
+  } else {
+    layout = [{ x: 0, y: 0, w: 50, h: 38 }, { x: 50, y: 0, w: 50, h: 28 }, { x: 50, y: 28, w: 50, h: 42 }, { x: 50, y: 70, w: 50, h: 30 }, { x: 0, y: 38, w: 30, h: 62 }, { x: 30, y: 38, w: 20, h: 62 }];
+  }
+  let rectsHtml = '';
+  for (let i = 0; i < layout.length; i++) {
+    const rect = layout[i];
+    const color = stops[i % stops.length].hex;
+    rectsHtml += `<rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" fill="${color}" stroke="#121212" stroke-width="2.0" />`;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${rectsHtml}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
 export function flowGradientCSS(mode, stops, clayHex) {
   if (!stops || !stops.length) return { background: clayHex || '#ccc' };
   if (stops.length === 1) return { background: stops[0].hex };
+  
+  if (mode === 'wada') {
+    return {
+      background: stops[0].hex,
+      backgroundImage: wadaFlowSVG(stops, clayHex),
+      backgroundSize: '100% 100%'
+    };
+  }
+  if (mode === 'flavin') {
+    const wallBg = clayHex === '#8a4b38' || clayHex === '#8a4a35' ? '#221410' : '#161514';
+    return {
+      background: wallBg,
+      backgroundImage: flavinFlowSVG(stops, clayHex),
+      backgroundSize: '100% 100%'
+    };
+  }
+  if (mode === 'mondrian') {
+    return {
+      background: stops[0].hex,
+      backgroundImage: mondrianFlowSVG(stops),
+      backgroundSize: '100% 100%'
+    };
+  }
+
   if (mode === 'radial')
     return { background: `radial-gradient(circle at 50% 42%,${stopList(stops)})` };
   if (mode === 'conic') {
@@ -149,7 +259,7 @@ export function flowGradientCSS(mode, stops, clayHex) {
   }
   if (mode === 'squeeze' || mode === 'bulge') {
     const c = mode === 'squeeze' ? 0.45 : -0.45;
-    const N = 15;
+    const N = 60;
     const paths = [];
     const tMin = -0.15, tMax = 1.15, tRange = tMax - tMin;
     for (let i = 0; i < N; i++) {
@@ -163,7 +273,7 @@ export function flowGradientCSS(mode, stops, clayHex) {
       const d = `M -50,${y1_start.toFixed(2)} Q 50,${y1_ctrl.toFixed(2)} 150,${y1_start.toFixed(2)} L 150,${y2_start.toFixed(2)} Q 50,${y2_ctrl.toFixed(2)} -50,${y2_start.toFixed(2)} Z`;
       paths.push(`<path d='${d}' fill='${color}' stroke='${color}' stroke-width='0.5'/>`);
     }
-    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='blur'><feGaussianBlur stdDeviation='3'/></filter></defs><g filter='url(#blur)'>${paths.join('')}</g></svg>`;
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='blur'><feGaussianBlur stdDeviation='4'/></filter></defs><g filter='url(#blur)'>${paths.join('')}</g></svg>`;
     return {
       background: stops[0].hex,
       backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,

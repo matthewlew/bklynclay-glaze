@@ -142,7 +142,7 @@ function _squeezeBulgeSvg(arr, mode) {
   const ws = _weights(arr);
   const ck = typeof clayKey !== 'undefined' ? clayKey : 'white';
   const c = mode === 'squeeze' ? 0.45 : -0.45;
-  const N = 15;
+  const N = 60;
   const paths = [];
   const tMin = -0.15, tMax = 1.15, tRange = tMax - tMin;
   for (let i = 0; i < N; i++) {
@@ -157,7 +157,7 @@ function _squeezeBulgeSvg(arr, mode) {
     const d = `M -50,${y1_start.toFixed(2)} Q 50,${y1_ctrl.toFixed(2)} 150,${y1_start.toFixed(2)} L 150,${y2_start.toFixed(2)} Q 50,${y2_ctrl.toFixed(2)} -50,${y2_start.toFixed(2)} Z`;
     paths.push(`<path d='${d}' fill='${colorStr}' stroke='${colorStr}' stroke-width='0.5'/>`);
   }
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='blur'><feGaussianBlur stdDeviation='3'/></filter></defs><g filter='url(#blur)'>${paths.join('')}</g></svg>`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='blur'><feGaussianBlur stdDeviation='4'/></filter></defs><g filter='url(#blur)'>${paths.join('')}</g></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
@@ -215,6 +215,17 @@ function renderGradBg(arr) {
     el.style.transform = 'scale(1.08)';
     el.style.background = dispArr.length ? _dispHex(dispArr[0]) : 'var(--surf)';
     el.innerHTML = _turrellSVG(dispArr);
+    return;
+  }
+
+  if (_gradMode === 'wada' || _gradMode === 'flavin' || _gradMode === 'mondrian') {
+    const dispArr = _gradReverse ? [...arr].reverse() : arr;
+    const gs = dispArr.map(s => GLAZES.find(g => g.name === s.name)).filter(Boolean);
+    const ws = dispArr.map(s => s.weight / 100);
+    el.style.filter    = 'none';
+    el.style.transform = 'none';
+    el.style.background = galleryGradientCSS(gs, clayKey, _gradMode, ws);
+    el.style.backgroundSize = '100% 100%';
     return;
   }
 
@@ -762,7 +773,7 @@ export function openPaletteDetail(key, fallback) {
     _gradMode = pref.mode;
     _gradReverse = !!pref.reverse;
   } else {
-    const modeMap = {linear:'linear', radial:'radial', conic:'conic', stripes:'stripes', turrell:'turrell', squeeze:'squeeze', bulge:'bulge'};
+    const modeMap = {linear:'linear', radial:'radial', conic:'conic', stripes:'stripes', turrell:'turrell', squeeze:'squeeze', bulge:'bulge', wada:'wada', flavin:'flavin', mondrian:'mondrian'};
     _gradMode = modeMap[typeof galleryViewMode !== 'undefined' ? galleryViewMode : null] || 'linear';
     _gradReverse = false;
   }

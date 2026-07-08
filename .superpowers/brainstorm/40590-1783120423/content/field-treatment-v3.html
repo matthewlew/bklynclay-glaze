@@ -1,0 +1,98 @@
+<h2>v3 — lake-reflection ripple</h2>
+<p class="subtitle">Same field, now displaced by a slow horizontal-streaked water ripple — the strata undulate like reflections on a still lake. Grain retained on top.</p>
+
+<svg width="0" height="0" style="position:absolute">
+  <filter id="lakeRipple" x="-20%" y="-20%" width="140%" height="140%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.004 0.022" numOctaves="2" seed="7" result="noise">
+      <animate attributeName="baseFrequency" dur="34s"
+        values="0.004 0.022; 0.005 0.028; 0.0035 0.019; 0.004 0.022"
+        repeatCount="indefinite"/>
+    </feTurbulence>
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="22" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<style>
+  .frame { height: 440px; border-radius: 8px; overflow: hidden; position: relative; background: #2b2d52; }
+  .field {
+    position: absolute; inset: -6%;
+    background: linear-gradient(to bottom,
+      #2b2d52 0%, #4a3d6b 22%, #8a5a7a 40%, #c97b6d 55%,
+      #e8a06a 68%, #f2c184 80%, #d99a6b 100%);
+    background-size: 100% 145%;
+    animation: bandsDrift 22s ease-in-out infinite;
+    filter: url(#lakeRipple);
+  }
+  @keyframes bandsDrift {
+    0%   { background-position: 0 0%; }
+    50%  { background-position: 0 20%; }
+    100% { background-position: 0 0%; }
+  }
+  .wash {
+    position: absolute; inset: -12%;
+    background:
+      radial-gradient(ellipse 60% 45% at 30% 35%, rgba(242,193,132,.5) 0%, transparent 70%),
+      radial-gradient(ellipse 70% 50% at 72% 62%, rgba(138,90,122,.45) 0%, transparent 70%),
+      radial-gradient(ellipse 55% 40% at 55% 20%, rgba(43,45,82,.4) 0%, transparent 70%);
+    filter: blur(30px);
+    animation: washMorph 30s ease-in-out infinite;
+    mix-blend-mode: soft-light;
+  }
+  @keyframes washMorph {
+    0%   { transform: translate(0,0) scale(1); }
+    33%  { transform: translate(4%, -3%) scale(1.06); }
+    66%  { transform: translate(-3%, 3%) scale(1.03); }
+    100% { transform: translate(0,0) scale(1); }
+  }
+  .shimmer {
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(to bottom,
+      rgba(255,255,255,.028) 0px, transparent 2px, transparent 7px);
+    animation: shimmerDrift 16s linear infinite;
+    mix-blend-mode: overlay;
+  }
+  @keyframes shimmerDrift {
+    0% { transform: translateY(0); } 100% { transform: translateY(9px); }
+  }
+  .grain {
+    position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: .05;
+    mix-blend-mode: overlay;
+    animation: grainShift 1.4s steps(4) infinite;
+  }
+  @keyframes grainShift {
+    0% { transform: translate(0,0); } 25% { transform: translate(-18px,10px); }
+    50% { transform: translate(12px,-14px); } 75% { transform: translate(-8px,-6px); }
+    100% { transform: translate(0,0); }
+  }
+</style>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">Lake-reflection field</div>
+    <div class="mockup-body" style="padding:0">
+      <div class="frame">
+        <div class="field"></div>
+        <div class="wash"></div>
+        <div class="shimmer"></div>
+        <div class="grain"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="lock-it" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>Lock it</h3><p>This is the visual direction.</p></div>
+  </div>
+  <div class="option" data-choice="stronger-ripple" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>More ripple</h3><p>The undulation should be more visible.</p></div>
+  </div>
+  <div class="option" data-choice="softer-ripple" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content"><h3>Less ripple</h3><p>Even stiller — barely perceptible.</p></div>
+  </div>
+</div>

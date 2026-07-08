@@ -8,8 +8,8 @@ test.describe('Flow mode shell', () => {
     const overlay = page.locator('#flowView');
     await expect(overlay).toBeVisible();
     await expect(page.locator('#flowStyleName')).toHaveText('LINEAR');
-    // 7 style dots, first one active
-    await expect(page.locator('#flowDots span')).toHaveCount(7);
+    // 10 style dots, first one active
+    await expect(page.locator('#flowDots span')).toHaveCount(10);
     await expect(page.locator('#flowDots span.on')).toHaveCount(1);
     await page.locator('#flowClose').click();
     await expect(overlay).toBeHidden();
@@ -89,10 +89,13 @@ test.describe('Flow style switching', () => {
     await expect(page.locator('#flowStyleName')).toHaveText('TURRELL');
     await page.keyboard.press('ArrowRight'); // SQUEEZE
     await page.keyboard.press('ArrowRight'); // BULGE
+    await page.keyboard.press('ArrowRight'); // WADA
+    await page.keyboard.press('ArrowRight'); // FLAVIN
+    await page.keyboard.press('ArrowRight'); // MONDRIAN
     await page.keyboard.press('ArrowRight'); // LINEAR again
     await expect(page.locator('#flowStyleName')).toHaveText('LINEAR');
     await page.keyboard.press('ArrowLeft');
-    await expect(page.locator('#flowStyleName')).toHaveText('BULGE');
+    await expect(page.locator('#flowStyleName')).toHaveText('MONDRIAN');
     await expect(page.locator('#flowDots span.on')).toHaveCount(1);
   });
 });

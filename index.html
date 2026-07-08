@@ -122,21 +122,80 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 
 /* Clay toggle */
 .clay-toggle{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
-.clay-btn{padding:8px 0;font-size:12px;font-weight:500;border:none;cursor:pointer;font-family:var(--font);color:var(--ink3);background:var(--card);transition:background .12s,color .12s;text-align:center;}
-.clay-btn+.clay-btn{border-left:1px solid var(--border);}
-.clay-btn.on{background:var(--ink);color:var(--white);font-weight:600;}
-.clay-btn.red.on{background:var(--clay-r);color:var(--white);}
-.gallery-view-toggle{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.clay-btn,.clay-btn-m{padding:8px 0;font-size:12px;font-weight:500;border:none;cursor:pointer;font-family:var(--font);color:var(--ink3);background:var(--card);transition:background .12s,color .12s;text-align:center;}
+.clay-btn+.clay-btn,.clay-btn-m+.clay-btn-m{border-left:1px solid var(--border);}
+.clay-btn.on,.clay-btn-m.on{background:var(--ink);color:var(--white);font-weight:600;}
+.clay-btn.red.on,.clay-btn-m.red.on{background:var(--clay-r);color:var(--white);}
+.gallery-view-toggle{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;gap:1px;background:var(--border);}
 .gv-btn,.td-btn{padding:8px 0;font-size:11px;font-weight:500;border:none;cursor:pointer;font-family:var(--font);color:var(--ink3);background:var(--card);transition:background .12s,color .12s;text-align:center;min-height:36px;}
-.gv-btn+.gv-btn,.td-btn+.td-btn{border-left:1px solid var(--border);}
 .gv-btn.on,.td-btn.on{background:var(--ink);color:var(--white);font-weight:600;}
 
-/* Theme toggle (2x2 — labels are longer than gallery-view's) */
-.theme-toggle{display:grid;grid-template-columns:repeat(2,1fr);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
-.theme-btn{padding:8px 4px;font-size:11px;font-weight:500;border:none;cursor:pointer;font-family:var(--font);color:var(--ink3);background:var(--card);transition:background .12s,color .12s;text-align:center;min-height:36px;border-left:1px solid var(--border);border-top:1px solid var(--border);}
-.theme-btn:nth-child(2n-1){border-left:none;}
-.theme-btn:nth-child(-n+2){border-top:none;}
-.theme-btn.on{background:var(--ink);color:var(--white);font-weight:600;}
+/* Custom Select Dropdowns & Header Controls */
+.custom-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+.sb-select {
+  width: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 8px 30px 8px 12px;
+  background: var(--card);
+  color: var(--ink);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+}
+.sb-select:focus {
+  border-color: var(--ink);
+}
+
+.header-clay-toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+}
+.header-clay-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--ink3);
+}
+
+.header-session-select {
+  padding: 6px 24px 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: var(--r);
+  color: var(--ink2);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px;
+}
+.header-session-select:hover {
+  background-color: var(--surf);
+  border-color: var(--border2);
+  color: var(--ink);
+}
+
+@media(min-width: 701px) {
+  .gv-mobile-only { display: none !important; }
+}
+
 
 /* Artist chips */
 .artist-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
@@ -897,6 +956,138 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   box-shadow:0 6px 18px var(--flow-chrome-strong);}
 .flow-arc-btn small{font-size:6.5px;letter-spacing:.12em;color:var(--ink3);margin-top:1px;}
 .flow-arc-btn.hot{outline:3px solid var(--flow-active);}
+
+/* ── ONBOARDING TOUR ── */
+.tour-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 999;
+  opacity: 0;
+  transition: opacity .25s ease;
+  pointer-events: none;
+}
+.tour-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.tour-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.95);
+  width: min(440px, 92vw);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  z-index: 1001;
+  opacity: 0;
+  transition: all .25s ease;
+  pointer-events: none;
+}
+.tour-modal.open {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: auto;
+}
+.tour-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+.tour-desc {
+  font-size: 13px;
+  color: var(--ink2);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+.tour-clay-demo {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.tour-clay-card {
+  flex: 1;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--surf);
+}
+.tour-clay-card:hover {
+  border-color: var(--border2);
+}
+.tour-clay-card .swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin: 0 auto 8px;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+.tour-clay-card.white .swatch { background: var(--clay-w); }
+.tour-clay-card.red .swatch { background: var(--clay-r); }
+.tour-clay-card h4 {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--ink);
+}
+.tour-clay-card p {
+  font-size: 10px;
+  color: var(--ink3);
+  line-height: 1.3;
+}
+
+.tour-tooltip {
+  position: fixed;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  width: 280px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+  z-index: 1001;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all .2s ease;
+  pointer-events: none;
+}
+.tour-tooltip.open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.tour-tooltip-text {
+  font-size: 12px;
+  color: var(--ink2);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.tour-btns {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tour-step-indicator {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink3);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.tour-highlight {
+  position: relative;
+  z-index: 1000 !important;
+  box-shadow: 0 0 0 3px var(--acc), 0 0 15px rgba(var(--acc-rgb), 0.4) !important;
+  pointer-events: none !important;
+}
 </style>
 </head>
 <body>
@@ -909,8 +1100,19 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
     <button class="ttab" id="tab_analytics" onclick="setTab('analytics')">Analytics</button>
   </nav>
   <div class="topbar-right">
-    <button class="btn" onclick="exportSession()">Copy JSON</button>
-    <button class="btn" onclick="openImport()">Import</button>
+    <button class="btn gv-desktop-only" onclick="showWelcomeModal()" title="Help & Tour" style="margin-right: 8px; font-weight: 600;">Tour ✦</button>
+    <div class="header-clay-toggle-container">
+      <span class="header-clay-label gv-desktop-only">Clay Body</span>
+      <div class="clay-toggle">
+        <button class="clay-btn on" id="clay_white" onclick="setClay('white')">White</button>
+        <button class="clay-btn red" id="clay_red" onclick="setClay('red')">Brooklyn Red</button>
+      </div>
+    </div>
+    <select class="header-session-select" onchange="handleSessionAction(this.value); this.value='';" aria-label="Session actions">
+      <option value="" disabled selected>Session</option>
+      <option value="copy">Copy JSON</option>
+      <option value="import">Import JSON</option>
+    </select>
   </div>
 </header>
 
@@ -974,38 +1176,46 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
   <aside class="right-sidebar" id="rightSidebar">
     <div class="flash" id="flash">Saved</div>
 
-    <div class="ps" data-sec="clay">
+    <div class="ps gv-mobile-only" data-sec="clay">
       <div class="plabel">Clay Body</div>
       <div class="clay-toggle">
-        <button class="clay-btn on" id="clay_white" onclick="setClay('white')">White</button>
-        <button class="clay-btn red" id="clay_red" onclick="setClay('red')">Brooklyn Red</button>
+        <button class="clay-btn-m on" id="clay_white_mobile" onclick="setClay('white')">White</button>
+        <button class="clay-btn-m red" id="clay_red_mobile" onclick="setClay('red')">Brooklyn Red</button>
       </div>
     </div>
 
     <div class="ps" data-sec="view">
       <div class="plabel gv-desktop-only" id="galleryViewLabel">Gallery View</div>
-      <div class="gallery-view-toggle gv-desktop-only" id="galleryViewToggle">
-        <button class="gv-btn on" data-mode="tiles" onclick="setGalleryViewMode('tiles')">Tiles</button>
-        <button class="gv-btn" data-mode="linear" onclick="setGalleryViewMode('linear')">Linear</button>
-        <button class="gv-btn" data-mode="radial" onclick="setGalleryViewMode('radial')">Radial</button>
-        <button class="gv-btn" data-mode="conic" onclick="setGalleryViewMode('conic')">Conic</button>
-        <button class="gv-btn" data-mode="squeeze" onclick="setGalleryViewMode('squeeze')">Squeeze</button>
-        <button class="gv-btn" data-mode="bulge" onclick="setGalleryViewMode('bulge')">Bulge</button>
+      <div class="custom-select-wrapper gv-desktop-only" style="margin-bottom: 12px;">
+        <select class="sb-select" id="galleryViewSelector" onchange="setGalleryViewMode(this.value)">
+          <option value="tiles">Individual Test Tiles</option>
+          <option value="linear">Linear Gradient Blend</option>
+          <option value="radial">Radial Blend</option>
+          <option value="conic">Conic Overlay</option>
+          <option value="turrell">Concentric Squares (Turrell)</option>
+          <option value="wada">Alternating Bricks (Wada)</option>
+          <option value="flavin">Glowing Neon Tubes (Flavin)</option>
+          <option value="mondrian">Modernist Grid (Mondrian)</option>
+          <option value="squeeze">Squeeze curve warp</option>
+          <option value="bulge">Bulge curve warp</option>
+        </select>
       </div>
-      <button class="btn" id="flowBtn" onclick="openFlow()" title="Flow — rapid gradient scroll">Flow ✦</button>
-      <div class="plabel gv-desktop-only" id="tileDivisionLabel" style="margin-top:12px;">Tile Divisions</div>
-      <div class="gallery-view-toggle gv-desktop-only" id="tileDivisionToggle">
+      <button class="btn" id="flowBtn" onclick="openFlow()" title="Flow — rapid gradient scroll" style="width: 100%; justify-content: center; margin-bottom: 12px; height: 36px; font-weight: 600;">Flow ✦</button>
+      <div class="plabel gv-desktop-only" id="tileDivisionLabel">Tile Divisions</div>
+      <div class="gallery-view-toggle gv-desktop-only" id="tileDivisionToggle" style="margin-bottom: 12px;">
         <button class="td-btn on" data-n="4" onclick="setTileDivisions(4)">4</button>
         <button class="td-btn" data-n="8" onclick="setTileDivisions(8)">8</button>
         <button class="td-btn" data-n="12" onclick="setTileDivisions(12)">12</button>
         <button class="td-btn" data-n="16" onclick="setTileDivisions(16)">16</button>
       </div>
       <div class="plabel" style="margin-top:12px;">Appearance</div>
-      <div class="theme-toggle" id="themeToggle">
-        <button class="theme-btn on" data-theme="light" onclick="setTheme('light')">Light</button>
-        <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')">Dark</button>
-        <button class="theme-btn" data-theme="stoneware" onclick="setTheme('stoneware')">Stoneware</button>
-        <button class="theme-btn" data-theme="brooklyn" onclick="setTheme('brooklyn')">Brooklyn Red</button>
+      <div class="custom-select-wrapper">
+        <select class="sb-select" id="themeSelector" onchange="setTheme(this.value)">
+          <option value="light">Light Theme</option>
+          <option value="dark">Dark Theme</option>
+          <option value="stoneware">Stoneware Theme</option>
+          <option value="brooklyn">Brooklyn Red Theme</option>
+        </select>
       </div>
     </div>
 
@@ -1195,15 +1405,138 @@ function setTheme(name){
   if (name === 'light') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', name);
   localStorage.setItem('bklyn_theme', name);
-  document.querySelectorAll('#themeToggle .theme-btn').forEach(b=>{
-    b.classList.toggle('on', b.dataset.theme === name);
-  });
+  const selector = document.getElementById('themeSelector');
+  if (selector) selector.value = name;
+}// ── ONBOARDING TOUR ──
+let tourStep = 0;
+let highlightedElement = null;
+
+const tourSteps = [
+  {
+    target: '.header-clay-toggle-container',
+    text: '<strong>Clay is the canvas.</strong> Toggle between White stoneware and Brooklyn Red clay. All glaze layers adjust mathematically to show warmth and opacity shifts.',
+    pos: 'bottom'
+  },
+  {
+    target: '[data-sec="style"]',
+    text: '<strong>Tune the blends.</strong> Select Preset styles (like Wada Sanzo, Rothko, or Kelly) or drag the levers below to generate custom glaze combinations.',
+    pos: 'left'
+  },
+  {
+    target: '.gallery .card',
+    text: '<strong>Inspect the chemistry.</strong> Double-click any palette tile to open the detail overlay, edit glaze weights, and see detailed firing statistics.',
+    pos: 'right'
+  },
+  {
+    target: '#flowBtn',
+    text: '<strong>Flow Mode.</strong> Enter a full-screen sensory scroll feed. Perfect for rapid discovery. Hold anywhere to riff, flip, or pin on the fly.',
+    pos: 'left'
+  }
+];
+
+function showWelcomeModal() {
+  if (highlightedElement) {
+    highlightedElement.classList.remove('tour-highlight');
+    highlightedElement = null;
+  }
+  const backdrop = document.getElementById('tourBackdrop');
+  const modal = document.getElementById('welcomeTourModal');
+  const tooltip = document.getElementById('tourTooltip');
+  if (backdrop) backdrop.classList.add('open');
+  if (modal) modal.classList.add('open');
+  if (tooltip) tooltip.classList.remove('open');
+}
+
+function startTour() {
+  const modal = document.getElementById('welcomeTourModal');
+  if (modal) modal.classList.remove('open');
+  tourStep = 0;
+  showTourStep();
+}
+
+function skipTour() {
+  const backdrop = document.getElementById('tourBackdrop');
+  const modal = document.getElementById('welcomeTourModal');
+  const tooltip = document.getElementById('tourTooltip');
+  if (backdrop) backdrop.classList.remove('open');
+  if (modal) modal.classList.remove('open');
+  if (tooltip) tooltip.classList.remove('open');
+  if (highlightedElement) {
+    highlightedElement.classList.remove('tour-highlight');
+    highlightedElement = null;
+  }
+  localStorage.setItem('bklyn_onboarded', 'true');
+}
+
+function nextTourStep() {
+  tourStep++;
+  if (tourStep >= tourSteps.length) {
+    skipTour();
+    showToast('Tour complete! Enjoy mixing glazes.');
+  } else {
+    showTourStep();
+  }
+}
+
+function showTourStep() {
+  if (highlightedElement) {
+    highlightedElement.classList.remove('tour-highlight');
+  }
+  const step = tourSteps[tourStep];
+  const target = document.querySelector(step.target);
+  if (!target) {
+    nextTourStep();
+    return;
+  }
+  
+  highlightedElement = target;
+  highlightedElement.classList.add('tour-highlight');
+  
+  const tooltip = document.getElementById('tourTooltip');
+  const text = document.getElementById('tourTooltipText');
+  const indicator = document.getElementById('tourStepIndicator');
+  
+  if (tooltip && text && indicator) {
+    text.innerHTML = step.text;
+    indicator.textContent = `Step ${tourStep + 1} of ${tourSteps.length}`;
+    
+    const r = target.getBoundingClientRect();
+    let top = 0, left = 0;
+    
+    if (step.pos === 'bottom') {
+      top = r.bottom + 12;
+      left = r.left + (r.width - 280) / 2;
+    } else if (step.pos === 'left') {
+      top = r.top + (r.height - 100) / 2;
+      left = r.left - 280 - 12;
+    } else if (step.pos === 'right') {
+      top = r.top + (r.height - 100) / 2;
+      left = r.right + 12;
+    } else {
+      top = r.top - 120;
+      left = r.left + (r.width - 280) / 2;
+    }
+    
+    left = Math.max(10, Math.min(window.innerWidth - 290, left));
+    top = Math.max(10, Math.min(window.innerHeight - 200, top));
+    
+    tooltip.style.top = `${top}px`;
+    tooltip.style.left = `${left}px`;
+    tooltip.classList.add('open');
+  }
 }
 
 // ── WINDOW EXPORTS (required for inline onclick= handlers in module scope) ────
 Object.assign(window, {
+  // Onboarding Tour
+  showWelcomeModal, startTour, skipTour, nextTourStep,
+
   // Persistence / import / export
   saveAll, loadAll, copyText, exportSession, doImport,
+  handleSessionAction: (action) => {
+    if (action === 'copy') exportSession();
+    if (action === 'import') window.openImport();
+  },
   openImport: () => {
     const m = document.getElementById('importModal');
     if (m) {
@@ -1348,6 +1681,11 @@ loadAll().catch(err => {
   initSectionObserver();
   initHorizontalSwipe();
   initPullToShuffle();
+  setTimeout(() => {
+    if (localStorage.getItem('bklyn_onboarded') !== 'true' && window.innerWidth > 700 && !navigator.webdriver) {
+      window.showWelcomeModal();
+    }
+  }, 1000);
 });
 </script>
 
@@ -1377,6 +1715,9 @@ loadAll().catch(err => {
         <button class="pd-mode-btn"        data-mode="stripes" onclick="setGradMode('stripes')">Stripes</button>
         <button class="pd-mode-btn"        data-mode="squeeze" onclick="setGradMode('squeeze')">Squeeze</button>
         <button class="pd-mode-btn"        data-mode="bulge"   onclick="setGradMode('bulge')">Bulge</button>
+        <button class="pd-mode-btn"        data-mode="wada"     onclick="setGradMode('wada')">Wada</button>
+        <button class="pd-mode-btn"        data-mode="flavin"   onclick="setGradMode('flavin')">Flavin</button>
+        <button class="pd-mode-btn"        data-mode="mondrian" onclick="setGradMode('mondrian')">Mondrian</button>
         <div class="pd-mode-sep"></div>
         <button class="pd-mode-btn hidden" id="pdFlipBtn" onclick="pdToggleReverse()">Flip</button>
         <button class="pd-mode-btn" id="pdNoiseBtn" onclick="pdToggleNoise()">Grain</button>
@@ -1413,6 +1754,43 @@ loadAll().catch(err => {
   <div class="flow-picker" id="flowPicker" hidden></div>
   <div class="flow-pulse" id="flowPulse" aria-hidden="true">✦</div>
   <div class="flow-arc" id="flowArc" hidden></div>
+</div>
+
+<!-- Onboarding Tour Elements -->
+<div class="tour-backdrop" id="tourBackdrop" onclick="skipTour()"></div>
+
+<div class="tour-modal" id="welcomeTourModal">
+  <h3 class="tour-title">Welcome to BklynClay Glaze Studio</h3>
+  <p class="tour-desc">
+    This simulator models layered glaze chemistry to preview how glazes melt and interact together during high-fire reduction. Select a clay body below to see its effect:
+  </p>
+  <div class="tour-clay-demo">
+    <div class="tour-clay-card white" onclick="setClay('white')">
+      <div class="swatch"></div>
+      <h4>White Stoneware</h4>
+      <p>Reflects pure, bright, transparent glaze tones.</p>
+    </div>
+    <div class="tour-clay-card red" onclick="setClay('red')">
+      <div class="swatch"></div>
+      <h4>Brooklyn Red</h4>
+      <p>Deep iron clay that mutates and warms glaze colors.</p>
+    </div>
+  </div>
+  <div class="tour-btns">
+    <button class="btn remove-subtle" onclick="skipTour()">Skip Intro</button>
+    <button class="btn primary" onclick="startTour()">Learn Studio Chemistry ✦</button>
+  </div>
+</div>
+
+<div class="tour-tooltip" id="tourTooltip">
+  <div class="tour-tooltip-text" id="tourTooltipText"></div>
+  <div class="tour-btns">
+    <span class="tour-step-indicator" id="tourStepIndicator">Step 1 of 4</span>
+    <div style="display:flex; gap:6px;">
+      <button class="btn sm ghost" onclick="skipTour()">Skip</button>
+      <button class="btn sm primary" onclick="nextTourStep()">Next</button>
+    </div>
+  </div>
 </div>
 
 <script>

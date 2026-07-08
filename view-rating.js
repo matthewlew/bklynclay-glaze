@@ -5,7 +5,7 @@
 import { GLAZES, CLAY } from './glazes-data.js';
 import { applyGlaze, toHex } from './render.js';
 
-export const VIEW_MODES = ['linear', 'radial', 'conic', 'stripes', 'turrell', 'squeeze', 'bulge'];
+export const VIEW_MODES = ['linear', 'radial', 'conic', 'stripes', 'turrell', 'squeeze', 'bulge', 'wada', 'flavin', 'mondrian'];
 
 function dispHex(name, ck) {
   const g = GLAZES.find(x => x.name === name);
@@ -77,7 +77,7 @@ function sampleHex(hexes, t) {
 export function squeezeBulgeSVGDataUri(hexes, mode) {
   if (!hexes || !hexes.length) return '';
   const c = mode === 'squeeze' ? 0.45 : -0.45;
-  const N = 15;
+  const N = 60;
   const paths = [];
   const tMin = -0.15, tMax = 1.15, tRange = tMax - tMin;
   for (let i = 0; i < N; i++) {
@@ -91,7 +91,7 @@ export function squeezeBulgeSVGDataUri(hexes, mode) {
     const d = `M -50,${y1_start.toFixed(2)} Q 50,${y1_ctrl.toFixed(2)} 150,${y1_start.toFixed(2)} L 150,${y2_start.toFixed(2)} Q 50,${y2_ctrl.toFixed(2)} -50,${y2_start.toFixed(2)} Z`;
     paths.push(`<path d='${d}' fill='${colorStr}' stroke='${colorStr}' stroke-width='0.5'/>`);
   }
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='blur'><feGaussianBlur stdDeviation='3'/></filter></defs><g filter='url(#blur)'>${paths.join('')}</g></svg>`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='blur'><feGaussianBlur stdDeviation='4'/></filter></defs><g filter='url(#blur)'>${paths.join('')}</g></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
@@ -115,8 +115,84 @@ export function turrellSVGDataUri(hexes) {
     return `<rect x='${m}%' y='${m}%' width='${sz}%' height='${sz}%' fill='${h}'/>`;
   }).join('');
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'>${rects}</svg>`;
-  // Fully encode the SVG so no literal quote/# characters can collide with the
-  // outer CSS url("...") wrapper.
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+export function wadaSVGDataUri(hexes) {
+  if (!hexes.length) return '';
+  const W = 100, H = 100;
+  const rowCount = 8;
+  const rowH = H / rowCount;
+  let bricksHtml = '';
+  let brickCount = 0;
+  for (let r = 0; r < rowCount; r++) {
+    const y = r * rowH;
+    const isOdd = r % 2 === 1;
+    if (!isOdd) {
+      const w = 50;
+      for (let c = 0; c < 2; c++) {
+        const x = c * w;
+        const color = hexes[brickCount % hexes.length];
+        brickCount++;
+        bricksHtml += `<rect x="${x}" y="${y}" width="${w}" height="${rowH}" fill="${color}" stroke="#e6e3dd" stroke-width="1.2" />`;
+      }
+    } else {
+      const cols = [{ x: 0, w: 25 }, { x: 25, w: 50 }, { x: 75, w: 25 }];
+      for (let c = 0; c < 3; c++) {
+        const { x, w } = cols[c];
+        const color = hexes[brickCount % hexes.length];
+        brickCount++;
+        bricksHtml += `<rect x="${x}" y="${y}" width="${w}" height="${rowH}" fill="${color}" stroke="#e6e3dd" stroke-width="1.2" />`;
+      }
+    }
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bricksHtml}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+export function flavinSVGDataUri(hexes) {
+  if (!hexes.length) return '';
+  const W = 100, H = 100;
+  const N = hexes.length;
+  let tubesHtml = '';
+  for (let i = 0; i < N; i++) {
+    const color = hexes[i];
+    const cx = (i + 0.5) * (W / N);
+    tubesHtml += `<rect x="${cx - 5}" y="12" width="10" height="76" rx="1.5" ry="1.5" fill="${color}" opacity="0.35" filter="url(#f-blur-${i})" />`;
+    tubesHtml += `<rect x="${cx - 0.75}" y="12.5" width="1.5" height="75" rx="0.75" ry="0.75" fill="#ffffff" opacity="0.95" />`;
+  }
+  let defs = hexes.map((color, i) => `
+    <filter id="f-blur-${i}" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="3.0" />
+    </filter>
+  `).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs>${defs}</defs><rect width="${W}" height="${H}" fill="#161514"/>${tubesHtml}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+export function mondrianSVGDataUri(hexes) {
+  if (!hexes.length) return '';
+  const W = 100, H = 100;
+  const N = hexes.length;
+  let layout = [];
+  if (N === 2) {
+    layout = [{ x: 0, y: 0, w: 100, h: 58 }, { x: 0, y: 58, w: 100, h: 42 }];
+  } else if (N === 3) {
+    layout = [{ x: 0, y: 0, w: 65, h: 65 }, { x: 65, y: 0, w: 35, h: 65 }, { x: 0, y: 65, w: 100, h: 35 }];
+  } else if (N === 4) {
+    layout = [{ x: 0, y: 0, w: 68, h: 68 }, { x: 68, y: 0, w: 32, h: 45 }, { x: 68, y: 45, w: 32, h: 55 }, { x: 0, y: 68, w: 68, h: 32 }];
+  } else if (N === 5) {
+    layout = [{ x: 0, y: 0, w: 45, h: 50 }, { x: 45, y: 0, w: 55, h: 32 }, { x: 45, y: 32, w: 55, h: 68 }, { x: 0, y: 50, w: 25, h: 50 }, { x: 25, y: 50, w: 20, h: 50 }];
+  } else {
+    layout = [{ x: 0, y: 0, w: 50, h: 38 }, { x: 50, y: 0, w: 50, h: 28 }, { x: 50, y: 28, w: 50, h: 42 }, { x: 50, y: 70, w: 50, h: 30 }, { x: 0, y: 38, w: 30, h: 62 }, { x: 30, y: 38, w: 20, h: 62 }];
+  }
+  let rectsHtml = '';
+  for (let i = 0; i < layout.length; i++) {
+    const rect = layout[i];
+    const color = hexes[i % hexes.length];
+    rectsHtml += `<rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" fill="${color}" stroke="#121212" stroke-width="2.0" />`;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${rectsHtml}</svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
@@ -132,6 +208,9 @@ export function cssForMode(mode, names, ck, reverse) {
   if (mode === 'turrell') return { background: hexes[0], backgroundImage: turrellSVGDataUri(hexes), backgroundSize: 'cover' };
   if (mode === 'squeeze') return { background: hexes[0], backgroundImage: squeezeCSS(hexes), backgroundSize: '100% 100%' };
   if (mode === 'bulge') return { background: hexes[0], backgroundImage: bulgeCSS(hexes), backgroundSize: '100% 100%' };
+  if (mode === 'wada') return { background: hexes[0], backgroundImage: wadaSVGDataUri(hexes), backgroundSize: '100% 100%' };
+  if (mode === 'flavin') return { background: '#161514', backgroundImage: flavinSVGDataUri(hexes), backgroundSize: '100% 100%' };
+  if (mode === 'mondrian') return { background: hexes[0], backgroundImage: mondrianSVGDataUri(hexes), backgroundSize: '100% 100%' };
   return { background: linearCSS(hexes) };
 }
 

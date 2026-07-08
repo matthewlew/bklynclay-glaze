@@ -31,6 +31,7 @@ test('scoring-explained doc page loads with expected title', async ({ page }) =>
 
 test('creating a board adds a topbar tab and switches context', async ({ page }) => {
   await page.goto('/');
+  await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
   const newProjBtn = page.locator('.sb-new-proj-btn');
   await expect(newProjBtn).toBeVisible();
   await newProjBtn.click();
@@ -42,6 +43,7 @@ test('creating a board adds a topbar tab and switches context', async ({ page })
 
 test('score weight buttons (T5) are enabled for active board and update hint on click', async ({ page }) => {
   await page.goto('/');
+  await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
   // Without a board, the buttons should be disabled
   const wrap = page.locator('#scoreWeightSelect');
   await expect(wrap).toBeVisible();
@@ -191,7 +193,9 @@ test('mobile Projects screen lists boards and navigates on tap', async ({ page }
 
 test('opening a palette detail from a conic gallery view opens in conic mode', async ({ page }) => {
   await page.goto('/');
-  await page.locator('.gv-btn[data-mode="conic"]').click();
+  await page.locator('#galleryViewSelector').selectOption('conic');
+  await expect(page.locator('#galleryViewSelector')).toHaveValue('conic');
+  await page.waitForTimeout(100);
   await page.locator('.card').first().click();
   await expect(page.locator('#paletteDetail')).toHaveClass(/open/);
   await expect(page.locator('.pd-mode-btn[data-mode="conic"]')).toHaveClass(/active/);
@@ -266,7 +270,7 @@ test('view-rating pure helpers compute gradients and summarize logs correctly', 
   expect(result.conic).toContain('conic-gradient(from 0deg');
   expect(result.stripes).toContain('linear-gradient(to bottom,');
   expect(result.turrell).toContain('url("data:image/svg+xml,');
-  expect(result.combosLen).toBe(14); // 7 modes x fwd/rev
+  expect(result.combosLen).toBe(20); // 10 modes x fwd/rev
   expect(result.singleHex).toBe('#abcabc');
   // linear and radial tie for average rank 0.5 across the two logged palettes
   expect(result.summary).toHaveLength(2);
@@ -295,7 +299,7 @@ test('Rate Views card sort: rank cards, complete a palette, and see results summ
   const cards = page.locator('.vr-card');
   await expect(cards.first()).toBeVisible({ timeout: 3000 });
   const count = await cards.count();
-  expect(count).toBe(14);
+  expect(count).toBe(20);
 
   // Click every card to build a full ranking order.
   for (let i = 0; i < count; i++) {

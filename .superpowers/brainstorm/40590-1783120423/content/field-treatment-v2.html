@@ -1,0 +1,73 @@
+<h2>Combined treatment — bands + breathing wash + grain</h2>
+<p class="subtitle">"ocean beach at sunset" again. Horizontal strata underneath; soft washes drifting through them; a fine animated grain on top to dither the color and kill the computer-smooth look. Real thing would move ~10× slower.</p>
+
+<style>
+  .field {
+    height: 420px; border-radius: 8px; overflow: hidden; position: relative;
+    background: linear-gradient(to bottom,
+      #2b2d52 0%, #4a3d6b 22%, #8a5a7a 40%, #c97b6d 55%,
+      #e8a06a 68%, #f2c184 80%, #d99a6b 100%);
+    background-size: 100% 145%;
+    animation: bandsDrift 18s ease-in-out infinite;
+  }
+  @keyframes bandsDrift {
+    0%   { background-position: 0 0%; }
+    50%  { background-position: 0 22%; }
+    100% { background-position: 0 0%; }
+  }
+  .field .wash {
+    position: absolute; inset: -12%;
+    background:
+      radial-gradient(ellipse 60% 45% at 30% 35%, rgba(242,193,132,.55) 0%, transparent 70%),
+      radial-gradient(ellipse 70% 50% at 72% 62%, rgba(138,90,122,.5) 0%, transparent 70%),
+      radial-gradient(ellipse 55% 40% at 55% 20%, rgba(43,45,82,.45) 0%, transparent 70%);
+    filter: blur(28px);
+    animation: washMorph 26s ease-in-out infinite;
+    mix-blend-mode: soft-light;
+  }
+  @keyframes washMorph {
+    0%   { transform: translate(0,0) scale(1); }
+    33%  { transform: translate(4%, -3%) scale(1.06); }
+    66%  { transform: translate(-3%, 3%) scale(1.03); }
+    100% { transform: translate(0,0) scale(1); }
+  }
+  .field .grain {
+    position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: .055;
+    mix-blend-mode: overlay;
+    animation: grainShift 1.2s steps(4) infinite;
+  }
+  @keyframes grainShift {
+    0% { transform: translate(0,0); } 25% { transform: translate(-18px,10px); }
+    50% { transform: translate(12px,-14px); } 75% { transform: translate(-8px,-6px); }
+    100% { transform: translate(0,0); }
+  }
+</style>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">Combined field — is this the vibe?</div>
+    <div class="mockup-body" style="padding:0">
+      <div class="field">
+        <div class="wash"></div>
+        <div class="grain"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="yes-vibe" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>Yes — that's the vibe</h3><p>Lock this as the visual direction.</p></div>
+  </div>
+  <div class="option" data-choice="more-grain" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>Close — adjust the grain</h3><p>Tell me in the terminal: more/less grain, more/less blur, faster/slower breathing.</p></div>
+  </div>
+  <div class="option" data-choice="not-it" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content"><h3>Not it</h3><p>Describe what's off and I'll iterate.</p></div>
+  </div>
+</div>

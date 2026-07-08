@@ -177,7 +177,7 @@ function gallerySqueezeBulgeSVG(glazes, ck, mode, weights) {
   const useWeights = Array.isArray(weights) && weights.length === glazes.length;
   const sampler = useWeights ? (t => sampleAtWeighted(t, glazes, weights, ck)) : (t => sampleAt(t, glazes, ck));
   const c = mode === 'squeeze' ? 0.45 : -0.45;
-  const N = 15;
+  const N = 60;
   const paths = [];
   const tMin = -0.15, tMax = 1.15, tRange = tMax - tMin;
   for (let i = 0; i < N; i++) {
@@ -192,14 +192,326 @@ function gallerySqueezeBulgeSVG(glazes, ck, mode, weights) {
     const d = `M -50,${y1_start.toFixed(2)} Q 50,${y1_ctrl.toFixed(2)} 150,${y1_start.toFixed(2)} L 150,${y2_start.toFixed(2)} Q 50,${y2_ctrl.toFixed(2)} -50,${y2_start.toFixed(2)} Z`;
     paths.push(`<path d='${d}' fill='${colorStr}' stroke='${colorStr}' stroke-width='0.5'/>`);
   }
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='blur'><feGaussianBlur stdDeviation='3'/></filter></defs><g filter='url(#blur)'>${paths.join('')}</g></svg>`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='blur'><feGaussianBlur stdDeviation='4'/></filter></defs><g filter='url(#blur)'>${paths.join('')}</g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+export function galleryWadaSVG(glazes, ck, weights) {
+  ck = ck || clayKey;
+  if (!glazes || !glazes.length) return '';
+  const W = 100, H = 100;
+  const id = uid6();
+  const clayHex = CLAY[ck];
+  
+  let defs = '';
+  const pids = glazes.map((g, idx) => {
+    const pid = `wada-pat-${idx}-${id}`;
+    const col = applyGlaze(g, ck);
+    const hex = toHex(col.r, col.gr, col.b);
+    if (g.fin === 'crawl-dot') defs += dotPat(pid, hex, ck);
+    else if (g.fin === 'crawl-leather') defs += leatherPat(pid, hex);
+    else if (g.fin === 'crawl-crackle') defs += crackPat(pid, ck);
+    else if (g.fin === 'textured') defs += grogPat(pid, hex);
+    return pid;
+  });
+
+  const rowCount = 8;
+  const rowH = H / rowCount;
+  let bricksHtml = '';
+  let brickCount = 0;
+
+  for (let r = 0; r < rowCount; r++) {
+    const y = r * rowH;
+    const isOdd = r % 2 === 1;
+    if (!isOdd) {
+      const w = 50;
+      for (let c = 0; c < 2; c++) {
+        const x = c * w;
+        const g = glazes[brickCount % glazes.length];
+        const pid = pids[brickCount % glazes.length];
+        brickCount++;
+        bricksHtml += _drawBrick(x, y, w, rowH, g, pid, ck);
+      }
+    } else {
+      const cols = [
+        { x: 0, w: 25 },
+        { x: 25, w: 50 },
+        { x: 75, w: 25 }
+      ];
+      for (let c = 0; c < 3; c++) {
+        const { x, w } = cols[c];
+        const g = glazes[brickCount % glazes.length];
+        const pid = pids[brickCount % glazes.length];
+        brickCount++;
+        bricksHtml += _drawBrick(x, y, w, rowH, g, pid, ck);
+      }
+    }
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs>${defs}</defs><rect width="${W}" height="${H}" fill="${clayHex}"/>${bricksHtml}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+function _drawBrick(x, y, w, h, g, pid, ck) {
+  const col = applyGlaze(g, ck);
+  const hex = toHex(col.r, col.gr, col.b);
+  const clayHex = CLAY[ck];
+  let html = '';
+  
+  if (g.fin === 'crawl-dot' || g.fin === 'crawl-leather') {
+    html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${pid})" stroke="${clayHex}" stroke-width="1.5" />`;
+  } else if (g.fin === 'crawl-crackle') {
+    html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${hex}" stroke="${clayHex}" stroke-width="1.5" />`;
+    html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${pid})" stroke="none" pointer-events="none" />`;
+  } else if (g.fin === 'textured') {
+    html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${hex}" stroke="${clayHex}" stroke-width="1.5" />`;
+    html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${pid})" opacity="0.80" stroke="none" pointer-events="none" />`;
+  } else {
+    html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${hex}" stroke="${clayHex}" stroke-width="1.5" />`;
+  }
+  
+  if (g.special === 'gold-flake') {
+    const gc = ['#C8900A','#B87C08','#D4A010','#A86C06'];
+    for (let i = 0; i < 4; i++) {
+      const op = (0.4 + Math.random() * 0.5).toFixed(2);
+      const bx = x + Math.random() * w;
+      const by = y + Math.random() * h;
+      const r = (0.25 + Math.random() * 0.4).toFixed(1);
+      if (Math.random() > 0.45) {
+        html += `<circle cx="${bx}" cy="${by}" r="${r}" fill="${gc[i%4]}" opacity="${op}"/>`;
+      } else {
+        const rx = (0.25 + Math.random() * 0.5).toFixed(1);
+        const ry = (0.1 + Math.random() * 0.25).toFixed(1);
+        const rot = (Math.random() * 180).toFixed(0);
+        html += `<ellipse cx="${bx}" cy="${by}" rx="${rx}" ry="${ry}" fill="${gc[i%4]}" opacity="${op}" transform="rotate(${rot},${bx},${by})"/>`;
+      }
+    }
+  }
+  return html;
+}
+
+export function galleryFlavinSVG(glazes, ck, weights) {
+  ck = ck || clayKey;
+  if (!glazes || !glazes.length) return '';
+  const W = 100, H = 100;
+  const id = uid6();
+  const wallBg = ck === 'red' ? '#221410' : '#161514';
+  const N = glazes.length;
+  let tubesHtml = '';
+  
+  for (let i = 0; i < N; i++) {
+    const g = glazes[i];
+    const col = applyGlaze(g, ck);
+    const hex = toHex(col.r, col.gr, col.b);
+    const cx = (i + 0.5) * (W / N);
+    
+    tubesHtml += `<rect x="${cx - 5}" y="12" width="10" height="76" rx="1.5" ry="1.5" fill="${hex}" opacity="0.32" filter="url(#flavin-blur-wide-${id})" />`;
+    tubesHtml += `<rect x="${cx - 2.5}" y="12" width="5" height="76" rx="1.2" ry="1.2" fill="${hex}" opacity="0.75" filter="url(#flavin-blur-med-${id})" />`;
+    tubesHtml += `<rect x="${cx - 0.75}" y="12.5" width="1.5" height="75" rx="0.75" ry="0.75" fill="#ffffff" opacity="0.95" />`;
+    tubesHtml += `<rect x="${cx - 2}" y="8" width="4" height="4" fill="#282828" stroke="#444" stroke-width="0.3" />`;
+    tubesHtml += `<rect x="${cx - 2}" y="88" width="4" height="4" fill="#282828" stroke="#444" stroke-width="0.3" />`;
+  }
+  
+  const defs = `
+    <filter id="flavin-blur-wide-${id}" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="5.5" />
+    </filter>
+    <filter id="flavin-blur-med-${id}" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="1.8" />
+    </filter>
+  `;
+  
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs>${defs}</defs><rect width="${W}" height="${H}" fill="${wallBg}"/>${tubesHtml}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+export function galleryMondrianSVG(glazes, ck, weights) {
+  ck = ck || clayKey;
+  if (!glazes || !glazes.length) return '';
+  const W = 100, H = 100;
+  const id = uid6();
+  const clayHex = CLAY[ck];
+  
+  let defs = '';
+  const pids = glazes.map((g, idx) => {
+    const pid = `mond-pat-${idx}-${id}`;
+    const col = applyGlaze(g, ck);
+    const hex = toHex(col.r, col.gr, col.b);
+    if (g.fin === 'crawl-dot') defs += dotPat(pid, hex, ck);
+    else if (g.fin === 'crawl-leather') defs += leatherPat(pid, hex);
+    else if (g.fin === 'crawl-crackle') defs += crackPat(pid, ck);
+    else if (g.fin === 'textured') defs += grogPat(pid, hex);
+    return pid;
+  });
+
+  const N = glazes.length;
+  let layout = [];
+  
+  if (N === 2) {
+    layout = [
+      { x: 0, y: 0, w: 100, h: 58 },
+      { x: 0, y: 58, w: 100, h: 42 }
+    ];
+  } else if (N === 3) {
+    layout = [
+      { x: 0, y: 0, w: 65, h: 65 },
+      { x: 65, y: 0, w: 35, h: 65 },
+      { x: 0, y: 65, w: 100, h: 35 }
+    ];
+  } else if (N === 4) {
+    layout = [
+      { x: 0, y: 0, w: 68, h: 68 },
+      { x: 68, y: 0, w: 32, h: 45 },
+      { x: 68, y: 45, w: 32, h: 55 },
+      { x: 0, y: 68, w: 68, h: 32 }
+    ];
+  } else if (N === 5) {
+    layout = [
+      { x: 0, y: 0, w: 45, h: 50 },
+      { x: 45, y: 0, w: 55, h: 32 },
+      { x: 45, y: 32, w: 55, h: 68 },
+      { x: 0, y: 50, w: 25, h: 50 },
+      { x: 25, y: 50, w: 20, h: 50 }
+    ];
+  } else {
+    layout = [
+      { x: 0, y: 0, w: 50, h: 38 },
+      { x: 50, y: 0, w: 50, h: 28 },
+      { x: 50, y: 28, w: 50, h: 42 },
+      { x: 50, y: 70, w: 50, h: 30 },
+      { x: 0, y: 38, w: 30, h: 62 },
+      { x: 30, y: 38, w: 20, h: 62 }
+    ];
+  }
+
+  let rectsHtml = '';
+  for (let i = 0; i < layout.length; i++) {
+    const rect = layout[i];
+    const gIndex = i % glazes.length;
+    const g = glazes[gIndex];
+    const pid = pids[gIndex];
+    rectsHtml += _drawMondrianRect(rect.x, rect.y, rect.w, rect.h, g, pid, ck);
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs>${defs}</defs><rect width="${W}" height="${H}" fill="${clayHex}"/>${rectsHtml}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+function _drawMondrianRect(x, y, w, h, g, pid, ck) {
+  const col = applyGlaze(g, ck);
+  const hex = toHex(col.r, col.gr, col.b);
+  const borderColor = '#121212';
+  const strokeW = 2.0;
+  let html = '';
+  
+  if (g.fin === 'crawl-dot' || g.fin === 'crawl-leather') {
+    html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${pid})" stroke="${borderColor}" stroke-width="${strokeW}" />`;
+  } else if (g.fin === 'crawl-crackle') {
+    html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${hex}" stroke="${borderColor}" stroke-width="${strokeW}" />`;
+    html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${pid})" stroke="none" pointer-events="none" />`;
+  } else if (g.fin === 'textured') {
+    html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${hex}" stroke="${borderColor}" stroke-width="${strokeW}" />`;
+    html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${pid})" opacity="0.80" stroke="none" pointer-events="none" />`;
+  } else {
+    html += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${hex}" stroke="${borderColor}" stroke-width="${strokeW}" />`;
+  }
+  
+  if (g.special === 'gold-flake') {
+    const gc = ['#C8900A','#B87C08','#D4A010','#A86C06'];
+    for (let i = 0; i < 4; i++) {
+      const op = (0.4 + Math.random() * 0.5).toFixed(2);
+      const bx = x + Math.random() * w;
+      const by = y + Math.random() * h;
+      const r = (0.25 + Math.random() * 0.4).toFixed(1);
+      if (Math.random() > 0.45) {
+        html += `<circle cx="${bx}" cy="${by}" r="${r}" fill="${gc[i%4]}" opacity="${op}"/>`;
+      } else {
+        const rx = (0.25 + Math.random() * 0.5).toFixed(1);
+        const ry = (0.1 + Math.random() * 0.25).toFixed(1);
+        const rot = (Math.random() * 180).toFixed(0);
+        html += `<ellipse cx="${bx}" cy="${by}" rx="${rx}" ry="${ry}" fill="${gc[i%4]}" opacity="${op}" transform="rotate(${rot},${bx},${by})"/>`;
+      }
+    }
+  }
+  return html;
+}
+
+export function galleryTurrellSVG(glazes, ck, weights) {
+  ck = ck || clayKey;
+  if (!glazes || !glazes.length) return '';
+  const W = 100, H = 100;
+  const id = uid6();
+  const clayHex = CLAY[ck];
+  
+  let defs = '';
+  const pids = glazes.map((g, idx) => {
+    const pid = `turr-pat-${idx}-${id}`;
+    const col = applyGlaze(g, ck);
+    const hex = toHex(col.r, col.gr, col.b);
+    if (g.fin === 'crawl-dot') defs += dotPat(pid, hex, ck);
+    else if (g.fin === 'crawl-leather') defs += leatherPat(pid, hex);
+    else if (g.fin === 'crawl-crackle') defs += crackPat(pid, ck);
+    else if (g.fin === 'textured') defs += grogPat(pid, hex);
+    return pid;
+  });
+
+  const n = glazes.length;
+  const step = 45 / n;
+  let squaresHtml = '';
+  
+  for (let i = 0; i < n; i++) {
+    const g = glazes[i];
+    const pid = pids[i];
+    const col = applyGlaze(g, ck);
+    const hex = toHex(col.r, col.gr, col.b);
+    
+    const m = i * step;
+    const sz = 100 - 2 * m;
+    
+    if (g.fin === 'crawl-dot' || g.fin === 'crawl-leather') {
+      squaresHtml += `<rect x="${m}%" y="${m}%" width="${sz}%" height="${sz}%" fill="url(#${pid})" />`;
+    } else if (g.fin === 'crawl-crackle') {
+      squaresHtml += `<rect x="${m}%" y="${m}%" width="${sz}%" height="${sz}%" fill="${hex}" />`;
+      squaresHtml += `<rect x="${m}%" y="${m}%" width="${sz}%" height="${sz}%" fill="url(#${pid})" pointer-events="none" />`;
+    } else if (g.fin === 'textured') {
+      squaresHtml += `<rect x="${m}%" y="${m}%" width="${sz}%" height="${sz}%" fill="${hex}" />`;
+      squaresHtml += `<rect x="${m}%" y="${m}%" width="${sz}%" height="${sz}%" fill="url(#${pid})" opacity="0.80" pointer-events="none" />`;
+    } else {
+      squaresHtml += `<rect x="${m}%" y="${m}%" width="${sz}%" height="${sz}%" fill="${hex}" />`;
+    }
+    
+    if (g.special === 'gold-flake') {
+      const gc = ['#C8900A','#B87C08','#D4A010','#A86C06'];
+      for (let j = 0; j < 6; j++) {
+        const op = (0.4 + Math.random() * 0.5).toFixed(2);
+        const bx = m + Math.random() * sz;
+        const by = m + Math.random() * sz;
+        const r = (0.25 + Math.random() * 0.4).toFixed(1);
+        if (Math.random() > 0.45) {
+          squaresHtml += `<circle cx="${bx}%" cy="${by}%" r="${r}%" fill="${gc[j%4]}" opacity="${op}"/>`;
+        } else {
+          const rx = (0.25 + Math.random() * 0.5).toFixed(1);
+          const ry = (0.1 + Math.random() * 0.25).toFixed(1);
+          const rot = (Math.random() * 180).toFixed(0);
+          squaresHtml += `<ellipse cx="${bx}%" cy="${by}%" rx="${rx}%" ry="${ry}%" fill="${gc[j%4]}" opacity="${op}" transform="rotate(${rot},${bx},${by})"/>`;
+        }
+      }
+    }
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><defs>${defs}</defs><rect width="100" height="100" fill="${clayHex}"/>${squaresHtml}</svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
 export function galleryGradientCSS(glazes,ck,mode,weights){
   ck=ck||clayKey;
   if(!glazes||!glazes.length)return CLAY[ck];
-  // Validate weights: must be same length as glazes and sum to ~1
+  
+  if (mode === 'wada') return galleryWadaSVG(glazes, ck, weights);
+  if (mode === 'flavin') return galleryFlavinSVG(glazes, ck, weights);
+  if (mode === 'mondrian') return galleryMondrianSVG(glazes, ck, weights);
+  if (mode === 'turrell') return galleryTurrellSVG(glazes, ck, weights);
+
   const useWeights=Array.isArray(weights)&&weights.length===glazes.length;
   if(mode==='radial')return`radial-gradient(circle,${_galleryEqualStops(glazes,ck)})`;
   if(mode==='conic'){
@@ -211,7 +523,6 @@ export function galleryGradientCSS(glazes,ck,mode,weights){
   if(mode==='squeeze' || mode==='bulge'){
     return gallerySqueezeBulgeSVG(glazes,ck,mode,weights);
   }
-  // Vertical linear — use weighted sampling when custom weights are present.
   const sampler=useWeights?(t=>sampleAtWeighted(t,glazes,weights,ck)):(t=>sampleAt(t,glazes,ck));
   const stops=Array.from({length:9},(_,i)=>{const t=i/8,c=sampler(t);return`rgb(${Math.round(c.r)},${Math.round(c.gr)},${Math.round(c.b)}) ${Math.round(t*100)}%`;});
   return`linear-gradient(to bottom,${stops.join(',')})`;
@@ -255,6 +566,8 @@ export function refreshStack(col,glazes,ck,tH){
 
 export function setGalleryViewMode(mode){
   galleryViewMode=mode;
+  const select = document.getElementById('galleryViewSelector');
+  if (select) select.value = mode;
   document.querySelectorAll('.gv-btn').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
   // Tile divisions only apply to tiles mode; hide the control otherwise
   const tdToggle=document.getElementById('tileDivisionToggle');
@@ -441,8 +754,14 @@ export function doRiff(src){
 // ── CLAY ──────────────────────────────────────────────────────────────────────
 export function setClay(k){
   clayKey=k;
-  document.getElementById('clay_white').className='clay-btn'+(k==='white'?' on':'');
-  document.getElementById('clay_red').className='clay-btn red'+(k==='red'?' on':'');
+  const w1 = document.getElementById('clay_white');
+  const w2 = document.getElementById('clay_white_mobile');
+  if (w1) w1.className = 'clay-btn' + (k === 'white' ? ' on' : '');
+  if (w2) w2.className = 'clay-btn-m' + (k === 'white' ? ' on' : '');
+  const r1 = document.getElementById('clay_red');
+  const r2 = document.getElementById('clay_red_mobile');
+  if (r1) r1.className = 'clay-btn red' + (k === 'red' ? ' on' : '');
+  if (r2) r2.className = 'clay-btn-m red' + (k === 'red' ? ' on' : '');
   document.querySelectorAll('.tile-col').forEach(col=>{
     const card=col.closest('[data-pid]');if(!card)return;
     const pid=card.dataset.pid,p=palettes.find(x=>x.id===pid);
