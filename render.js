@@ -1,7 +1,7 @@
 import { CLAY, GLAZES, NL, LEVERS, PRESETS } from './glazes-data.js';
 import { hd, circularSpan, cardTemperature, cardDepth, harmonyScore, scoreAesthetic, scoreGlaze, pairingScore, buildGlazeAffinity, SCORE_PRESETS, DEFAULT_SCORE_WEIGHTS } from './scoring.js';
 import { state } from './state.js';
-import { saveAll, exportSession } from './persistence.js';
+import { saveAll, exportSession, generatePaletteName } from './persistence.js';
 import { allCombos, comboKey, cssForMode, summarizeViewRatings } from './view-rating.js';
 
 // Constants for SVG
@@ -786,7 +786,7 @@ export function genBatch(){
     const glazes=Math.random()<0.25?generateBandingPalette(levers):generatePalette(levers);
     if(glazes.length<2)continue;
     const key=glazes.map(g=>g.name).join('|');
-    if(!uk.has(key)){uk.add(key);const tag=activePreset?activePreset.charAt(0).toUpperCase()+activePreset.slice(1):'Mood';out.push(withKey({id:mkid(),label:labelStore[key]||tag,feeling:'',tag,glazes}));}
+    if(!uk.has(key)){uk.add(key);const tag=activePreset?activePreset.charAt(0).toUpperCase()+activePreset.slice(1):'Mood';out.push(withKey({id:mkid(),label:(typeof labelStore !== 'undefined' ? labelStore[key] : null) || generatePaletteName(glazes),feeling:'',tag,glazes}));}
   }
   return out;
 }
@@ -1301,6 +1301,22 @@ export function buildCard(p,isLiked,compact){
         showToast(`Added ${glazeName}`);
       }
     });
+
+    // Build glassmorphic card footer
+    const footer = document.createElement('div');
+    footer.className = 'card-footer';
+
+    const label = document.createElement('div');
+    label.className = 'card-label';
+    label.textContent = (typeof labelStore !== 'undefined' ? labelStore[p.key] : null) || p.label;
+    footer.appendChild(label);
+
+    const tags = document.createElement('div');
+    tags.className = 'card-tag';
+    tags.textContent = p.glazes.map(g => g.name).join(', ');
+    footer.appendChild(tags);
+
+    card.appendChild(footer);
   }
   return card;
 }
@@ -1330,6 +1346,14 @@ export function renderGallery(){
         const peek = card.querySelector('.card-score-peek');
         if (peek) {
           peek.textContent = '★ ' + sc;
+        }
+        const labelEl = card.querySelector('.card-label');
+        if (labelEl) {
+          labelEl.textContent = (typeof labelStore !== 'undefined' ? labelStore[p.key] : null) || p.label;
+        }
+        const tagEl = card.querySelector('.card-tag');
+        if (tagEl) {
+          tagEl.textContent = p.glazes.map(g => g.name).join(', ');
         }
       }
     });
@@ -1489,6 +1513,14 @@ export function renderSavedSection(){
         const peek = card.querySelector('.card-score-peek');
         if (peek && glazes.length) {
           peek.textContent = '★ ' + sc;
+        }
+        const labelEl = card.querySelector('.card-label');
+        if (labelEl) {
+          labelEl.textContent = (typeof labelStore !== 'undefined' ? labelStore[m.key] : null) || m.label;
+        }
+        const tagEl = card.querySelector('.card-tag');
+        if (tagEl) {
+          tagEl.textContent = glazes.map(g => g.name).join(', ');
         }
       }
     });

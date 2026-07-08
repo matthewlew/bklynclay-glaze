@@ -19,12 +19,51 @@ if (typeof document !== 'undefined') {
 }
 
 // ── PARSER ────────────────────────────────────────────────────────────────────
+export function generatePaletteName(glazes) {
+  if (!glazes || glazes.length === 0) return 'Palette';
+  const names = glazes.map(g => typeof g === 'string' ? g : g.name).filter(Boolean);
+  if (names.length === 0) return 'Palette';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} + ${names[1]}`;
+  const firsts = names.slice(0, -1).join(', ');
+  return `${firsts} + ${names[names.length - 1]}`;
+}
+
 export function tokenize(raw) {
   return raw.replace(/\band\b/gi,',').split(/[\n,+&]+/).map(t=>t.trim()).filter(t=>t.length>0&&!t.startsWith('#'));
 }
 
 export function lookupGlaze(tok) {
-  const lc=tok.toLowerCase();
+  const lc=tok.trim().toLowerCase();
+  
+  // Check if token matches a hex color code (e.g. #FF5733 or FF5733)
+  const hexMatch = lc.match(/^#?([0-9a-f]{6})$/);
+  if (hexMatch) {
+    const hex = '#' + hexMatch[1];
+    // Try exact hex match
+    const exact = NL.find(x => x.g.hex.toLowerCase() === hex);
+    if (exact) return exact;
+    
+    // Find closest glaze using Euclidean distance in RGB space
+    const r = parseInt(hexMatch[1].slice(0, 2), 16);
+    const g = parseInt(hexMatch[1].slice(2, 4), 16);
+    const b = parseInt(hexMatch[1].slice(4, 6), 16);
+    
+    let closest = null, minDist = Infinity;
+    NL.forEach(x => {
+      const gh = x.g.hex.replace('#', '');
+      const gr = parseInt(gh.slice(0, 2), 16);
+      const gg = parseInt(gh.slice(2, 4), 16);
+      const gb = parseInt(gh.slice(4, 6), 16);
+      const dist = Math.pow(r - gr, 2) + Math.pow(g - gg, 2) + Math.pow(b - gb, 2);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = x;
+      }
+    });
+    return closest;
+  }
+
   return NL.find(x=>x.lc===lc)||NL.find(x=>x.lc.startsWith(lc))||NL.find(x=>x.lc.includes(lc));
 }
 
@@ -36,9 +75,12 @@ export function parseGlazeTokens(raw) {
 
 export function parseBlocks(raw) {
   return raw.split(/\n\s*\n/).filter(b=>b.trim()).map(block=>{
-    const lines=block.trim().split('\n');let label='Imported',body=lines;
-    if(lines[0].trim().startsWith('#')){label=lines[0].trim().slice(1).trim();body=lines.slice(1);}
-    const{found}=parseGlazeTokens(body.join('\n'));return{label,glazes:found};
+    const lines=block.trim().split('\n');let label='',body=lines;
+    const hasHeader = lines[0].trim().startsWith('#');
+    if(hasHeader){label=lines[0].trim().slice(1).trim();body=lines.slice(1);}
+    const{found}=parseGlazeTokens(body.join('\n'));
+    if(!label){label=generatePaletteName(found);}
+    return{label,glazes:found};
   }).filter(b=>b.glazes.length>=2);
 }
 
@@ -351,6 +393,8 @@ export function doImport() {
   const raw = document.getElementById('importText').value.trim();
   try {
     const d = JSON.parse(raw);
+    
+    // 1. Relational DB restore format
     if (d.meta && Array.isArray(d.meta)) {
       state.likedKeys = new Set(d.keys || []);
       state.likedMeta = d.meta || [];
@@ -368,6 +412,88 @@ export function doImport() {
       window.closeImport?.();
       window.showToast?.(`Session restored: ${state.likedMeta.length} palette${state.likedMeta.length !== 1 ? 's' : ''}, ${state.projects.length} project${state.projects.length !== 1 ? 's' : ''}.`);
       return;
+    }
+    
+    // 2. Generic color arrays/tokens (Figma, Adobe Color, etc.)
+    let colors = [];
+    let label = 'Imported JSON';
+    
+    // Adobe Color (Kuler) Theme JSON: { "title": "...", "colors": [{ "hex": "..." }] }
+    if (d.colors && Array.isArray(d.colors)) {
+      colors = d.colors;
+      if (d.title) label = d.title.trim();
+    }
+    // Adobe Color flat array of colors: [ { "hex": "..." }, ... ] or array of hexes: [ "#ff0000", ... ]
+    else if (Array.isArray(d)) {
+      colors = d;
+    }
+    // Nested object tokens (Figma Design Tokens / Tokens Studio format)
+    else {
+      const extractColors = (obj) => {
+        let found = [];
+        for (let k in obj) {
+          if (obj[k] && typeof obj[k] === 'object') {
+            if (obj[k].value && typeof obj[k].value === 'string' && obj[k].value.startsWith('#')) {
+              found.push({ hex: obj[k].value, name: k });
+            } else if (obj[k].$value && typeof obj[k].$value === 'string' && obj[k].$value.startsWith('#')) {
+              found.push({ hex: obj[k].$value, name: k });
+            } else {
+              found = found.concat(extractColors(obj[k]));
+            }
+          } else if (typeof obj[k] === 'string' && obj[k].startsWith('#') && obj[k].length === 7) {
+            found.push({ hex: obj[k], name: k });
+          }
+        }
+        return found;
+      };
+      colors = extractColors(d);
+    }
+    
+    if (colors.length >= 2) {
+      const foundGlazes = [];
+      colors.forEach(c => {
+        let hex = null;
+        if (typeof c === 'string') {
+          hex = c;
+        } else if (c && typeof c === 'object') {
+          hex = c.hex || c.value || c.$value;
+        }
+        
+        if (hex && typeof hex === 'string') {
+          const match = lookupGlaze(hex);
+          if (match && !foundGlazes.find(fg => fg.name === match.g.name)) {
+            foundGlazes.push(match.g);
+          }
+        }
+      });
+      
+      if (foundGlazes.length >= 2) {
+        if (label === 'Imported JSON') {
+          label = generatePaletteName(foundGlazes);
+        }
+        const key = foundGlazes.map(g => g.name).join('|');
+        if (!state.likedMeta.find(m => m.key === key)) {
+          state.likedKeys.add(key);
+          state.likedMeta.push({
+            key,
+            label,
+            feeling: '',
+            tag: 'Imported',
+            names: foundGlazes.map(g => g.name),
+            hexes: foundGlazes.map(g => g.hex),
+            projectId: state.activeContext !== 'global' ? state.activeContext : undefined
+          });
+          saveAll();
+          window.renderSidebar?.();
+          window.closeImport?.();
+          window.showToast?.(`Imported palette: "${label}" (${foundGlazes.map(g => g.name).join(', ')})`);
+          return;
+        } else {
+          window.showToast?.('Palette already exists.');
+          window.closeImport?.();
+          return;
+        }
+      }
     }
   } catch (e) {}
 

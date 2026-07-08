@@ -1137,3 +1137,41 @@ function _onCanvasLabelDown(e, idx) {
   document.addEventListener('pointermove', onMove);
   document.addEventListener('pointerup', onUp);
 }
+
+// One-time setup to bind title editing
+if (typeof document !== 'undefined') {
+  const setupTitleListener = () => {
+    const titleInput = document.getElementById('pdTitle');
+    if (titleInput) {
+      titleInput.addEventListener('input', () => {
+        if (!_key) return;
+        const val = titleInput.value.trim() || 'Palette';
+        
+        // Save to labelStore
+        if (typeof labelStore !== 'undefined') {
+          labelStore[_key] = val;
+        }
+        
+        // Update likedMeta if pinned
+        const m = likedMeta.find(x => x.key === _key);
+        if (m) {
+          m.label = val;
+        }
+        
+        // Save changes
+        saveAll();
+        
+        // Refresh UI components
+        window.renderSidebar?.();
+        window.renderSavedSection?.();
+        window.renderGallery?.();
+      });
+    }
+  };
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupTitleListener);
+  } else {
+    setupTitleListener();
+  }
+}

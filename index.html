@@ -246,36 +246,20 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .tile-gradient{border-radius:3px;position:relative;background-position:center;background-repeat:no-repeat;}
 .conic-aperture{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36%;aspect-ratio:1;border-radius:50%;box-shadow:0 0 0 1.5px rgba(0,0,0,.08);}
 .tile-wrap{display:block;line-height:0;font-size:0;}
-.card-footer{padding:7px 9px 9px;position:absolute;bottom:0;left:0;right:0;background:rgba(255,255,255,.70);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);border-top:1px solid rgba(0,0,0,.06);opacity:0;transition:opacity .20s ease;z-index:2;}
-.card:hover .card-footer,.card.card-open .card-footer{opacity:1;}
 .card:not(.compact){min-height:140px;}
 .card-score-peek{position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;color:rgba(255,255,255,.75);background:rgba(0,0,0,.28);padding:1px 5px;border-radius:4px;pointer-events:none;z-index:3;letter-spacing:.03em;}
-/* Light-footer text (default — white/neutral palette bottoms) */
+.card-footer{padding:7px 9px 9px;position:absolute;bottom:0;left:0;right:0;background:color-mix(in srgb, var(--card) 72%, transparent);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);border-top:1px solid var(--border);opacity:1;transition:opacity .20s ease;z-index:2;}
 .card-footer .card-label{color:var(--ink);}
-.card-footer .card-label:focus{background:rgba(255,255,255,.5);}
-.card-footer .card-tag{color:var(--ink3);}
+.card-footer .card-label:focus{background:var(--surf);}
+.card-footer .card-tag{color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .card-footer .card-sci-badge{color:var(--ink3);}
 .card-footer .card-sci-badge.warm{color:var(--warm);}
 .card-footer .card-sci-badge.cool{color:var(--cool);}
-.card-footer .score-badge{background:rgba(255,255,255,.55);border-color:rgba(0,0,0,.08);color:var(--ink);}
-.card-footer .score-badge.score-hi{background:rgba(42,122,64,.18);color:var(--score-hi-text);}
-.card-footer .score-badge.score-mid{background:rgba(138,96,32,.16);color:var(--score-mid-text);}
-.card-footer .btn{border-color:rgba(0,0,0,.12);background:rgba(255,255,255,.45);color:var(--ink2);}
-.card-footer .btn:hover{background:rgba(255,255,255,.72);border-color:rgba(0,0,0,.18);color:var(--ink);}
-/* Dark-footer variant — dark palette bottoms get white text */
-.card-footer.dark-foot{background:rgba(0,0,0,.48);border-top-color:rgba(255,255,255,.10);color:rgba(255,255,255,.90);}
-.card-footer.dark-foot .card-label{color:rgba(255,255,255,.93);}
-.card-footer.dark-foot .card-tag,.card-footer.dark-foot .card-sci-badge{color:rgba(255,255,255,.58);}
-.card-footer.dark-foot .card-sci-badge.warm{color:#f0a070;}
-.card-footer.dark-foot .card-sci-badge.cool{color:#88b0d8;}
-.card-footer.dark-foot .score-badge{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.18);color:rgba(255,255,255,.90);}
-.card-footer.dark-foot .score-badge.score-hi{background:rgba(80,180,100,.25);color:#90dba8;}
-.card-footer.dark-foot .score-badge.score-mid{background:rgba(200,140,50,.20);color:#e0b870;}
-.card-footer.dark-foot .btn{border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.10);color:rgba(255,255,255,.88);}
-.card-footer.dark-foot .btn:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.35);}
-.card-footer.dark-foot .glaze-chip{border-top-color:rgba(255,255,255,.12);}
-.card-footer.dark-foot .glaze-chip.drag-over-chip{background:rgba(255,255,255,.08);}
-.card-footer.dark-foot .glaze-chip-swatch{border-color:rgba(255,255,255,.15);}
+.card-footer .score-badge{background:var(--surf);border-color:var(--border);color:var(--ink);}
+.card-footer .score-badge.score-hi{background:var(--score-hi-bg);color:var(--score-hi-text);}
+.card-footer .score-badge.score-mid{background:var(--score-mid-bg);color:var(--score-mid-text);}
+.card-footer .btn{border-color:var(--border);background:var(--surf);color:var(--ink2);}
+.card-footer .btn:hover{background:var(--surf);border-color:var(--border2);color:var(--ink);}
 /* Generic selectors for card-label/tag still needed outside footers */
 .card-label{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:2px;outline:none;border-radius:3px;cursor:text;display:block;}
 .card-label:focus{background:var(--surf);padding:1px 4px;margin:-1px -4px;}
