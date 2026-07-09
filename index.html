@@ -770,8 +770,9 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .pv-menu-btn{font-size:16px;line-height:1;background:none;border:none;cursor:pointer;color:var(--ink3);padding:4px 6px;border-radius:3px;flex-shrink:0;}
 .pv-handle{font-size:18px;line-height:1;color:var(--ink3);padding:4px 4px;flex-shrink:0;touch-action:none;cursor:grab;}
 .pd-back:hover{color:var(--ink);}
-.pd-title{font-size:14px;font-weight:700;color:var(--ink);flex:1;border:none;background:transparent;font-family:var(--font);outline:none;min-width:0;}
-.pd-title:focus{background:var(--surf);padding:2px 6px;border-radius:var(--r);margin:-2px -6px;}
+.pd-title{font-size:13px;font-weight:600;color:var(--ink);border:1.5px solid var(--border);background:var(--surf);padding:4px 10px;border-radius:var(--r);font-family:var(--font);outline:none;min-width:0;transition:border-color .12s,background .12s;}
+.pd-title:hover{border-color:var(--border2);}
+.pd-title:focus{border-color:var(--ink);background:var(--card);box-shadow:0 0 0 3px rgba(0,0,0,.04);}
 .pd-body{flex:1;display:flex;min-height:0;overflow:hidden;position:relative;}
 
 /* Canvas — full blurred gradient */
@@ -818,6 +819,13 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .pd-mode-btn.active{color:#fff;background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.55);}
 .pd-mode-sep{width:1px;height:14px;background:rgba(255,255,255,.18);margin:0 2px;flex-shrink:0;}
 
+/* Easing Bar — floating above footer */
+.pd-ease-bar{position:absolute;bottom:48px;left:10px;display:flex;align-items:center;gap:4px;z-index:20;pointer-events:auto;}
+.pd-ease-lbl{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-right:4px;font-family:var(--font);}
+.pd-ease-btn{padding:3px 8px;font-size:8px;font-weight:700;font-family:var(--font);letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.55);background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.14);border-radius:var(--r);cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:background .1s,color .1s,border-color .1s;line-height:1.6;}
+.pd-ease-btn:hover{color:rgba(255,255,255,.95);border-color:rgba(255,255,255,.35);}
+.pd-ease-btn.active{color:#fff;background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.55);}
+
 /* Noise overlay — mono grain via SVG fractalNoise desaturated */
 #pdNoiseOverlay{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .2s;mix-blend-mode:soft-light;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
@@ -830,15 +838,15 @@ body{font-family:var(--font);font-size:14px;line-height:1.5;color:var(--ink);bac
 .pd-tile:not(.in-stops):hover{opacity:1;}
 
 /* Floating gradient title overlay */
-.pd-gradient-title-container{position:absolute;top:48px;left:50%;transform:translateX(-50%);z-index:30;display:flex;align-items:center;pointer-events:auto;}
-.pd-gradient-title{background:rgba(0,0,0,.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:12px;font-weight:700;font-family:var(--font);letter-spacing:.08em;text-transform:uppercase;padding:5px 16px;border-radius:20px;text-align:center;outline:none;width:180px;transition:background .2s,border-color .2s,width .2s,box-shadow .2s;box-shadow:0 4px 16px rgba(0,0,0,.2);text-shadow:0 1px 3px rgba(0,0,0,.55);}
-.pd-gradient-title:hover{background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.3);}
-.pd-gradient-title:focus{background:rgba(0,0,0,.75);border-color:rgba(255,255,255,.55);width:220px;box-shadow:0 6px 20px rgba(0,0,0,.35);}
-.pd-gradient-title::placeholder{color:rgba(255,255,255,.45);}
+.pd-gradient-title-container{position:absolute;top:48px;left:calc(50% - 140px);transform:translateX(-50%);z-index:99;display:flex;align-items:center;pointer-events:auto !important;user-select:text !important;-webkit-user-select:text !important;touch-action:auto !important;}
+.pd-gradient-title{background:rgba(15,15,15,.82) !important;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1.5px solid rgba(255,255,255,.3) !important;color:#fff !important;font-size:12px;font-weight:700;font-family:var(--font);letter-spacing:.08em;text-transform:uppercase;padding:6px 18px;border-radius:20px;text-align:center;outline:none;width:180px;transition:background .2s,border-color .2s,width .2s,box-shadow .2s;box-shadow:0 4px 16px rgba(0,0,0,.3);text-shadow:0 1px 3px rgba(0,0,0,.55);user-select:text !important;-webkit-user-select:text !important;touch-action:auto !important;pointer-events:auto !important;display:inline-block !important;}
+.pd-gradient-title:hover{background:rgba(10,10,10,.9) !important;border-color:rgba(255,255,255,.45) !important;}
+.pd-gradient-title:focus{background:#000 !important;border-color:rgba(255,255,255,.7) !important;width:220px;box-shadow:0 6px 20px rgba(0,0,0,.45);}
+.pd-gradient-title::placeholder{color:rgba(255,255,255,.5) !important;}
 
 /* ── Mobile ─────────────────────────────────────────────────────────────────── */
 @media(max-width:700px){
-  .pd-gradient-title-container{top:76px;}
+  .pd-gradient-title-container{top:76px;left:50%;}
   .shortcut-key{display:none;}
   .pd-body{flex-direction:column;}
   .pd-canvas{flex:1;min-height:200px;}
@@ -1389,7 +1397,7 @@ import {
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer,
   closeCompositionModal
 } from './render.js?v=8';
-import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail } from './palette-detail.js';
+import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, setEasingMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail } from './palette-detail.js';
 import { openFlow, closeFlow } from './flow-view.js';
 
 // ── APPEARANCE ──────────────────────────────────────────────────────────────
@@ -1694,15 +1702,15 @@ loadAll().catch(err => {
     <button id="pdCopyBtn" class="btn sm" onclick="pdCopyNames()">Copy names</button>
   </div>
   <div class="pd-body">
+    <!-- Floating glassmorphic gradient title overlay -->
+    <div class="pd-gradient-title-container">
+      <input id="pdGradientTitle" class="pd-gradient-title" type="text" autocomplete="off" placeholder="Palette Name">
+    </div>
     <div class="pd-canvas" id="pdCanvas">
       <div class="pd-gradient-bg" id="pdGradient"></div>
       <div id="pdEditLayer" class="flow-edit-layer"></div>
       <div class="conic-aperture hidden" id="pdConicAperture"></div>
       <div id="pdNoiseOverlay"></div>
-      <!-- Floating glassmorphic gradient title overlay -->
-      <div class="pd-gradient-title-container">
-        <input id="pdGradientTitle" class="pd-gradient-title" type="text" autocomplete="off" placeholder="Palette Name">
-      </div>
       <div class="pd-mode-bar">
         <button class="pd-mode-btn active" data-mode="linear"  onclick="setGradMode('linear')">Linear</button>
         <button class="pd-mode-btn"        data-mode="radial"  onclick="setGradMode('radial')">Radial</button>
@@ -1717,6 +1725,15 @@ loadAll().catch(err => {
         <div class="pd-mode-sep"></div>
         <button class="pd-mode-btn hidden" id="pdFlipBtn" onclick="pdToggleReverse()">Flip</button>
         <button class="pd-mode-btn" id="pdNoiseBtn" onclick="pdToggleNoise()">Grain</button>
+      </div>
+      <div class="pd-ease-bar" id="pdEaseBar">
+        <span class="pd-ease-lbl">Curve:</span>
+        <button class="pd-ease-btn active" data-ease="smoother" onclick="setEasingMode('smoother')">Smoother</button>
+        <button class="pd-ease-btn"        data-ease="smooth"   onclick="setEasingMode('smooth')">Smooth</button>
+        <button class="pd-ease-btn"        data-ease="ease-in-out" onclick="setEasingMode('ease-in-out')">Ease In Out</button>
+        <button class="pd-ease-btn"        data-ease="ease-in"   onclick="setEasingMode('ease-in')">Ease In</button>
+        <button class="pd-ease-btn"        data-ease="ease-out"  onclick="setEasingMode('ease-out')">Ease Out</button>
+        <button class="pd-ease-btn"        data-ease="linear"    onclick="setEasingMode('linear')">Linear</button>
       </div>
       <div class="pd-footer">
         <span class="pd-ghost-btn pd-footer-hint">Drag glazes from the panel →</span>

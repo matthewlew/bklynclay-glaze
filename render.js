@@ -78,12 +78,31 @@ export function lerp(a,b,t){
   return {r:rgb.r,gr:rgb.g,b:rgb.b};
 }
 
+export function easeT(t, mode) {
+  t = Math.max(0, Math.min(1, t));
+  switch (mode) {
+    case 'linear':
+      return t;
+    case 'smooth':
+      return t * t * (3 - 2 * t);
+    case 'ease-in':
+      return t * t;
+    case 'ease-out':
+      return 1 - (1 - t) * (1 - t);
+    case 'ease-in-out':
+      return (1 - Math.cos(t * Math.PI)) / 2;
+    case 'smoother':
+    default:
+      return t * t * t * (t * (t * 6 - 15) + 10);
+  }
+}
+
 export function sampleAt(t,glazes,ck){
   ck=ck||clayKey;
   if(!glazes||!glazes.length){const c=hexRGB(CLAY[ck]);return{r:c.r,gr:c.g,b:c.b};}
   if(glazes.length===1)return applyGlaze(glazes[0],ck);
   const gt = Math.max(0,Math.min(1,t));
-  const easedT = gt * gt * gt * (gt * (gt * 6 - 15) + 10);
+  const easedT = easeT(gt, window._easingMode || 'smoother');
   const s=easedT*(glazes.length-1),i=Math.min(Math.floor(s),glazes.length-2);
   return lerp(applyGlaze(glazes[i],ck),applyGlaze(glazes[i+1],ck),s-i);
 }
@@ -102,7 +121,7 @@ export function getPaletteWeights(key) {
 // Like sampleAt but uses cumulative normalised weights [0..1] to position stops.
 export function sampleAtWeighted(t,glazes,weights,ck){
   const gt=Math.max(0,Math.min(1,t));
-  const easedT = gt * gt * gt * (gt * (gt * 6 - 15) + 10);
+  const easedT = easeT(gt, window._easingMode || 'smoother');
   ck=ck||clayKey;
   if(!glazes||!glazes.length){const c=hexRGB(CLAY[ck]);return{r:c.r,gr:c.g,b:c.b};}
   if(glazes.length===1)return applyGlaze(glazes[0],ck);

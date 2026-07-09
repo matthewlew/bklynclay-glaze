@@ -1,7 +1,7 @@
 // ── PALETTE DETAIL PAGE ────────────────────────────────────────────────────────
 import { GLAZES, CLAY } from './glazes-data.js';
 import { saveAll } from './persistence.js';
-import { glazeCSS, galleryGradientCSS, refreshStack, togglePinState, applyGlaze, toHex, showToast, sampleAt, sampleAtWeighted, hexRGB, rgbToOklab, oklabToRgb } from './render.js';
+import { glazeCSS, galleryGradientCSS, refreshStack, togglePinState, applyGlaze, toHex, showToast, sampleAt, sampleAtWeighted, hexRGB, rgbToOklab, oklabToRgb, easeT } from './render.js';
 
 // ── Module state ───────────────────────────────────────────────────────────────
 let _key        = null;
@@ -16,6 +16,7 @@ let _swipeStartX = null, _swipeStartY = null;
 let _gradMode   = 'linear';
 let _noiseOn    = false;
 let _gradReverse = false;
+let _easingMode = 'smoother';
 
 // Session-level cache so unpinned palettes also remember custom stop weights
 // while the page is open. Survives close/reopen of the detail panel.
@@ -143,7 +144,7 @@ function _linearCss(arr) {
   const pts = [];
   for (let k = 0; k < numStops; k++) {
     const t = k / (numStops - 1);
-    const easedT = t * t * t * (t * (t * 6 - 15) + 10);
+    const easedT = easeT(t, _easingMode);
     const c = _sampleAtWeighted(easedT, arr);
     pts.push(`${toHex(c.r, c.gr, c.b)} ${(t * 100).toFixed(1)}%`);
   }
@@ -156,7 +157,7 @@ function _radialCss(arr) {
   const pts = [];
   for (let k = 0; k < numStops; k++) {
     const t = k / (numStops - 1);
-    const easedT = t * t * t * (t * (t * 6 - 15) + 10);
+    const easedT = easeT(t, _easingMode);
     const c = _sampleAtWeighted(easedT, arr);
     pts.push(`${toHex(c.r, c.gr, c.b)} ${(t * 100).toFixed(1)}%`);
   }
@@ -180,13 +181,13 @@ function _stripesCss(arr) {
   const pts = [];
   for (let k = 0; k < numStops; k++) {
     const t = k / (numStops - 1);
-    const easedT = t * t * t * (t * (t * 6 - 15) + 10);
+    const easedT = easeT(t, _easingMode);
     const c = _sampleAtWeighted(easedT, arr);
     pts.push(`${toHex(c.r, c.gr, c.b)} ${(t * 50).toFixed(1)}%`);
   }
   for (let k = 0; k < numStops; k++) {
     const t = k / (numStops - 1);
-    const easedT = t * t * t * (t * (t * 6 - 15) + 10);
+    const easedT = easeT(t, _easingMode);
     const c = _sampleAtWeighted(1 - easedT, arr);
     pts.push(`${toHex(c.r, c.gr, c.b)} ${(50 + t * 50).toFixed(1)}%`);
   }
@@ -495,6 +496,19 @@ export function pdToggleNoise() {
   updateModeBar();
   const noiseEl = document.getElementById('pdNoiseOverlay');
   if (noiseEl) noiseEl.style.opacity = _noiseOn ? '1' : '0';
+}
+
+export function setEasingMode(mode) {
+  _easingMode = mode;
+  window._easingMode = mode;
+  updateEasingBar();
+  renderGradBg(_stops);
+}
+
+function updateEasingBar() {
+  document.querySelectorAll('.pd-ease-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.ease === _easingMode);
+  });
 }
 
 // ── Keyboard / swipe ───────────────────────────────────────────────────────────
@@ -852,6 +866,7 @@ export function openPaletteDetail(key, fallback) {
   _loadKeyData(key, fallback);
   updateNav();
   updateModeBar();
+  updateEasingBar();
   updatePinBadge();
   buildPicker();
   requestAnimationFrame(() => render());
