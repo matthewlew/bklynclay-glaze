@@ -334,3 +334,51 @@ test('mobile gallery renders all tiles fully without clipping', async ({ page })
     expect(box.height).toBeGreaterThan(20);
   }
 });
+
+test('copying a palette from detail view and pasting it imports successfully', async ({ page, context, browserName }) => {
+  if (browserName !== 'chromium') return;
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/');
+  await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
+  
+  // Click first card to open detail view
+  await page.locator('.card').first().click();
+  await expect(page.locator('#paletteDetail')).toHaveClass(/open/);
+
+  // Press Control+c to copy
+  await page.keyboard.press('Control+c');
+  await page.waitForTimeout(200);
+
+  // Verify the clipboard content contains valid palette JSON
+  const clipboardText = await page.evaluate(async () => {
+    return await navigator.clipboard.readText();
+  });
+  expect(clipboardText).toContain('"names"');
+  expect(clipboardText).toContain('"label"');
+
+  // Close the detail view using the scoped back button
+  await page.locator('#paletteDetail .pd-back').click();
+  await expect(page.locator('#paletteDetail')).not.toHaveClass(/open/);
+
+  // Switch to a new project context so we see the import clearly
+  await page.locator('.sb-new-proj-btn').click();
+  const tab = page.locator('.ttab[data-proj-id]').first();
+  await expect(tab).toBeVisible({ timeout: 3000 });
+
+  // Paste the copied content by programmatically triggering a paste event with the clipboard text
+  await page.evaluate((text) => {
+    const dt = new DataTransfer();
+    dt.setData('text/plain', text);
+    const event = new ClipboardEvent('paste', {
+      clipboardData: dt,
+      bubbles: true,
+      cancelable: true
+    });
+    document.dispatchEvent(event);
+  }, clipboardText);
+
+  // Verify toast message appears
+  const toast = page.locator('#toast');
+  await expect(toast).toHaveClass(/show/);
+  await expect(toast).toContainText(/Imported/);
+});
