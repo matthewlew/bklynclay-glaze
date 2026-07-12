@@ -1944,6 +1944,36 @@ export function showToast(msg,undoFn){
   _toastTimer=setTimeout(()=>t.classList.remove('show'),3200);
 }
 
+export function copyToClipboard(text, successMessage) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        showToast(successMessage);
+      })
+      .catch(err => {
+        console.warn('Clipboard API write failed, falling back:', err);
+        fallbackCopy(text, successMessage);
+      });
+  } else {
+    fallbackCopy(text, successMessage);
+  }
+}
+
+function fallbackCopy(text, successMessage) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast(successMessage);
+  } catch (err) {
+    console.error('Fallback copy failed:', err);
+  }
+}
+
 // ── TOPBAR PROJECT TABS ───────────────────────────────────────────────────────
 export function renderTopbarTabs(){
   const nav=document.getElementById('topbarTabs');if(!nav)return;

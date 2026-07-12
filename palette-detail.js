@@ -1,7 +1,7 @@
 // ── PALETTE DETAIL PAGE ────────────────────────────────────────────────────────
 import { GLAZES, CLAY } from './glazes-data.js';
 import { saveAll } from './persistence.js';
-import { glazeCSS, galleryGradientCSS, refreshStack, togglePinState, applyGlaze, toHex, showToast, sampleAt, sampleAtWeighted, hexRGB, rgbToOklab, oklabToRgb, easeT } from './render.js';
+import { glazeCSS, galleryGradientCSS, refreshStack, togglePinState, applyGlaze, toHex, showToast, sampleAt, sampleAtWeighted, hexRGB, rgbToOklab, oklabToRgb, easeT, copyToClipboard } from './render.js';
 
 // ── Module state ───────────────────────────────────────────────────────────────
 let _key        = null;
@@ -519,9 +519,7 @@ function _onKeyDown(e) {
     const json = getDetailedPaletteJSON();
     if (json) {
       e.preventDefault();
-      navigator.clipboard.writeText(json)
-        .then(() => showToast('Palette copied to clipboard.'))
-        .catch(err => console.error('Failed to copy detailed palette:', err));
+      copyToClipboard(json, 'Palette copied to clipboard.');
     }
     return;
   }

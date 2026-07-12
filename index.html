@@ -1394,7 +1394,7 @@ import {
   openProjectsView, closeProjectsView, renderProjectsView,
   renderLeftPanelPairings, renderScoreWeighting, wireImageDrop, wireMobileImagePicker, initSectionObserver, initHorizontalSwipe, initPullToShuffle,
   moveFocusToCard, clearMultiSelect, renderGallery, renderSavedSection, setGalleryViewMode, setControlsSection, setTileDivisions,
-  renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer,
+  renderSidebar, updateCount, showToast, copyToClipboard, toggleScoreSort, renderRankInContainer,
   closeCompositionModal
 } from './render.js?v=8';
 import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, setEasingMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail, getDetailedPaletteJSON } from './palette-detail.js';
@@ -1590,7 +1590,7 @@ Object.assign(window, {
   editLabel: (key, el) => { el.contentEditable = 'true'; el.focus(); },
   
   // UI callbacks called across files
-  renderSidebar, renderTopbarTabs, updateCount, showToast, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer, setGalleryViewMode, setControlsSection, setTileDivisions,
+  renderSidebar, renderTopbarTabs, updateCount, showToast, copyToClipboard, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer, setGalleryViewMode, setControlsSection, setTileDivisions,
 
   // Palette detail page
   openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail, getDetailedPaletteJSON,
@@ -1622,9 +1622,7 @@ document.addEventListener('keydown', e => {
           feeling: palette.feeling || '',
           tag: 'Copied'
         });
-        navigator.clipboard.writeText(json)
-          .then(() => showToast('Palette copied.'))
-          .catch(err => console.error('Failed to copy:', err));
+        copyToClipboard(json, 'Palette copied.');
       }
     }
     return;
