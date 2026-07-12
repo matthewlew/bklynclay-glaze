@@ -1945,32 +1945,49 @@ export function showToast(msg,undoFn){
 }
 
 export function copyToClipboard(text, successMessage) {
+  let successful = false;
+  let ta = null;
+  try {
+    ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '0';
+    ta.style.top = '0';
+    ta.style.width = '2px';
+    ta.style.height = '2px';
+    ta.style.padding = '0';
+    ta.style.border = 'none';
+    ta.style.outline = 'none';
+    ta.style.boxShadow = 'none';
+    ta.style.background = 'transparent';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    successful = document.execCommand('copy');
+    document.body.removeChild(ta);
+  } catch (err) {
+    console.warn('Selection copy failed, trying alternative:', err);
+    if (ta && ta.parentNode) {
+      document.body.removeChild(ta);
+    }
+  }
+
+  if (successful) {
+    showToast(successMessage);
+    return;
+  }
+
+  // Fallback to modern Clipboard API if execCommand didn't work
   if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
     navigator.clipboard.writeText(text)
       .then(() => {
         showToast(successMessage);
       })
       .catch(err => {
-        console.warn('Clipboard API write failed, falling back:', err);
-        fallbackCopy(text, successMessage);
+        console.error('Clipboard API write failed:', err);
       });
   } else {
-    fallbackCopy(text, successMessage);
-  }
-}
-
-function fallbackCopy(text, successMessage) {
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    showToast(successMessage);
-  } catch (err) {
-    console.error('Fallback copy failed:', err);
+    console.error('No clipboard copy method succeeded.');
   }
 }
 
