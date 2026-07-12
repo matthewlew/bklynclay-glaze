@@ -389,8 +389,13 @@ export function exportSession() {
     });
 }
 
-export function doImport() {
-  const raw = document.getElementById('importText').value.trim();
+export function doImport(rawText) {
+  let raw = typeof rawText === 'string' ? rawText.trim() : '';
+  if (!raw && document.getElementById('importText')) {
+    raw = document.getElementById('importText').value.trim();
+  }
+  if (!raw) return;
+
   try {
     const d = JSON.parse(raw);
     
@@ -413,8 +418,64 @@ export function doImport() {
       window.showToast?.(`Session restored: ${state.likedMeta.length} palette${state.likedMeta.length !== 1 ? 's' : ''}, ${state.projects.length} project${state.projects.length !== 1 ? 's' : ''}.`);
       return;
     }
+
+    // 2. Custom JSON Palette / Array of Palettes format
+    const isPaletteObj = (obj) => obj && typeof obj === 'object' && (Array.isArray(obj.names) || Array.isArray(obj.glazes) || Array.isArray(obj.glazeNames));
+    let importedPalettes = [];
+    if (isPaletteObj(d)) {
+      importedPalettes.push(d);
+    } else if (Array.isArray(d) && d.every(isPaletteObj)) {
+      importedPalettes = d;
+    }
+
+    if (importedPalettes.length > 0) {
+      let count = 0;
+      let namesList = [];
+      importedPalettes.forEach(p => {
+        const glazeNames = p.names || p.glazes || p.glazeNames;
+        const glazesList = glazeNames.map(name => {
+          if (typeof name === 'string') {
+            return lookupGlaze(name)?.g;
+          } else if (name && typeof name === 'object') {
+            return lookupGlaze(name.name || name.hex)?.g;
+          }
+          return null;
+        }).filter(Boolean);
+
+        if (glazesList.length >= 2) {
+          const key = glazesList.map(g => g.name).join('|');
+          const label = p.label || p.title || generatePaletteName(glazesList);
+          if (!state.likedMeta.find(m => m.key === key)) {
+            state.likedKeys.add(key);
+            state.likedMeta.push({
+              key,
+              label,
+              feeling: p.feeling || '',
+              tag: p.tag || 'Imported',
+              names: glazesList.map(g => g.name),
+              hexes: glazesList.map(g => g.hex),
+              projectId: state.activeContext !== 'global' ? state.activeContext : undefined
+            });
+            count++;
+            namesList.push(label);
+          }
+        }
+      });
+
+      if (count > 0) {
+        saveAll();
+        window.renderSidebar?.();
+        window.closeImport?.();
+        window.showToast?.(`Imported ${count} palette${count > 1 ? 's' : ''}: ${namesList.join(', ')}`);
+        return;
+      } else {
+        window.showToast?.('Palettes already exist.');
+        window.closeImport?.();
+        return;
+      }
+    }
     
-    // 2. Generic color arrays/tokens (Figma, Adobe Color, etc.)
+    // 3. Generic color arrays/tokens (Figma, Adobe Color, etc.)
     let colors = [];
     let label = 'Imported JSON';
     
@@ -499,6 +560,7 @@ export function doImport() {
 
   const blocks = parseBlocks(raw);
   let count = 0;
+  let namesList = [];
   blocks.forEach(({ label, glazes }) => {
     const key = glazes.map(g => g.name).join('|');
     if (!state.likedMeta.find(m => m.key === key)) {
@@ -513,10 +575,16 @@ export function doImport() {
         projectId: state.activeContext !== 'global' ? state.activeContext : undefined
       });
       count++;
+      namesList.push(label);
     }
   });
-  saveAll();
-  window.renderSidebar?.();
-  window.closeImport?.();
-  window.showToast?.(count ? `Imported ${count} palette${count > 1 ? 's' : ''}.` : 'No new palettes found.');
+  if (count > 0) {
+    saveAll();
+    window.renderSidebar?.();
+    window.closeImport?.();
+    window.showToast?.(`Imported ${count} palette${count > 1 ? 's' : ''}: ${namesList.join(', ')}`);
+  } else {
+    window.showToast?.(blocks.length ? 'Palettes already exist.' : 'No new palettes found.');
+    window.closeImport?.();
+  }
 }

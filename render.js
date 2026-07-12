@@ -1246,6 +1246,7 @@ export function buildCard(p,isLiked,compact){
   const card=document.createElement('article');
   card.className='card'+(isLiked&&!compact?' liked':'')+(compact?' compact':'');
   card.dataset.pid=p.id;card.dataset.key=p.key||'';
+  card.setAttribute('tabindex', '0');
   card.addEventListener('click',e=>{
     if(e.shiftKey&&p.key){e.preventDefault();toggleCardSelect(p.key,card);return;}
     if(e.target.closest('button,a,input,[contenteditable]'))return;
@@ -1253,6 +1254,12 @@ export function buildCard(p,isLiked,compact){
     // instead of opening the editor — no need to hold every subsequent card.
     if(p.key&&typeof selectedKeys!=='undefined'&&selectedKeys.size){toggleCardSelect(p.key,card);return;}
     _focusedCardKey=p.key;if(typeof openPaletteDetail==='function')openPaletteDetail(p.key,p);
+  });
+  card.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      card.click();
+    }
   });
   card.addEventListener('contextmenu', e => { if(!compact) openCtxMenu(e, p); });
 

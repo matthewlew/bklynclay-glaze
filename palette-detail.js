@@ -514,6 +514,18 @@ function updateEasingBar() {
 // ── Keyboard / swipe ───────────────────────────────────────────────────────────
 function _onKeyDown(e) {
   if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+  if ((e.key === 'c' || e.key === 'C') && (e.metaKey || e.ctrlKey)) {
+    const json = getDetailedPaletteJSON();
+    if (json) {
+      e.preventDefault();
+      navigator.clipboard.writeText(json)
+        .then(() => showToast('Palette copied to clipboard.'))
+        .catch(err => console.error('Failed to copy detailed palette:', err));
+    }
+    return;
+  }
+
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); pdNext(); }
   if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { e.preventDefault(); pdPrev(); }
   if (e.key === 'Escape') closePaletteDetail();
@@ -833,9 +845,30 @@ export function pdCopyNames() {
 
 // ── Open / close ───────────────────────────────────────────────────────────────
 export function openPaletteDetail(key, fallback) {
-  _allKeys = likedMeta.map(m => m.key);
-  _keyIdx  = _allKeys.indexOf(key);
-  if (_keyIdx === -1) { _allKeys = [key]; _keyIdx = 0; }
+  // Determine all available keys from the current DOM gallery where the card resides
+  const cardEl = document.querySelector(`.card[data-key="${CSS.escape(key)}"]`);
+  let containerEl = cardEl ? cardEl.closest('#gallery, #savedGallery') : null;
+  if (!containerEl) {
+    const exploreOpen = document.getElementById('view_explore')?.classList.contains('active') || currentTab === 'explore';
+    containerEl = document.getElementById(exploreOpen ? 'gallery' : 'savedGallery');
+  }
+
+  if (containerEl) {
+    const cards = [...containerEl.querySelectorAll('.card')];
+    _allKeys = cards.map(c => c.dataset.key).filter(Boolean);
+  } else {
+    _allKeys = likedMeta.map(m => m.key);
+  }
+
+  _keyIdx = _allKeys.indexOf(key);
+  if (_keyIdx === -1) {
+    _allKeys = likedMeta.map(m => m.key);
+    _keyIdx = _allKeys.indexOf(key);
+  }
+  if (_keyIdx === -1) {
+    _allKeys = [key];
+    _keyIdx = 0;
+  }
   _nid = 0; _drag = null;
 
   // A rated palette (via the Rate Views card sort) carries its own preferred
@@ -860,8 +893,12 @@ export function openPaletteDetail(key, fallback) {
 
   const overlay = document.getElementById('paletteDetail');
   overlay.style.display = 'flex';
+  overlay.setAttribute('tabindex', '-1');
   document.body.style.overflow = 'hidden';
-  requestAnimationFrame(() => overlay.classList.add('open'));
+  requestAnimationFrame(() => {
+    overlay.classList.add('open');
+    overlay.focus();
+  });
 
   _loadKeyData(key, fallback);
   updateNav();
@@ -892,6 +929,19 @@ export function closePaletteDetail() {
     grad.removeEventListener('touchstart', _onSwipeStart);
     grad.removeEventListener('touchend',   _onSwipeEnd);
   }
+
+  // Restore focus to the last focused card, or document body
+  if (typeof _focusedCardKey !== 'undefined' && _focusedCardKey) {
+    const card = document.querySelector(`.card[data-key="${CSS.escape(_focusedCardKey)}"]`);
+    if (card) {
+      card.focus();
+    } else {
+      document.body.focus();
+    }
+  } else {
+    document.body.focus();
+  }
+
   _key = null; _stops = []; _drag = null; _allKeys = []; _keyIdx = -1; _navigating = false;
   _gradMode = 'linear'; _noiseOn = false; _gradReverse = false;
 }
@@ -1258,4 +1308,15 @@ if (typeof document !== 'undefined') {
   } else {
     setupTitleListener();
   }
+}
+
+export function getDetailedPaletteJSON() {
+  if (!_key) return null;
+  const title = document.getElementById('pdTitle')?.value || document.getElementById('pdGradientTitle')?.value || '';
+  return JSON.stringify({
+    names: _stops.map(s => s.name),
+    label: title.trim() || 'Palette',
+    feeling: '',
+    tag: 'Copied'
+  });
 }

@@ -84,6 +84,7 @@ test('clay toggle (T8) updates score badges in-place without full card rebuild',
 test('rename dialog renders as a compact centered modal on desktop', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
+  await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
   await page.locator('.sb-new-proj-btn').click();
   const tab = page.locator('.ttab[data-proj-id]').first();
   await expect(tab).toBeVisible({ timeout: 3000 });
@@ -193,6 +194,7 @@ test('mobile Projects screen lists boards and navigates on tap', async ({ page }
 
 test('opening a palette detail from a conic gallery view opens in conic mode', async ({ page }) => {
   await page.goto('/');
+  await expect(page.locator('.card').first()).toBeVisible({ timeout: 5000 });
   await page.locator('#galleryViewSelector').selectOption('conic');
   await expect(page.locator('#galleryViewSelector')).toHaveValue('conic');
   await page.waitForTimeout(100);

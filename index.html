@@ -1397,7 +1397,7 @@ import {
   renderSidebar, updateCount, showToast, toggleScoreSort, renderRankInContainer,
   closeCompositionModal
 } from './render.js?v=8';
-import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, setEasingMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail } from './palette-detail.js';
+import { openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, setEasingMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail, getDetailedPaletteJSON } from './palette-detail.js';
 import { openFlow, closeFlow } from './flow-view.js';
 
 // ── APPEARANCE ──────────────────────────────────────────────────────────────
@@ -1533,9 +1533,23 @@ Object.assign(window, {
 
   // Persistence / import / export
   saveAll, loadAll, copyText, exportSession, doImport,
-  handleSessionAction: (action) => {
+  handleSessionAction: async (action) => {
     if (action === 'copy') exportSession();
-    if (action === 'import') window.openImport();
+    if (action === 'import') {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text && text.trim()) {
+          doImport(text);
+          return;
+        }
+      } catch (err) {
+        console.warn("Direct clipboard read blocked/unsupported:", err);
+      }
+      const text = prompt("Paste your palette text or JSON here:");
+      if (text && text.trim()) {
+        doImport(text);
+      }
+    }
   },
   openImport: () => {
     const m = document.getElementById('importModal');
@@ -1579,7 +1593,7 @@ Object.assign(window, {
   renderSidebar, renderTopbarTabs, updateCount, showToast, clearMultiSelect, renderGallery, renderSavedSection, renderRankInContainer, setGalleryViewMode, setControlsSection, setTileDivisions,
 
   // Palette detail page
-  openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail,
+  openPaletteDetail, closePaletteDetail, pdRedistribute, pdCopyNames, pdNext, pdPrev, setGradMode, pdToggleNoise, pdToggleReverse, togglePinFromDetail, getDetailedPaletteJSON,
 
   // Flow mode
   openFlow, closeFlow,
@@ -1591,6 +1605,32 @@ const PRESET_KEYS = ['turrell','rothko','albers','martin','kelly','judd','eliass
 document.addEventListener('keydown', e => {
   const tag = document.activeElement?.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+
+  // Handle Cmd+C / Ctrl+C for focused card when detail view is not open
+  if ((e.key === 'c' || e.key === 'C') && (e.metaKey || e.ctrlKey)) {
+    const detailOpen = document.getElementById('paletteDetail')?.classList.contains('open');
+    if (!detailOpen && typeof _focusedCardKey !== 'undefined' && _focusedCardKey) {
+      e.preventDefault();
+      const palette = palettes.find(p => p.key === _focusedCardKey) || 
+                      likedMeta.find(m => m.key === _focusedCardKey);
+      if (palette) {
+        const glazeNames = palette.glazes ? palette.glazes.map(g => g.name) : (palette.names || []);
+        const label = (typeof labelStore !== 'undefined' ? labelStore[palette.key] : null) || palette.label || 'Palette';
+        const json = JSON.stringify({
+          names: glazeNames,
+          label: label,
+          feeling: palette.feeling || '',
+          tag: 'Copied'
+        });
+        navigator.clipboard.writeText(json)
+          .then(() => showToast('Palette copied.'))
+          .catch(err => console.error('Failed to copy:', err));
+      }
+    }
+    return;
+  }
+
+  if (document.getElementById('paletteDetail')?.classList.contains('open')) return;
 
   switch(e.key) {
     case ' ':
@@ -1634,6 +1674,19 @@ document.addEventListener('keydown', e => {
       }
   }
 });
+
+// Global paste listener for direct import of gradients/palettes
+document.addEventListener('paste', e => {
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+
+  const text = e.clipboardData?.getData('text');
+  if (text && text.trim()) {
+    doImport(text);
+  }
+});
+
+// Global copy listener for exporting gradients/palettes has been migrated to keydown listener
 
 // Ranking keyboard shortcuts (A = left/current wins, B = right/existing wins, Space = skip)
 document.addEventListener('keydown', e => {
